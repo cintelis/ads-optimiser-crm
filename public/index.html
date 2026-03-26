@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Outreach Dashboard - 365Soft Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/dashboard.css">
+</head>
+<body>
+<div id="login">
+  <div class="login-card">
+    <div class="login-logo">365Soft Labs</div>
+    <div class="login-sub">Outreach Dashboard - Secure Access</div>
+    <label>Username</label>
+    <input id="l-user" type="text" placeholder="username" autocomplete="username">
+    <label>Password</label>
+    <input id="l-pass" type="password" placeholder="********" autocomplete="current-password">
+    <div class="login-err" id="l-err">Invalid credentials. Try again.</div>
+    <button class="btn btn-primary mt-2" style="width:100%;justify-content:center;padding:12px" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="s-logo">
+        <div class="s-logo-text">365Soft Labs</div>
+        <div class="s-logo-sub">Outreach Dashboard</div>
+      </div>
+      <nav class="s-nav">
+        <button class="nav-item active" id="nav-overview" type="button" onclick="nav('overview')">Overview</button>
+        <button class="nav-item" id="nav-templates" type="button" onclick="nav('templates')">Templates</button>
+        <button class="nav-item" id="nav-contacts" type="button" onclick="nav('contacts')">Contacts</button>
+        <button class="nav-item" id="nav-lists" type="button" onclick="nav('lists')">Lists</button>
+        <button class="nav-item" id="nav-campaigns" type="button" onclick="nav('campaigns')">Campaigns</button>
+        <button class="nav-item" id="nav-logs" type="button" onclick="nav('logs')">Sent Log</button>
+        <button class="nav-item" id="nav-unsubs" type="button" onclick="nav('unsubs')">Unsubscribes</button>
+        <div class="nav-divider"></div>
+        <div class="nav-group-label">CRM</div>
+        <button class="nav-item" id="nav-pipeline" type="button" onclick="nav('pipeline')">Pipeline</button>
+        <button class="nav-item nav-item-badged" id="nav-followups" type="button" onclick="nav('followups')">
+          Follow-ups
+          <span id="fu-badge" class="nav-badge" style="display:none"></span>
+        </button>
+      </nav>
+      <div class="s-footer">
+        <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="doLogout()">Sign Out</button>
+      </div>
+    </aside>
+    <div class="main">
+      <div class="topbar">
+        <div class="page-title" id="page-title">Overview</div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-sm mobile-only" type="button" onclick="openMobileMenu()">More</button>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="refreshCurrent()">Refresh</button>
+        </div>
+      </div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+
+  <nav class="mobile-tabbar" id="mobile-tabbar">
+    <button class="mobile-tab active" id="tab-overview" type="button" onclick="nav('overview')">Overview</button>
+    <button class="mobile-tab" id="tab-contacts" type="button" onclick="nav('contacts')">Contacts</button>
+    <button class="mobile-tab" id="tab-pipeline" type="button" onclick="nav('pipeline')">Pipeline</button>
+    <button class="mobile-tab mobile-tab-badged" id="tab-followups" type="button" onclick="nav('followups')">
+      Follow-ups
+      <span id="mobile-fu-badge" class="nav-badge" style="display:none"></span>
+    </button>
+    <button class="mobile-tab" id="tab-more" type="button" onclick="openMobileMenu()">More</button>
+  </nav>
+</div>
+
+<div class="mobile-sheet-bg" id="mobile-sheet-bg" onclick="closeMobileMenu()"></div>
+<div class="mobile-sheet" id="mobile-sheet">
+  <div class="mobile-sheet-head">
+    <div>
+      <div class="mobile-sheet-title">More</div>
+      <div class="mobile-sheet-sub">Secondary sections and account actions</div>
+    </div>
+    <button class="modal-close" type="button" onclick="closeMobileMenu()">x</button>
+  </div>
+  <div class="mobile-sheet-body">
+    <button class="mobile-sheet-item" id="more-templates" type="button" onclick="closeMobileMenu();nav('templates')">Templates</button>
+    <button class="mobile-sheet-item" id="more-lists" type="button" onclick="closeMobileMenu();nav('lists')">Lists</button>
+    <button class="mobile-sheet-item" id="more-campaigns" type="button" onclick="closeMobileMenu();nav('campaigns')">Campaigns</button>
+    <button class="mobile-sheet-item" id="more-logs" type="button" onclick="closeMobileMenu();nav('logs')">Sent Log</button>
+    <button class="mobile-sheet-item" id="more-unsubs" type="button" onclick="closeMobileMenu();nav('unsubs')">Unsubscribes</button>
+    <button class="mobile-sheet-item" type="button" onclick="closeMobileMenu();refreshCurrent()">Refresh Current Page</button>
+    <button class="mobile-sheet-item mobile-sheet-item-danger" type="button" onclick="doLogout()">Sign Out</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal"><div class="modal modal-lg" id="modal-inner"></div></div>
+
+<div class="drawer-bg" id="drawer-bg" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div>
+      <div id="drawer-name" style="font-family:var(--font-head);font-size:18px;font-weight:700"></div>
+      <div id="drawer-company" style="font-size:13px;color:var(--muted2);margin-top:2px"></div>
+    </div>
+    <button class="modal-close" type="button" onclick="closeDrawer()" style="font-size:22px">x</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

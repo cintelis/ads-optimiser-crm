@@ -1,0 +1,991 @@
+// ============================================================
+// 365Soft Labs — Outreach Dashboard Worker
+// Cloudflare Worker: API backend + serves dashboard
+// Bindings required: DB (D1), KV (KV Namespace), UNSUBSCRIBES (KV — shared with email worker),
+//                   ADMIN_USER, ADMIN_PASS (secrets)
+//
+// Unsubscribe handling is fully delegated to the 365soft-email-worker.
+// Set MAIL_UNSUBSCRIBE_BASE_URL on that worker to enable signed token links.
+// Set MAIL_UNSUBSCRIBE_NOTIFY_EMAIL on that worker for admin notifications.
+// ============================================================
+
+const EMAIL_WORKER = 'https://365soft-email-worker.nick-598.workers.dev/api/send';
+const DEFAULT_FROM = 'nick@365softlabs.com';
+const DEFAULT_NAME = 'Nick | 365Soft Labs';
+const ADS_OPTIMISER_REAL_ESTATE_TEMPLATES = [
+  {
+    id: 'seed_ao_re_snapshot_v2',
+    name: 'Ads Optimiser - Snapshot Style',
+    subject: 'Turn listing photos into video walkthroughs buyers will watch',
+    html_body: renderSnapshotStyleTemplate()
+  },
+  {
+    id: 'seed_ao_re_prestige_magazine_v2',
+    name: 'Ads Optimiser - Prestige Magazine Style',
+    subject: 'A premium video walkthrough from the same listing photo set',
+    html_body: renderPrestigeMagazineTemplate()
+  },
+  {
+    id: 'seed_ao_re_market_insight_v2',
+    name: 'Ads Optimiser - Market Insight Style',
+    subject: 'In a million-dollar market, listings need more than static images',
+    html_body: renderMarketInsightTemplate()
+  },
+  {
+    id: 'seed_ao_re_agent_update_v2',
+    name: 'Ads Optimiser - Agent Update Style',
+    subject: 'A simple way to turn still listing images into walkthrough video',
+    html_body: renderAgentUpdateTemplate()
+  },
+  {
+    id: 'seed_ao_re_luxury_homes_editorial_v3',
+    name: 'Ads Optimiser - Luxury Homes Magazine Style',
+    subject: 'Luxury listings deserve more than a static image gallery',
+    html_body: renderLuxuryHomesEditorialTemplate()
+  }
+];
+
+function renderBrandLockup(subtitle, dark = true) {
+  return `<table role="presentation" cellspacing="0" cellpadding="0">
+    <tr>
+      <td style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);text-align:center;font-size:22px;font-weight:800;color:#ffffff;">AO</td>
+      <td style="padding-left:12px;">
+        <div style="font-size:18px;line-height:1.2;font-weight:700;color:${dark ? '#ffffff' : '#111827'};">Ads Optimiser</div>
+        <div style="margin-top:4px;font-size:12px;line-height:1.4;color:${dark ? '#cbd5e1' : '#64748b'};">${subtitle}</div>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function renderVideoLinksPanel(title, note) {
+  return `<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">${title}</div>
+  <p style="margin:10px 0 18px;font-size:15px;line-height:1.6;color:#4b5563;">${note}</p>
+  <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:12px;">
+    <tr>
+      <td style="padding:0 12px 12px 0;">
+        <a href="https://www.youtube.com/watch?v=replace-me" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#fe2c55;color:#ffffff;text-decoration:none;font-weight:700;">Watch sample on YouTube</a>
+      </td>
+      <td style="padding:0 0 12px 0;">
+        <a href="https://app.adsoptimiser.com.au/media/videos/replace-me.mp4" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-weight:700;border:1px solid #bfdbfe;">Open hosted video</a>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function renderFooter(note) {
+  return `<tr>
+    <td style="padding:20px 28px 28px;border-top:1px solid #e5e7eb;background:#fafafa;">
+      <p style="margin:0 0 10px;font-size:13px;line-height:1.6;color:#6b7280;">${note}</p>
+      <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#9ca3af;">Before sending, replace the sample video URLs with your YouTube link or your Ads Optimiser hosted video URL.</p>
+      <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#9ca3af;">If this is not relevant for you, you can <a href="{{unsubscribe_url}}" style="color:#2563eb;text-decoration:none;">unsubscribe here</a>.</p>
+      <p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">{{physical_address}}</p>
+    </td>
+  </tr>`;
+}
+
+function renderTemplateShell(inner, footerNote, outerBackground = '#f3f4f6') {
+  return `<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:${outerBackground};font-family:Arial,Helvetica,sans-serif;color:#111827;">
+    <!-- Replace the sample video links below before sending:
+         1. https://www.youtube.com/watch?v=replace-me
+         2. https://app.adsoptimiser.com.au/media/videos/replace-me.mp4
+    -->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${outerBackground};padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:18px;overflow:hidden;">
+            ${inner}
+            ${renderFooter(footerNote)}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function renderSnapshotStyleTemplate() {
+  return renderTemplateShell(`
+    <tr>
+      <td style="padding:28px 28px 18px;background:#111827;">
+        ${renderBrandLockup('Snapshot-style outreach for listing video', true)}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:30px 28px 14px;background:#eaf2ff;">
+        <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;">Real estate marketing</div>
+        <h1 style="margin:10px 0 12px;font-size:31px;line-height:1.12;color:#111827;">Turn static property photos into a standout walkthrough.</h1>
+        <p style="margin:0;font-size:16px;line-height:1.7;color:#334155;">Hi {{name}}, if your team already has the listing image set, Ads Optimiser can turn it into a short branded video that feels stronger than a static gallery and lighter than a filmed on-site shoot.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 28px 8px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="width:50%;padding:0 8px 12px 0;vertical-align:top;">
+              <div style="padding:16px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;">Reuse what you have</div>
+                <div style="margin-top:8px;font-size:15px;line-height:1.6;color:#111827;">Exterior, living, kitchen, bedroom, amenity and floorplan images become one polished motion asset.</div>
+              </div>
+            </td>
+            <td style="width:50%;padding:0 0 12px 8px;vertical-align:top;">
+              <div style="padding:16px;border:1px solid #fee2e2;border-radius:14px;background:#fff7f8;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#fe2c55;">Use it everywhere</div>
+                <div style="margin-top:8px;font-size:15px;line-height:1.6;color:#111827;">Perfect for social reels, listing launches, appraisal decks, vendor updates and buyer nurture email.</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 22px;">
+        <div style="padding:18px 20px;border-radius:16px;background:#0f172a;color:#ffffff;">
+          <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#7dd3fc;">How agencies use it</div>
+          <ol style="margin:12px 0 0 18px;padding:0;font-size:15px;line-height:1.85;color:#e2e8f0;">
+            <li>Start with the still image set already prepared for the listing.</li>
+            <li>Generate a short branded walkthrough with agent CTA and property highlights.</li>
+            <li>Share a single motion asset anywhere the listing needs more attention.</li>
+          </ol>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 14px;">
+        ${renderVideoLinksPanel('Sample walkthrough links', 'Use either a YouTube link or a direct Ads Optimiser hosted video link. Replace the sample URLs in this template before sending.')}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 18px;">
+        <div style="padding:18px 20px;border:1px solid #e5e7eb;border-radius:16px;background:#ffffff;">
+          <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Easy next step</div>
+          <p style="margin:10px 0 0;font-size:16px;line-height:1.7;color:#374151;">Reply with one current listing and we can mock up the style of walkthrough your agency could use from the existing photo pack.</p>
+        </div>
+      </td>
+    </tr>`, 'Ads Optimiser helps agencies convert existing listing photography into ready-to-share video creative.'
+  );
+}
+
+function renderPrestigeMagazineTemplate() {
+  return renderTemplateShell(`
+    <tr>
+      <td style="padding:28px;background:linear-gradient(135deg,#0f172a 0%,#111827 55%,#1d4ed8 100%);">
+        ${renderBrandLockup('Prestige magazine-inspired presentation', true)}
+        <div style="margin-top:26px;padding:26px;border:1px solid rgba(255,255,255,.16);border-radius:18px;background:rgba(255,255,255,.05);">
+          <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#93c5fd;">Premium listing presentation</div>
+          <h1 style="margin:12px 0 14px;font-size:34px;line-height:1.08;color:#ffffff;">Make prestige listings feel cinematic before the first inspection.</h1>
+          <p style="margin:0;font-size:16px;line-height:1.7;color:#dbeafe;">Hi {{name}}, luxury property marketing often needs more presence than static images can deliver. Ads Optimiser turns the polished stills your agency already owns into a refined video walkthrough fit for premium campaigns and vendor-facing presentations.</p>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:26px 28px 10px;background:#ffffff;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="padding:0 10px 14px 0;vertical-align:top;">
+              <div style="padding:18px;background:#f8fafc;border-radius:16px;border:1px solid #e2e8f0;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Use case</div>
+                <div style="margin-top:10px;font-size:15px;line-height:1.65;color:#111827;">Prestige listing launches, premium suburb campaigns, agent profile marketing, and private buyer outreach.</div>
+              </div>
+            </td>
+            <td style="padding:0 0 14px 10px;vertical-align:top;">
+              <div style="padding:18px;background:#fff7f8;border-radius:16px;border:1px solid #ffe4ea;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#fe2c55;">Output</div>
+                <div style="margin-top:10px;font-size:15px;line-height:1.65;color:#111827;">Elegant pacing, branded end frames, polished text overlays and a stronger luxury feel from the same source photography.</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 18px;">
+        <div style="padding:22px;border-radius:18px;background:#eff6ff;border:1px solid #bfdbfe;">
+          <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;">Why agencies like it</div>
+          <p style="margin:10px 0 0;font-size:16px;line-height:1.75;color:#1f2937;">It gives premium listings a stronger visual story without waiting on a separate video crew, and it lets your team move fast when a vendor wants standout presentation material now.</p>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 14px;">
+        ${renderVideoLinksPanel('Featured walkthrough examples', 'Drop in a prestige sample from YouTube or link directly to an Ads Optimiser-hosted video before sending this message.')}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 20px;">
+        <div style="padding:20px;border-radius:18px;background:#111827;color:#ffffff;">
+          <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;">Next step</div>
+          <p style="margin:10px 0 0;font-size:16px;line-height:1.75;color:#e5eefb;">If you have a prestige property coming to market, reply with the still image set and we can show you how that listing could look as a polished walkthrough.</p>
+        </div>
+      </td>
+    </tr>`, 'Ads Optimiser helps prestige agencies present premium listings with more motion, polish and speed.'
+  );
+}
+
+function renderMarketInsightTemplate() {
+  return renderTemplateShell(`
+    <tr>
+      <td style="padding:28px 28px 18px;background:#ffffff;">
+        ${renderBrandLockup('Market-insight newsletter style', false)}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 22px;">
+        <div style="padding:22px 24px;border-radius:18px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);color:#ffffff;">
+          <div style="font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#dbeafe;">Market insight</div>
+          <h1 style="margin:10px 0 12px;font-size:32px;line-height:1.1;color:#ffffff;">In a million-dollar market, static image galleries are not enough.</h1>
+          <p style="margin:0;font-size:16px;line-height:1.7;color:#eff6ff;">Hi {{name}}, when buyers scroll faster and vendors expect more polish, a short walkthrough video can help a listing feel more substantial than a set of stills alone. Ads Optimiser lets agencies build that motion layer from the images they already have.</p>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="width:33.33%;padding:0 10px 12px 0;vertical-align:top;">
+              <div style="padding:16px;border:1px solid #e5e7eb;border-radius:16px;background:#ffffff;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Source</div>
+                <div style="margin-top:8px;font-size:15px;line-height:1.6;color:#111827;">Existing listing photos and floorplans</div>
+              </div>
+            </td>
+            <td style="width:33.33%;padding:0 10px 12px 10px;vertical-align:top;">
+              <div style="padding:16px;border:1px solid #e5e7eb;border-radius:16px;background:#ffffff;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Output</div>
+                <div style="margin-top:8px;font-size:15px;line-height:1.6;color:#111827;">Short branded walkthrough video</div>
+              </div>
+            </td>
+            <td style="width:33.33%;padding:0 0 12px 10px;vertical-align:top;">
+              <div style="padding:16px;border:1px solid #e5e7eb;border-radius:16px;background:#ffffff;">
+                <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Channels</div>
+                <div style="margin-top:8px;font-size:15px;line-height:1.6;color:#111827;">Social, email, appraisal and vendor updates</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 18px;">
+        <div style="padding:18px 20px;border-left:4px solid #fe2c55;background:#fff7f8;border-radius:0 14px 14px 0;">
+          <p style="margin:0;font-size:16px;line-height:1.75;color:#374151;">Instead of asking your team to source a separate video shoot for every listing, you can start with what is already in the campaign pack and turn it into a stronger piece of motion creative.</p>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 14px;">
+        ${renderVideoLinksPanel('Example market-facing video links', 'Replace these sample URLs with one YouTube example or one hosted Ads Optimiser video before sending.')}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 20px;">
+        <div style="padding:20px;border:1px solid #e5e7eb;border-radius:16px;background:#ffffff;">
+          <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Quick idea</div>
+          <p style="margin:10px 0 0;font-size:16px;line-height:1.75;color:#374151;">Send through one active listing and we can map how your image set could become a walkthrough asset for buyers, vendors and social promotion.</p>
+        </div>
+      </td>
+    </tr>`, 'Ads Optimiser gives agencies a faster way to add motion creative to listing campaigns without starting from scratch.'
+  );
+}
+
+function renderAgentUpdateTemplate() {
+  return renderTemplateShell(`
+    <tr>
+      <td style="padding:26px 28px;background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+        ${renderBrandLockup('Clean agent-update style outreach', false)}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:28px 28px 12px;">
+        <p style="margin:0 0 12px;font-size:16px;line-height:1.7;color:#374151;">Hi {{name}},</p>
+        <h1 style="margin:0 0 14px;font-size:30px;line-height:1.15;color:#111827;">A simple way to turn listing stills into walkthrough video.</h1>
+        <p style="margin:0 0 14px;font-size:16px;line-height:1.7;color:#374151;">If your agency already has polished photography for a property, Ads Optimiser can turn those still images into a short branded walkthrough your team can use across campaign touchpoints.</p>
+        <p style="margin:0;font-size:16px;line-height:1.7;color:#374151;">It is a practical way to make listings feel more dynamic without adding the time and coordination of a separate video production job for every property.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:18px 28px;">
+        <div style="padding:18px 20px;border-radius:16px;background:#111827;color:#ffffff;">
+          <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd;">What the agency gets</div>
+          <ul style="margin:12px 0 0 18px;padding:0;font-size:15px;line-height:1.8;color:#e5eefb;">
+            <li>A short branded property walkthrough built from your listing images</li>
+            <li>Creative you can reuse across social, email and vendor comms</li>
+            <li>A stronger presentation layer for listings that need more attention</li>
+          </ul>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0 12px;">
+          <tr>
+            <td style="padding:16px 18px;border:1px solid #e5e7eb;border-radius:14px;background:#ffffff;">
+              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Good fit for</div>
+              <div style="margin-top:8px;font-size:15px;line-height:1.65;color:#111827;">New listings, social launch assets, vendor updates, buyer nurture sequences and agent prospecting material.</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 14px;">
+        ${renderVideoLinksPanel('Sample video links', 'Replace these example links with a YouTube walkthrough or a hosted Ads Optimiser video before sending.')}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 28px 20px;">
+        <div style="padding:20px;border-radius:16px;background:#eff6ff;border:1px solid #bfdbfe;">
+          <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;">Next step</div>
+          <p style="margin:10px 0 0;font-size:16px;line-height:1.75;color:#1f2937;">If you want, reply with one live listing and we can show you the type of walkthrough video your agency could generate from the current image set.</p>
+        </div>
+      </td>
+    </tr>`, 'Ads Optimiser helps agencies create more movement and attention around listings using assets they already own.'
+  );
+}
+
+function renderLuxuryHomesEditorialTemplate() {
+  return renderTemplateShell(`
+    <tr>
+      <td align="center" style="padding:34px 36px 18px;background:#ffffff;">
+        <table role="presentation" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);text-align:center;font-size:28px;font-weight:800;color:#ffffff;">AO</td>
+            <td style="padding-left:14px;">
+              <div style="font-size:22px;line-height:1.1;font-weight:700;color:#0f172a;">Ads Optimiser</div>
+              <div style="margin-top:6px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#64748b;">Luxury homes magazine style</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:0 36px 18px;background:#ffffff;">
+        <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#2563eb;">Luxury listing presentation</div>
+        <h1 style="margin:14px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:42px;line-height:1.08;font-weight:400;color:#1f2937;">Static luxury imagery can become a standing video walkthrough.</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 24px 28px;background:#ffffff;">
+        <img src="https://placehold.co/1120x720/f3f4f6/0f172a?text=Luxury+Home+Hero+Image" alt="Luxury home hero placeholder" style="width:100%;border:0;display:block;border-radius:18px;max-width:592px;" width="592" />
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:0 42px 12px;background:#ffffff;">
+        <p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:27px;line-height:1.32;font-weight:400;color:#595959;">Luxury homes need more than a static gallery when buyers are screening properties online.</p>
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Hi {{name}}, when {{company}} is marketing a prestige property, the photography is usually already excellent. Ads Optimiser turns that same image set into a polished walkthrough video so the listing feels more cinematic, more premium, and more memorable before the first inspection.</p>
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Instead of organising a separate video production for every campaign, your agency can reuse the approved stills, layer in motion, sequencing, and branded framing, and send buyers or vendors a stronger presentation asset within the normal campaign cycle.</p>
+        <p style="margin:0;font-size:16px;line-height:1.85;color:#4b5563;">That means one elegant creative can support launch emails, agent prospecting, social promotion, premium suburb campaigns, and vendor reporting while keeping the visual standard expected of high-value homes.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:28px 24px 10px;background:#ffffff;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="padding:0 10px 18px 0;width:50%;vertical-align:top;">
+              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+01" alt="Video frame placeholder 1" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Front elevation reveal</div>
+            </td>
+            <td style="padding:0 0 18px 10px;width:50%;vertical-align:top;">
+              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+02" alt="Video frame placeholder 2" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Kitchen and living sweep</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 10px 0 0;width:50%;vertical-align:top;">
+              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+03" alt="Video frame placeholder 3" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Primary suite sequence</div>
+            </td>
+            <td style="padding:0 0 0 10px;width:50%;vertical-align:top;">
+              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+04" alt="Video frame placeholder 4" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Outdoor entertaining close</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:22px 36px 8px;background:#ffffff;">
+        <p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#6b7280;">Replace the hero image and the four preview frames with listing stills or exported first frames from your walkthrough video before sending.</p>
+        <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto;">
+          <tr>
+            <td style="padding:0 10px 12px 0;">
+              <a href="https://www.youtube.com/watch?v=replace-me" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;">View sample on YouTube</a>
+            </td>
+            <td style="padding:0 0 12px 10px;">
+              <a href="https://app.adsoptimiser.com.au/media/videos/replace-me.mp4" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-weight:700;border:1px solid #bfdbfe;">View hosted walkthrough</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:24px 30px 0;background:#ffffff;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e5e7eb;">
+          <tr>
+            <td style="padding:24px 0 0;width:88px;vertical-align:top;">
+              <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);text-align:center;font-size:30px;line-height:64px;font-weight:800;color:#ffffff;">AO</div>
+            </td>
+            <td style="padding:24px 0 0;vertical-align:top;">
+              <p style="margin:0 0 4px;font-size:18px;line-height:1.4;font-weight:700;color:#111827;">Nick Forshteyn</p>
+              <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#4b5563;">Co-Founder at Ads Optimiser</p>
+              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">Phone: <a href="tel:1300786040" style="color:#2563eb;text-decoration:none;">1300 786 040</a></p>
+              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">Email: <a href="mailto:admin@adsoptimiser.com.au" style="color:#2563eb;text-decoration:none;">admin@adsoptimiser.com.au</a></p>
+              <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#4b5563;">Web: <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;">https://adsoptimiser.com.au/</a></p>
+              <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">Transform your advertising campaigns with AI-powered optimisation</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:24px 30px 10px;background:#ffffff;">
+        <table role="presentation" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="padding:0 8px 8px;">
+              <a href="https://www.linkedin.com/company/ads-optimiser-app" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">LinkedIn</a>
+            </td>
+            <td style="padding:0 8px 8px;">
+              <a href="https://www.facebook.com/profile.php?id=61587247657068" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">Facebook</a>
+            </td>
+            <td style="padding:0 8px 8px;">
+              <a href="https://www.youtube.com/@adsoptimiserapp" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">YouTube</a>
+            </td>
+            <td style="padding:0 8px 8px;">
+              <a href="https://www.instagram.com/adsoptimiserapp" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">Instagram</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:0 42px 24px;background:#ffffff;">
+        <p style="margin:0;font-size:12px;line-height:1.8;color:#9ca3af;">&copy; Copyright 2026. Ads Optimiser is a registered business name of Cintelis Pty Limited (ABN 51 638 482 970). All rights reserved.</p>
+      </td>
+    </tr>`, 'Ads Optimiser helps luxury real estate agencies turn premium listing photography into polished video walkthrough campaigns.'
+  );
+}
+
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const path = url.pathname;
+    if (req.method === 'OPTIONS') return addCors(new Response(null, { status: 204 }));
+    if (path === '/api/auth/login' && req.method === 'POST') return addCors(await apiLogin(req, env));
+    if (path === '/api/auth/logout' && req.method === 'POST') return addCors(await apiLogout(req, env));
+    if (path === '/api/auth/check') return addCors(await apiCheck(req, env));
+    if (path.startsWith('/api/')) {
+      if (!await isAuthed(req, env)) return addCors(jres({ error: 'Unauthorized' }, 401));
+      return addCors(await route(req, env, url, path));
+    }
+    return new Response('Not found', { status: 404 });
+  },
+  async scheduled(_, env) { await runScheduler(env); }
+};
+
+// ── Auth ─────────────────────────────────────────────────────
+function getToken(req) {
+  const h = req.headers.get('Authorization') || '';
+  return h.replace('Bearer ', '').trim() || null;
+}
+async function isAuthed(req, env) {
+  const t = getToken(req);
+  if (!t) return false;
+  return !!(await env.KV.get(`sess:${t}`));
+}
+async function apiLogin(req, env) {
+  const { username, password } = await req.json().catch(() => ({}));
+  if (username !== env.ADMIN_USER || password !== env.ADMIN_PASS)
+    return jres({ error: 'Invalid credentials' }, 401);
+  const token = crypto.randomUUID().replace(/-/g, '');
+  await env.KV.put(`sess:${token}`, '1', { expirationTtl: 604800 });
+  return jres({ token });
+}
+async function apiLogout(req, env) {
+  const t = getToken(req);
+  if (t) await env.KV.delete(`sess:${t}`);
+  return jres({ ok: true });
+}
+async function apiCheck(req, env) {
+  return jres({ ok: await isAuthed(req, env) });
+}
+
+// ── Router ───────────────────────────────────────────────────
+async function route(req, env, url, path) {
+  const parts = path.replace('/api/', '').split('/');
+  const [res, id, sub, sub2] = parts;
+  const m = req.method;
+  if (res === 'stats' && m === 'GET') return getStats(env);
+  if (res === 'templates') {
+    if (m === 'POST' && id === 'seed' && sub === 'real-estate') return seedAdsOptimiserRealEstateTemplates(env);
+    if (m === 'GET' && !id) return listTemplates(env);
+    if (m === 'GET' && id) return getTemplate(env, id);
+    if (m === 'POST' && !id) return createTemplate(req, env);
+    if (m === 'PUT' && id) return updateTemplate(req, env, id);
+    if (m === 'DELETE' && id) return deleteTemplate(env, id);
+  }
+  if (res === 'contacts') {
+    if (m === 'GET' && !id) return listContacts(env, url);
+    if (m === 'POST' && id === 'import') return importContacts(req, env);
+    if (m === 'POST' && !id) return createContact(req, env);
+    if (m === 'PUT' && id) return updateContact(req, env, id);
+    if (m === 'DELETE' && id) return deleteContact(env, id);
+  }
+  if (res === 'lists') {
+    if (m === 'GET' && !id) return listLists(env);
+    if (m === 'POST' && !id) return createList(req, env);
+    if (m === 'DELETE' && id && !sub) return deleteList(env, id);
+    if (m === 'GET' && id && sub === 'contacts') return getListContacts(env, id);
+    if (m === 'POST' && id && sub === 'contacts') return addToList(req, env, id);
+    if (m === 'DELETE' && id && sub === 'contacts' && sub2) return removeFromList(env, id, sub2);
+  }
+  if (res === 'campaigns') {
+    if (m === 'GET' && !id) return listCampaigns(env);
+    if (m === 'POST' && !id) return createCampaign(req, env);
+    if (m === 'PUT' && id && !sub) return updateCampaign(req, env, id);
+    if (m === 'DELETE' && id && !sub) return deleteCampaign(env, id);
+    if (m === 'POST' && id && sub === 'send') return sendNow(env, id);
+    if (m === 'POST' && id && sub === 'activate') return setCampaignStatus(env, id, 'active');
+    if (m === 'POST' && id && sub === 'pause') return setCampaignStatus(env, id, 'paused');
+  }
+  if (res === 'logs' && m === 'GET') return getLogs(env, url);
+  if (res === 'unsubscribes' && m === 'GET') return getUnsubscribes(env);
+  // ── CRM routes ───────────────────────────────────────────────
+  if (res === 'crm') {
+    if (id === 'pipeline' && m === 'GET') return getCrmPipeline(env);
+    if (id === 'stats' && m === 'GET') return getCrmStats(env);
+    if (id === 'followups' && m === 'GET') return getFollowUps(env);
+    if (id === 'contact' && sub && !sub2) {
+      if (m === 'GET') return getContactDetail(env, sub);
+      if (m === 'PATCH') return patchContact(req, env, sub);
+    }
+    if (id === 'contact' && sub && sub2 === 'notes') {
+      if (m === 'GET') return getNotes(env, sub);
+      if (m === 'POST') return addNote(req, env, sub);
+    }
+    if (id === 'contact' && sub && sub2 && parts[4] === undefined && m === 'DELETE') {
+      return deleteNote(env, sub2);
+    }
+  }
+  return jres({ error: 'Not found' }, 404);
+}
+
+// ── Stats ────────────────────────────────────────────────────
+async function getStats(env) {
+  const [c, t, ca, s, pv] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) n FROM contacts WHERE unsubscribed=0').first(),
+    env.DB.prepare('SELECT COUNT(*) n FROM templates').first(),
+    env.DB.prepare('SELECT COUNT(*) n FROM campaigns WHERE status NOT IN ("draft","completed")').first(),
+    env.DB.prepare('SELECT COUNT(*) n FROM sent_log WHERE status="sent"').first(),
+    env.DB.prepare('SELECT COALESCE(SUM(deal_value),0) v FROM contacts WHERE unsubscribed=0 AND stage NOT IN ("lost","won")').first(),
+  ]);
+  return jres({ contacts: c.n, templates: t.n, campaigns: ca.n, sent: s.n, pipeline_value: pv.v });
+}
+
+// ── Templates ────────────────────────────────────────────────
+async function listTemplates(env) {
+  const { results } = await env.DB.prepare('SELECT id,name,subject,created_at,updated_at FROM templates ORDER BY created_at DESC').all();
+  return jres(results);
+}
+async function seedAdsOptimiserRealEstateTemplates(env) {
+  const created = [];
+  const existing = [];
+  await env.DB.prepare('DELETE FROM templates WHERE id=?').bind('seed_ads_optimiser_real_estate_video_walkthrough_v1').run();
+  for (const template of ADS_OPTIMISER_REAL_ESTATE_TEMPLATES) {
+    const row = await env.DB.prepare('SELECT id,name,subject,created_at,updated_at FROM templates WHERE id=? LIMIT 1')
+      .bind(template.id).first();
+    if (row) {
+      existing.push(row);
+      continue;
+    }
+    const ts = now();
+    await env.DB.prepare('INSERT INTO templates (id,name,subject,html_body,created_at,updated_at) VALUES (?,?,?,?,?,?)')
+      .bind(template.id, template.name, template.subject, template.html_body, ts, ts).run();
+    created.push({
+      id: template.id,
+      name: template.name,
+      subject: template.subject,
+      created_at: ts,
+      updated_at: ts
+    });
+  }
+  return jres({
+    ok: true,
+    created_count: created.length,
+    existing_count: existing.length,
+    templates: [...created, ...existing]
+  });
+}
+async function getTemplate(env, id) {
+  const row = await env.DB.prepare('SELECT id,name,subject,html_body,created_at,updated_at FROM templates WHERE id=?').bind(id).first();
+  if (!row) return jres({ error: 'Template not found' }, 404);
+  return jres(row);
+}
+async function createTemplate(req, env) {
+  const { name, subject, html_body } = await req.json();
+  if (!name || !subject || !html_body) return jres({ error: 'name, subject, html_body required' }, 400);
+  const id = uid(), ts = now();
+  await env.DB.prepare('INSERT INTO templates (id,name,subject,html_body,created_at,updated_at) VALUES (?,?,?,?,?,?)').bind(id, name, subject, html_body, ts, ts).run();
+  return jres({ id, name, subject });
+}
+async function updateTemplate(req, env, id) {
+  const { name, subject, html_body } = await req.json();
+  await env.DB.prepare('UPDATE templates SET name=?,subject=?,html_body=?,updated_at=? WHERE id=?').bind(name, subject, html_body, now(), id).run();
+  return jres({ ok: true });
+}
+async function deleteTemplate(env, id) {
+  await env.DB.prepare('DELETE FROM templates WHERE id=?').bind(id).run();
+  return jres({ ok: true });
+}
+
+// ── Contacts ─────────────────────────────────────────────────
+async function listContacts(env, url) {
+  const q = url.searchParams.get('q') || '';
+  const stage = url.searchParams.get('stage') || '';
+  let sql = 'SELECT * FROM contacts WHERE unsubscribed=0';
+  const params = [];
+  if (q) { sql += ' AND (email LIKE ? OR name LIKE ? OR company LIKE ?)'; params.push(`%${q}%`, `%${q}%`, `%${q}%`); }
+  if (stage) { sql += ' AND stage=?'; params.push(stage); }
+  sql += ' ORDER BY created_at DESC LIMIT 1000';
+  const stmt = env.DB.prepare(sql);
+  const { results } = await (params.length ? stmt.bind(...params) : stmt).all();
+  return jres(results);
+}
+async function createContact(req, env) {
+  const { email, name, company, stage, deal_value, tags, phone, linkedin } = await req.json();
+  if (!email) return jres({ error: 'Email required' }, 400);
+  const id = uid();
+  try {
+    await env.DB.prepare('INSERT INTO contacts (id,email,name,company,stage,deal_value,tags,phone,linkedin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
+      .bind(id, email.toLowerCase().trim(), name||'', company||'', stage||'lead', deal_value||0, JSON.stringify(tags||[]), phone||'', linkedin||'', now()).run();
+    return jres({ id, email });
+  } catch { return jres({ error: 'Email already exists' }, 409); }
+}
+async function importContacts(req, env) {
+  const { csv } = await req.json();
+  if (!csv) return jres({ error: 'csv required' }, 400);
+  const lines = csv.trim().split('\n');
+  const hdr = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/["\r]/g, ''));
+  const ei = hdr.indexOf('email'), ni = hdr.indexOf('name'), ci = hdr.indexOf('company');
+  const si = hdr.indexOf('stage'), di = hdr.indexOf('deal_value'), pi = hdr.indexOf('phone');
+  if (ei === -1) return jres({ error: 'CSV must have an "email" column header' }, 400);
+  let imported = 0, skipped = 0;
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/["\r]/g, ''));
+    const email = cols[ei]?.toLowerCase().trim();
+    if (!email || !email.includes('@')) { skipped++; continue; }
+    try {
+      await env.DB.prepare('INSERT OR IGNORE INTO contacts (id,email,name,company,stage,deal_value,phone,tags,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+        .bind(uid(), email, ni>=0?cols[ni]||'':'', ci>=0?cols[ci]||'':'', si>=0?cols[si]||'lead':'lead', di>=0?parseFloat(cols[di])||0:0, pi>=0?cols[pi]||'':'', '[]', now()).run();
+      imported++;
+    } catch { skipped++; }
+  }
+  return jres({ imported, skipped });
+}
+async function updateContact(req, env, id) {
+  const { name, company, stage, deal_value, tags, phone, linkedin, follow_up_at } = await req.json();
+  await env.DB.prepare('UPDATE contacts SET name=?,company=?,stage=?,deal_value=?,tags=?,phone=?,linkedin=?,follow_up_at=? WHERE id=?')
+    .bind(name||'', company||'', stage||'lead', deal_value||0, JSON.stringify(tags||[]), phone||'', linkedin||'', follow_up_at||null, id).run();
+  return jres({ ok: true });
+}
+async function deleteContact(env, id) {
+  await env.DB.prepare('DELETE FROM contact_list_members WHERE contact_id=?').bind(id).run();
+  await env.DB.prepare('DELETE FROM contact_notes WHERE contact_id=?').bind(id).run();
+  await env.DB.prepare('DELETE FROM contacts WHERE id=?').bind(id).run();
+  return jres({ ok: true });
+}
+
+// ── Lists ────────────────────────────────────────────────────
+async function listLists(env) {
+  const { results } = await env.DB.prepare('SELECT l.*,(SELECT COUNT(*) FROM contact_list_members m WHERE m.list_id=l.id) cnt FROM contact_lists l ORDER BY l.created_at DESC').all();
+  return jres(results);
+}
+async function createList(req, env) {
+  const { name, description } = await req.json();
+  if (!name) return jres({ error: 'Name required' }, 400);
+  const id = uid();
+  await env.DB.prepare('INSERT INTO contact_lists (id,name,description,created_at) VALUES (?,?,?,?)').bind(id, name, description || '', now()).run();
+  return jres({ id, name });
+}
+async function deleteList(env, id) {
+  await env.DB.prepare('DELETE FROM contact_list_members WHERE list_id=?').bind(id).run();
+  await env.DB.prepare('DELETE FROM contact_lists WHERE id=?').bind(id).run();
+  return jres({ ok: true });
+}
+async function getListContacts(env, listId) {
+  const { results } = await env.DB.prepare('SELECT c.* FROM contacts c JOIN contact_list_members m ON c.id=m.contact_id WHERE m.list_id=?').bind(listId).all();
+  return jres(results);
+}
+async function addToList(req, env, listId) {
+  const { contact_ids } = await req.json();
+  for (const cid of (contact_ids || [])) {
+    await env.DB.prepare('INSERT OR IGNORE INTO contact_list_members (contact_id,list_id) VALUES (?,?)').bind(cid, listId).run();
+  }
+  return jres({ ok: true });
+}
+async function removeFromList(env, listId, contactId) {
+  await env.DB.prepare('DELETE FROM contact_list_members WHERE list_id=? AND contact_id=?').bind(listId, contactId).run();
+  return jres({ ok: true });
+}
+
+// ── Campaigns ────────────────────────────────────────────────
+async function listCampaigns(env) {
+  const { results } = await env.DB.prepare('SELECT c.*,l.name list_name FROM campaigns c LEFT JOIN contact_lists l ON c.list_id=l.id ORDER BY c.created_at DESC').all();
+  for (const c of results) {
+    const { results: steps } = await env.DB.prepare('SELECT s.*,t.name tname,t.subject FROM campaign_steps s JOIN templates t ON s.template_id=t.id WHERE s.campaign_id=? ORDER BY s.step_order').bind(c.id).all();
+    c.steps = steps;
+    c.schedule_config = JSON.parse(c.schedule_config || '{}');
+  }
+  return jres(results);
+}
+async function createCampaign(req, env) {
+  const { name, list_id, schedule_type, schedule_config, steps, from_email, from_name } = await req.json();
+  if (!name || !list_id || !schedule_type || !steps?.length) return jres({ error: 'name, list_id, schedule_type, steps required' }, 400);
+  const id = uid(), ts = now();
+  await env.DB.prepare('INSERT INTO campaigns (id,name,list_id,schedule_type,schedule_config,status,from_email,from_name,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, name, list_id, schedule_type, JSON.stringify(schedule_config || {}), 'draft', from_email || DEFAULT_FROM, from_name || DEFAULT_NAME, ts, ts).run();
+  for (let i = 0; i < steps.length; i++) {
+    await env.DB.prepare('INSERT INTO campaign_steps (id,campaign_id,template_id,step_order,delay_days) VALUES (?,?,?,?,?)').bind(uid(), id, steps[i].template_id, i, steps[i].delay_days || 0).run();
+  }
+  return jres({ id, name });
+}
+async function updateCampaign(req, env, id) {
+  const { name, list_id, schedule_type, schedule_config, steps, from_email, from_name } = await req.json();
+  await env.DB.prepare('UPDATE campaigns SET name=?,list_id=?,schedule_type=?,schedule_config=?,from_email=?,from_name=?,updated_at=? WHERE id=?').bind(name, list_id, schedule_type, JSON.stringify(schedule_config || {}), from_email || DEFAULT_FROM, from_name || DEFAULT_NAME, now(), id).run();
+  if (steps) {
+    await env.DB.prepare('DELETE FROM campaign_steps WHERE campaign_id=?').bind(id).run();
+    for (let i = 0; i < steps.length; i++) {
+      await env.DB.prepare('INSERT INTO campaign_steps (id,campaign_id,template_id,step_order,delay_days) VALUES (?,?,?,?,?)').bind(uid(), id, steps[i].template_id, i, steps[i].delay_days || 0).run();
+    }
+  }
+  return jres({ ok: true });
+}
+async function deleteCampaign(env, id) {
+  await env.DB.prepare('DELETE FROM campaign_steps WHERE campaign_id=?').bind(id).run();
+  await env.DB.prepare('DELETE FROM drip_progress WHERE campaign_id=?').bind(id).run();
+  await env.DB.prepare('DELETE FROM campaigns WHERE id=?').bind(id).run();
+  return jres({ ok: true });
+}
+async function setCampaignStatus(env, id, status) {
+  await env.DB.prepare('UPDATE campaigns SET status=?,updated_at=? WHERE id=?').bind(status, now(), id).run();
+  return jres({ ok: true });
+}
+
+// ── Send Now ─────────────────────────────────────────────────
+async function sendNow(env, id) {
+  const campaign = await env.DB.prepare('SELECT * FROM campaigns WHERE id=?').bind(id).first();
+  if (!campaign) return jres({ error: 'Campaign not found' }, 404);
+  const step = await env.DB.prepare('SELECT s.*,t.subject,t.html_body,t.name tname FROM campaign_steps s JOIN templates t ON s.template_id=t.id WHERE s.campaign_id=? ORDER BY s.step_order LIMIT 1').bind(id).first();
+  if (!step) return jres({ error: 'No steps configured' }, 400);
+  const { results: contacts } = await env.DB.prepare('SELECT c.* FROM contacts c JOIN contact_list_members m ON c.id=m.contact_id WHERE m.list_id=?').bind(campaign.list_id).all();
+  let sent = 0, failed = 0, skipped = 0;
+  for (const contact of contacts) {
+    const r = await sendEmail({ to: contact.email, subject: step.subject, html_body: merge(step.html_body, contact), from_email: campaign.from_email, from_name: campaign.from_name });
+    const status = r.ok ? 'sent' : r.skipped ? 'skipped' : 'failed';
+    await addLog(env, { campaign_id: id, campaign_name: campaign.name, contact_id: contact.id, contact_email: contact.email, template_id: step.template_id, template_name: step.tname, subject: step.subject, status, error: r.error });
+    if (r.ok) sent++; else if (r.skipped) skipped++; else failed++;
+  }
+  await env.DB.prepare('UPDATE campaigns SET status=?,updated_at=? WHERE id=?').bind('completed', now(), id).run();
+  return jres({ sent, failed, skipped });
+}
+
+// ── Logs ─────────────────────────────────────────────────────
+async function getLogs(env, url) {
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '200'), 500);
+  const { results } = await env.DB.prepare('SELECT * FROM sent_log ORDER BY sent_at DESC LIMIT ?').bind(limit).all();
+  return jres(results);
+}
+async function getUnsubscribes(env) {
+  // Read from the UNSUBSCRIBES KV namespace shared with the email worker.
+  // Keys are stored as unsub:{email} — list them all and parse the records.
+  if (!env.UNSUBSCRIBES) return jres({ error: 'UNSUBSCRIBES KV binding not configured' }, 500);
+  const list = await env.UNSUBSCRIBES.list({ prefix: 'unsub:' });
+  const records = [];
+  for (const key of list.keys) {
+    const raw = await env.UNSUBSCRIBES.get(key.name);
+    if (raw) {
+      try { records.push(JSON.parse(raw)); } catch { records.push({ email: key.name.replace('unsub:', '') }); }
+    }
+  }
+  records.sort((a, b) => (b.unsubscribedAt || '').localeCompare(a.unsubscribedAt || ''));
+  return jres(records);
+}
+
+// ── Scheduler ────────────────────────────────────────────────
+async function runScheduler(env) {
+  const ts = now();
+  // One-time scheduled
+  const { results: once } = await env.DB.prepare("SELECT * FROM campaigns WHERE schedule_type='once' AND status='active' AND json_extract(schedule_config,'$.send_at')<=?").bind(ts).all();
+  for (const c of once) await sendNow(env, c.id);
+  // Recurring
+  const { results: rec } = await env.DB.prepare("SELECT * FROM campaigns WHERE schedule_type='recurring' AND status='active' AND json_extract(schedule_config,'$.next_run')<=?").bind(ts).all();
+  for (const c of rec) {
+    await sendNow(env, c.id);
+    const cfg = JSON.parse(c.schedule_config || '{}');
+    cfg.next_run = new Date(Date.now() + (cfg.interval_days || 7) * 86400000).toISOString();
+    await env.DB.prepare('UPDATE campaigns SET schedule_config=?,status=?,updated_at=? WHERE id=?').bind(JSON.stringify(cfg), 'active', now(), c.id).run();
+  }
+  // Drip
+  const { results: drips } = await env.DB.prepare("SELECT * FROM campaigns WHERE schedule_type='drip' AND status='active'").all();
+  for (const c of drips) await processDrip(env, c, ts);
+}
+
+async function processDrip(env, campaign, ts) {
+  // No local unsubscribe filter — email worker handles RECIPIENT_UNSUBSCRIBED automatically
+  const { results: contacts } = await env.DB.prepare('SELECT c.* FROM contacts c JOIN contact_list_members m ON c.id=m.contact_id WHERE m.list_id=?').bind(campaign.list_id).all();
+  const { results: steps } = await env.DB.prepare('SELECT s.*,t.subject,t.html_body,t.name tname FROM campaign_steps s JOIN templates t ON s.template_id=t.id WHERE s.campaign_id=? ORDER BY s.step_order').bind(campaign.id).all();
+  if (!steps.length) return;
+  for (const contact of contacts) {
+    let prog = await env.DB.prepare('SELECT * FROM drip_progress WHERE campaign_id=? AND contact_id=?').bind(campaign.id, contact.id).first();
+    if (!prog) {
+      await env.DB.prepare('INSERT INTO drip_progress (id,campaign_id,contact_id,current_step,last_sent_at,next_send_at,completed) VALUES (?,?,?,0,?,?,0)').bind(uid(), campaign.id, contact.id, ts, ts).run();
+      prog = { current_step: 0, next_send_at: ts, completed: 0 };
+    }
+    if (prog.completed || prog.next_send_at > ts) continue;
+    const step = steps[prog.current_step];
+    if (!step) { await env.DB.prepare('UPDATE drip_progress SET completed=1 WHERE campaign_id=? AND contact_id=?').bind(campaign.id, contact.id).run(); continue; }
+    const r = await sendEmail({ to: contact.email, subject: step.subject, html_body: merge(step.html_body, contact), from_email: campaign.from_email, from_name: campaign.from_name });
+    const status = r.ok ? 'sent' : r.skipped ? 'skipped' : 'failed';
+    await addLog(env, { campaign_id: campaign.id, campaign_name: campaign.name, contact_id: contact.id, contact_email: contact.email, template_id: step.template_id, template_name: step.tname, subject: step.subject, status, error: r.error });
+    // If skipped (unsubscribed), mark drip sequence as completed for this contact
+    if (r.skipped) {
+      await env.DB.prepare('UPDATE drip_progress SET completed=1 WHERE campaign_id=? AND contact_id=?').bind(campaign.id, contact.id).run();
+      continue;
+    }
+    const nextIdx = prog.current_step + 1;
+    const nextStep = steps[nextIdx];
+    const nextSend = nextStep ? new Date(Date.now() + (nextStep.delay_days || 1) * 86400000).toISOString() : null;
+    await env.DB.prepare('UPDATE drip_progress SET current_step=?,last_sent_at=?,next_send_at=?,completed=? WHERE campaign_id=? AND contact_id=?').bind(nextIdx, ts, nextSend, nextStep ? 0 : 1, campaign.id, contact.id).run();
+  }
+}
+
+// ── Email + Utils ─────────────────────────────────────────────
+async function sendEmail({ to, subject, html_body, from_email, from_name }) {
+  try {
+    const r = await fetch(EMAIL_WORKER, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, message: html_body, contentType: 'HTML', fromEmail: from_email, fromName: from_name })
+    });
+    const d = await r.json().catch(() => ({}));
+    // 403 RECIPIENT_UNSUBSCRIBED = contact opted out via email worker's /unsubscribe endpoint
+    // Treat as "skipped" (not a failure), stop drip sequence for this contact
+    if (r.status === 403 && d.code === 'RECIPIENT_UNSUBSCRIBED') {
+      return { ok: false, skipped: true, error: 'Unsubscribed' };
+    }
+    return { ok: r.ok && d.success !== false, skipped: false, error: d.error };
+  } catch (e) { return { ok: false, skipped: false, error: e.message }; }
+}
+async function addLog(env, d) {
+  await env.DB.prepare('INSERT INTO sent_log (id,campaign_id,campaign_name,contact_id,contact_email,template_id,template_name,subject,status,error,sent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(uid(), d.campaign_id, d.campaign_name, d.contact_id, d.contact_email, d.template_id, d.template_name, d.subject, d.status, d.error || null, now()).run();
+  // Keep last_contacted_at fresh on every successful send
+  if (d.status === 'sent' && d.contact_id) {
+    await env.DB.prepare('UPDATE contacts SET last_contacted_at=? WHERE id=?').bind(now(), d.contact_id).run();
+  }
+}
+function merge(html, c) {
+  // {{name}}, {{email}}, {{company}} are resolved here.
+  // {{unsubscribe_url}} and {{physical_address}} are resolved by the email worker
+  // automatically via MAIL_UNSUBSCRIBE_BASE_URL + MAIL_PHYSICAL_ADDRESS env vars.
+  return html
+    .replace(/\{\{name\}\}/gi, c.name || 'there')
+    .replace(/\{\{email\}\}/gi, c.email)
+    .replace(/\{\{company\}\}/gi, c.company || '');
+}
+function uid() { return crypto.randomUUID(); }
+function now() { return new Date().toISOString(); }
+function jres(data, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }); }
+function addCors(res) {
+  const h = new Headers(res.headers);
+  h.set('Access-Control-Allow-Origin', '*');
+  h.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  h.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  return new Response(res.body, { status: res.status, headers: h });
+}
+
+// ── CRM Backend ───────────────────────────────────────────────
+const STAGES = ['lead','prospect','qualified','proposal','won','lost'];
+
+async function getCrmPipeline(env) {
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM contacts WHERE unsubscribed=0 ORDER BY last_contacted_at DESC NULLS LAST, created_at DESC'
+  ).all();
+  const pipeline = {};
+  for (const s of STAGES) pipeline[s] = [];
+  for (const c of results) {
+    const s = STAGES.includes(c.stage) ? c.stage : 'lead';
+    try { c.tags = JSON.parse(c.tags || '[]'); } catch { c.tags = []; }
+    pipeline[s].push(c);
+  }
+  return jres(pipeline);
+}
+
+async function getCrmStats(env) {
+  const { results } = await env.DB.prepare(
+    'SELECT stage, COUNT(*) cnt, COALESCE(SUM(deal_value),0) value FROM contacts WHERE unsubscribed=0 GROUP BY stage'
+  ).all();
+  const stats = {};
+  for (const s of STAGES) stats[s] = { count: 0, value: 0 };
+  for (const r of results) { if (stats[r.stage]) { stats[r.stage].count = r.cnt; stats[r.stage].value = r.value; } }
+  const today = new Date().toISOString().split('T')[0];
+  const fu = await env.DB.prepare('SELECT COUNT(*) n FROM contacts WHERE unsubscribed=0 AND follow_up_at<=? AND stage NOT IN ("won","lost")').bind(today+'T23:59:59Z').first();
+  return jres({ stages: stats, followups_due: fu.n });
+}
+
+async function getFollowUps(env) {
+  const today = new Date().toISOString().split('T')[0];
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM contacts WHERE unsubscribed=0 AND follow_up_at<=? AND stage NOT IN ("won","lost") ORDER BY follow_up_at ASC'
+  ).bind(today+'T23:59:59Z').all();
+  for (const c of results) { try { c.tags = JSON.parse(c.tags||'[]'); } catch { c.tags = []; } }
+  return jres(results);
+}
+
+async function getContactDetail(env, id) {
+  const contact = await env.DB.prepare('SELECT * FROM contacts WHERE id=?').bind(id).first();
+  if (!contact) return jres({ error: 'Not found' }, 404);
+  try { contact.tags = JSON.parse(contact.tags||'[]'); } catch { contact.tags = []; }
+  const { results: notes } = await env.DB.prepare('SELECT * FROM contact_notes WHERE contact_id=? ORDER BY created_at DESC').bind(id).all();
+  const { results: emails } = await env.DB.prepare('SELECT * FROM sent_log WHERE contact_id=? ORDER BY sent_at DESC LIMIT 50').bind(id).all();
+  const { results: lists } = await env.DB.prepare('SELECT l.name FROM contact_lists l JOIN contact_list_members m ON l.id=m.list_id WHERE m.contact_id=?').bind(id).all();
+  return jres({ contact, notes, emails, lists: lists.map(l=>l.name) });
+}
+
+async function patchContact(req, env, id) {
+  const body = await req.json();
+  const fields = [];
+  const vals = [];
+  const allowed = ['name','company','stage','deal_value','tags','phone','linkedin','follow_up_at'];
+  for (const k of allowed) {
+    if (k in body) {
+      fields.push(`${k}=?`);
+      vals.push(k === 'tags' ? JSON.stringify(body[k]||[]) : body[k]);
+    }
+  }
+  if (!fields.length) return jres({ error: 'No fields to update' }, 400);
+  vals.push(id);
+  await env.DB.prepare(`UPDATE contacts SET ${fields.join(',')} WHERE id=?`).bind(...vals).run();
+  return jres({ ok: true });
+}
+
+async function getNotes(env, contactId) {
+  const { results } = await env.DB.prepare('SELECT * FROM contact_notes WHERE contact_id=? ORDER BY created_at DESC').bind(contactId).all();
+  return jres(results);
+}
+
+async function addNote(req, env, contactId) {
+  const { content, type } = await req.json();
+  if (!content) return jres({ error: 'content required' }, 400);
+  const id = uid();
+  await env.DB.prepare('INSERT INTO contact_notes (id,contact_id,content,type,created_at) VALUES (?,?,?,?,?)').bind(id, contactId, content, type||'note', now()).run();
+  await env.DB.prepare('UPDATE contacts SET notes_count=notes_count+1 WHERE id=?').bind(contactId).run();
+  return jres({ id, content, type: type||'note', created_at: now() });
+}
+
+async function deleteNote(env, noteId) {
+  const note = await env.DB.prepare('SELECT contact_id FROM contact_notes WHERE id=?').bind(noteId).first();
+  await env.DB.prepare('DELETE FROM contact_notes WHERE id=?').bind(noteId).run();
+  if (note) await env.DB.prepare('UPDATE contacts SET notes_count=MAX(0,notes_count-1) WHERE id=?').bind(note.contact_id).run();
+  return jres({ ok: true });
+}
+
+// ── Dashboard HTML (inline) ───────────────────────────────────
+// Dashboard frontend moved to public/index.html, public/dashboard.css, and public/app.js.

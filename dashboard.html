@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Outreach Dashboard — 365Soft Labs</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --text: #e0e0ff;
+  --muted: #5a5a7a;
+  --cyan: #00C8FF;
+  --purple: #7B5EA7;
+  --pink: #FF2D78;
+  --red: #ff5252;
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; }
+#login { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); }
+.login-card { background: var(--surface); border: 1px solid #252535; border-radius: 20px; padding: 48px 40px; width: 360px; }
+.login-logo { font-family: var(--font-head); font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+.login-sub { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+.login-err { color: var(--red); font-size: 12px; margin-top: 12px; display: none; }
+.btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn-primary { background: linear-gradient(135deg, #00C8FF, #7B5EA7); color: #fff; width: 100%; margin-top: 20px; }
+#app { display: none; min-height: 100vh; padding: 40px; }
+.card { background: var(--surface); border: 1px solid #252535; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.card h2 { font-family: var(--font-head); font-size: 18px; margin-bottom: 10px; }
+.card p { color: var(--muted); }
+.btn-logout { background: #ff5252; color: white; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login">
+  <div class="login-card">
+    <div class="login-logo">365Soft Labs</div>
+    <div class="login-sub">Outreach Dashboard — Secure Access</div>
+    <div id="g_id_onload" data-client_id="__GOOGLE_CLIENT_ID__" data-callback="handleCredentialResponse"></div>
+    <div class="g_id_signin" data-type="standard" data-size="large" data-theme="dark" style="display:flex;justify-content:center;margin:20px 0"></div>
+    <div class="login-err" id="l-err"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div style="text-align:right;margin-bottom:20px">
+    <button class="btn btn-logout" onclick="doLogout()">Sign Out</button>
+  </div>
+  <h1 style="font-family:var(--font-head);font-size:28px;margin-bottom:20px">Welcome to Outreach Dashboard</h1>
+  
+  <div class="card">
+    <h2>Dashboard</h2>
+    <p>You are successfully logged in!</p>
+    <p id="user-info" style="margin-top:10px;color:var(--cyan)"></p>
+  </div>
+
+  <div class="card">
+    <h2>Features</h2>
+    <p>✅ Email campaign management</p>
+    <p>✅ Contact lists and drip sequences</p>
+    <p>✅ CRM pipeline tracking</p>
+    <p>✅ Gmail, Outlook, and custom SMTP support</p>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+const API = '';
+let token = localStorage.getItem('token');
+
+function handleCredentialResponse(response) {
+  const idToken = response.credential;
+  doGoogleAuth(idToken);
+}
+
+async function doGoogleAuth(idToken) {
+  try {
+    const res = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: idToken })
+    });
+    const data = await res.json();
+    if (data.token) {
+      token = data.token;
+      localStorage.setItem('token', token);
+      localStorage.setItem('user_name', data.name || data.email);
+      showDashboard(data);
+    } else {
+      showError(data.error || 'Authentication failed');
+    }
+  } catch (e) {
+    showError('Error: ' + e.message);
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('l-err');
+  if (el) {
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+}
+
+function showDashboard(user) {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  if (user.name || user.email) {
+    document.getElementById('user-info').textContent = 'Logged in as: ' + (user.name || user.email);
+  }
+}
+
+async function doLogout() {
+  await fetch(API + '/api/auth/logout', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  localStorage.removeItem('token');
+  location.reload();
+}
+
+window.addEventListener('load', async function() {
+  if (token) {
+    // Verify session is still valid
+    const res = await fetch(API + '/api/auth/check', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showDashboard({ name: localStorage.getItem('user_name') });
+    } else {
+      localStorage.removeItem('token');
+    }
+  }
+});
+</script>
+</body>
+</html>

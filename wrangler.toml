@@ -1,0 +1,34 @@
+﻿name = "outreach-dashboard"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "outreach-db"
+database_id = "5fd4535a-f740-4238-8e06-643f530085da"
+
+# KV Namespace (for sessions)
+[[kv_namespaces]]
+binding = "KV"
+id = "b1769737310e42f08a8cf4a8a86bce33"
+
+# KV Namespace shared with 365soft-email-worker (unsubscribe store)
+# Use the SAME id as the UNSUBSCRIBES binding in the email worker
+[[kv_namespaces]]
+binding = "UNSUBSCRIBES"
+id = "9d9f54e3bbf74d918f73b45224cf0ab1"
+
+# Cron Trigger runs scheduler every 5 minutes
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Secrets (set via: wrangler secret put)
+# ADMIN_USER - your login username
+# ADMIN_PASS - your login password
+# CF_ACCESS_CLIENT_ID - Cloudflare Access client ID for email API
+# CF_ACCESS_CLIENT_SECRET - Cloudflare Access client secret for email API

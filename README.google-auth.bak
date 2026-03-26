@@ -1,0 +1,341 @@
+# 365Soft Labs — Outreach Dashboard & CRM
+
+A single Cloudflare Worker that serves a complete AI outreach platform: email campaign management, drip sequences, scheduled sending, and a lightweight CRM with pipeline board, contact activity logs, and follow-up tracking.
+
+---
+
+## Architecture
+
+```
+outreach-dashboard (Worker)
+├── Dashboard SPA          — served at /
+├── REST API               — /api/*
+├── Cron scheduler         — every 5 min
+└── Bindings
+    ├── DB (D1)            — contacts, CRM, campaigns, logs
+    ├── KV                 — session tokens
+    └── UNSUBSCRIBES (KV)  — shared with 365soft-email-worker
+
+365soft-email-worker (existing)
+├── POST /api/send         — sends via Microsoft Graph
+├── GET|POST /unsubscribe  — public unsubscribe page (HMAC token)
+└── UNSUBSCRIBES (KV)      — source of truth for opt-outs
+```
+
+---
+
+## Fresh Setup (one-time)
+
+### 1. Install Wrangler
+```bash
+npm install -g wrangler
+wrangler login
+```
+
+### 2. Create D1 Database
+```bash
+wrangler d1 create outreach-db
+```
+Copy the `database_id` into `wrangler.toml` → `[[d1_databases]]`.
+
+### 3. Create Sessions KV Namespace
+```bash
+wrangler kv:namespace create SESSIONS
+```
+Copy the `id` into `wrangler.toml` → first `[[kv_namespaces]]` block (binding = "KV").
+
+### 4. Link the Unsubscribes KV (shared with email worker)
+```bash
+wrangler kv:namespace list
+# Find the namespace used by the email worker as UNSUBSCRIBES — copy its id
+```
+Paste that id into `wrangler.toml` → second `[[kv_namespaces]]` block (binding = "UNSUBSCRIBES").
+
+### 5. Run the Database Schema
+```bash
+wrangler d1 execute outreach-db --file=schema.sql
+```
+
+### 6. Set Authentication & Email API Secrets
+
+**Google OAuth 2.0:**
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+# Paste your Google OAuth 2.0 Client ID (from Google Cloud Console)
+
+wrangler secret put GOOGLE_ALLOWED_DOMAINS  # Optional
+# Comma-separated list of allowed email domains, e.g., "365softlabs.com,example.com"
+# Leave blank to allow any Google account
+```
+
+**Email API (Cloudflare Access tokens):**
+```bash
+wrangler secret put CF_ACCESS_CLIENT_ID
+wrangler secret put CF_ACCESS_CLIENT_SECRET
+```
+
+**Set up Google OAuth 2.0:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or use existing)
+3. Go to "APIs & Services" → "Credentials"
+4. Create OAuth 2.0 Client ID (type: Web application)
+5. Add authorized JavaScript origins: `https://outreach-dashboard.YOUR_SUBDOMAIN.workers.dev`
+6. Add authorized redirect URIs: `https://outreach-dashboard.YOUR_SUBDOMAIN.workers.dev/`
+7. Copy the **Client ID** and run `wrangler secret put GOOGLE_CLIENT_ID`
+
+### 7. Configure the Email Worker (one-time)
+Set these secrets on the **email worker** (not this worker) to enable signed unsubscribe tokens and admin notifications:
+```bash
+wrangler secret put MAIL_UNSUBSCRIBE_BASE_URL --name 365soft-email-worker
+# Value: https://365soft-email-worker.nick-598.workers.dev/unsubscribe
+
+wrangler secret put MAIL_UNSUBSCRIBE_NOTIFY_EMAIL --name 365soft-email-worker
+# Value: nick@365softlabs.com
+```
+
+### 8. Deploy
+```bash
+wrangler deploy
+```
+
+Dashboard live at: `https://outreach-dashboard.YOUR_SUBDOMAIN.workers.dev`
+
+---
+
+## Upgrading an Existing Installation (adding CRM)
+
+If you already have the database deployed, run these ALTER statements to add the CRM columns:
+
+```bash
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN stage TEXT DEFAULT 'lead'"
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN deal_value REAL DEFAULT 0"
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN tags TEXT DEFAULT '[]'"
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN last_contacted_at TEXT"
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN follow_up_at TEXT"
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN linkedin TEXT DEFAULT ''"
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN phone TEXT DEFAULT ''"
+wrangler d1 execute outreach-db --command="ALTER TABLE contacts ADD COLUMN notes_count INTEGER DEFAULT 0"
+wrangler d1 execute outreach-db --command="CREATE TABLE IF NOT EXISTS contact_notes (id TEXT PRIMARY KEY, contact_id TEXT NOT NULL, content TEXT NOT NULL, type TEXT DEFAULT 'note', created_at TEXT NOT NULL)"
+wrangler d1 execute outreach-db --command="CREATE INDEX IF NOT EXISTS idx_notes_contact ON contact_notes(contact_id, created_at DESC)"
+wrangler d1 execute outreach-db --command="CREATE INDEX IF NOT EXISTS idx_contacts_stage ON contacts(stage)"
+wrangler d1 execute outreach-db --command="CREATE INDEX IF NOT EXISTS idx_contacts_followup ON contacts(follow_up_at)"
+```
+
+Then redeploy:
+```bash
+wrangler deploy
+```
+
+---
+
+## Dashboard Sections
+
+### Outreach
+
+| Section | What you can do |
+|---|---|
+| **Overview** | Stats (contacts, templates, campaigns, emails sent, pipeline value) + recent send log |
+| **Templates** | Create/edit/delete HTML email templates with merge tags |
+| **Contacts** | Add manually or bulk import via CSV, search by email/name/company, filter by stage |
+| **Lists** | Organise contacts into named lists for campaign targeting |
+| **Campaigns** | Build multi-step campaigns, set schedule type, activate/pause/send on demand |
+| **Sent Log** | Full history of every send attempt — sent, skipped, failed |
+| **Unsubscribes** | Live view from email worker KV — email, timestamp, IP, source |
+
+### CRM
+
+| Section | What you can do |
+|---|---|
+| **Pipeline** | Kanban board across 6 stages with per-column contact counts and deal values |
+| **Follow-ups** | Contacts with a follow-up date due today or overdue — red badge count in sidebar |
+| **Contact Drawer** | Full contact detail panel — edit stage, deal value, follow-up date, tags, phone, LinkedIn, log activity notes, view full email history |
+
+---
+
+## CRM Pipeline Stages
+
+| Stage | Meaning |
+|---|---|
+| **Lead** | Initial contact, not yet qualified |
+| **Prospect** | Engaged, showing interest |
+| **Qualified** | Confirmed need and budget |
+| **Proposal** | Proposal or quote sent |
+| **Won** | Deal closed |
+| **Lost** | Not proceeding |
+
+Move contacts between stages from the Pipeline board or via the Contact Drawer stage selector. Pipeline Value on the Overview counts all active (non-lost, non-won) contacts.
+
+---
+
+## Contact Activity Log
+
+From the Contact Drawer, log any interaction with a typed entry:
+
+| Type | Use for |
+|---|---|
+| 📝 Note | General notes, research, context |
+| 📞 Call | Phone call summaries |
+| 🤝 Meeting | Meeting notes and outcomes |
+| ✉ Email | Manual email exchanges (outside campaigns) |
+
+`last_contacted_at` updates automatically whenever a campaign email is sent successfully to that contact.
+
+---
+
+## Email Templates — Merge Tags
+
+| Tag | Resolved by | Value |
+|---|---|---|
+| `{{name}}` | Outreach worker | Contact's name (fallback: "there") |
+| `{{email}}` | Outreach worker | Contact's email address |
+| `{{company}}` | Outreach worker | Contact's company name |
+| `{{unsubscribe_url}}` | Email worker | HMAC-signed unsubscribe link (automatic) |
+| `{{physical_address}}` | Email worker | Set via `MAIL_PHYSICAL_ADDRESS` secret on email worker |
+
+Always include an unsubscribe footer in outreach templates:
+```html
+<p style="font-size:11px;color:#888;text-align:center;margin-top:32px">
+  <a href="{{unsubscribe_url}}" style="color:#888">Unsubscribe</a>
+</p>
+```
+`{{unsubscribe_url}}` is resolved automatically by the email worker — no manual URL construction needed.
+
+---
+
+## Campaign Schedule Types
+
+| Type | Behaviour |
+|---|---|
+| **Immediate** | Draft mode — send manually via ▶ Send at any time |
+| **Once** | Activate the campaign; fires automatically at the configured date/time |
+| **Recurring** | Fires on a repeating schedule (configurable interval in days), re-queues automatically after each run |
+| **Drip** | Enrols all list contacts; sends each step with a configurable day delay between them |
+
+The cron trigger runs every 5 minutes and processes all active scheduled campaigns automatically.
+
+### Drip Sequence Behaviour
+- Each contact in the list is enrolled independently with individual progress tracking
+- `delay_days` on each step controls the gap after the previous step (step 1 sends immediately)
+- If a contact unsubscribes mid-sequence, the email worker returns `403 RECIPIENT_UNSUBSCRIBED` — the outreach worker logs the send as `skipped` and marks that contact's drip progress as completed, stopping all further steps
+
+---
+
+## Unsubscribe Integration
+
+Unsubscribe handling is fully owned by `365soft-email-worker`. The outreach dashboard is a read-only consumer of its KV store.
+
+### How it works end-to-end
+
+1. Email sent → email worker auto-generates a `v1.{payload}.{signature}` HMAC-signed token and injects it into `{{unsubscribe_url}}`
+2. Recipient clicks unsubscribe → email worker verifies signature → stores `unsub:{email}` record in UNSUBSCRIBES KV
+3. Next send attempt to that address → email worker checks KV → returns `403 RECIPIENT_UNSUBSCRIBED`
+4. Outreach worker catches the 403 → logs the send as `skipped` → stops drip progress for that contact
+5. Dashboard **Unsubscribes** view lists all KV records directly — no D1 duplication, always in sync
+
+Tokens are signed with HMAC-SHA256 using `MAIL_UNSUBSCRIBE_TOKEN_SECRET` (set on the email worker). Default TTL is 30 days, configurable via `MAIL_UNSUBSCRIBE_TOKEN_TTL_SECONDS`.
+
+---
+
+## CSV Import Format
+
+Supported columns (first row must be headers, order does not matter):
+
+```csv
+email,name,company,stage,deal_value,phone
+nick@example.com,Nick Smith,Acme Corp,prospect,5000,+61400000000
+jane@example.com,Jane Doe,Beta Inc,lead,,
+```
+
+| Column | Required | Default |
+|---|---|---|
+| `email` | ✅ Yes | — |
+| `name` | No | empty |
+| `company` | No | empty |
+| `stage` | No | `lead` |
+| `deal_value` | No | `0` |
+| `phone` | No | empty |
+
+---
+
+## API Reference
+
+All `/api/*` endpoints require `Authorization: Bearer {token}`. Token is obtained from `/api/auth/login`.
+
+### Auth
+| Method | Path | Body / Notes |
+|---|---|---|
+| POST | `/api/auth/login` | `{username, password}` → `{token}` |
+| POST | `/api/auth/logout` | Invalidates current session |
+| GET | `/api/auth/check` | → `{ok: true/false}` |
+
+### Outreach
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/stats` | Counters + pipeline value |
+| GET | `/api/templates` | All templates |
+| POST | `/api/templates` | `{name, subject, html_body}` |
+| PUT | `/api/templates/:id` | Update template |
+| DELETE | `/api/templates/:id` | Delete template |
+| GET | `/api/contacts?q=&stage=` | Search + stage filter |
+| POST | `/api/contacts` | `{email, name, company, stage, deal_value, tags, phone, linkedin}` |
+| POST | `/api/contacts/import` | `{csv}` → `{imported, skipped}` |
+| PUT | `/api/contacts/:id` | Full update |
+| DELETE | `/api/contacts/:id` | Deletes contact, notes, list memberships |
+| GET | `/api/lists` | All lists with member counts |
+| POST | `/api/lists` | `{name, description}` |
+| DELETE | `/api/lists/:id` | Delete list + memberships |
+| GET | `/api/lists/:id/contacts` | Members of a list |
+| POST | `/api/lists/:id/contacts` | `{contact_ids[]}` |
+| DELETE | `/api/lists/:id/contacts/:contactId` | Remove from list |
+| GET | `/api/campaigns` | All campaigns with steps |
+| POST | `/api/campaigns` | `{name, list_id, schedule_type, schedule_config, steps[], from_name, from_email}` |
+| PUT | `/api/campaigns/:id` | Update campaign + steps |
+| DELETE | `/api/campaigns/:id` | Delete campaign + steps + drip progress |
+| POST | `/api/campaigns/:id/send` | Send now → `{sent, skipped, failed}` |
+| POST | `/api/campaigns/:id/activate` | Set status → active |
+| POST | `/api/campaigns/:id/pause` | Set status → paused |
+| GET | `/api/logs?limit=` | Sent log, max 500 |
+| GET | `/api/unsubscribes` | From email worker KV |
+
+### CRM
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/crm/pipeline` | Contacts grouped by stage |
+| GET | `/api/crm/stats` | Stage counts + values + follow-ups due count |
+| GET | `/api/crm/followups` | Follow-up due today or overdue |
+| GET | `/api/crm/contact/:id` | Contact + notes + email history + lists |
+| PATCH | `/api/crm/contact/:id` | Partial update: `stage`, `deal_value`, `tags`, `phone`, `linkedin`, `follow_up_at`, `name`, `company` |
+| GET | `/api/crm/contact/:id/notes` | All notes for contact |
+| POST | `/api/crm/contact/:id/notes` | `{content, type}` — type: note/call/meeting/email |
+| DELETE | `/api/crm/contact/:id/notes/:noteId` | Delete note |
+
+---
+
+## Security Notes
+
+- Login credentials stored as encrypted Cloudflare secrets — never in source code or `wrangler.toml`
+- Sessions stored in KV with 7-day TTL
+- All `/api/*` routes reject unauthenticated requests with `401`
+- Unsubscribe page lives on the email worker — intentionally public, protected by HMAC-SHA256 token verification
+- No third-party analytics or tracking in the dashboard
+
+---
+
+## Maintenance
+
+```bash
+# Redeploy after code changes
+wrangler deploy
+
+# Stream live request logs
+wrangler tail
+
+# Query the database directly
+wrangler d1 execute outreach-db --command="SELECT stage, COUNT(*) FROM contacts GROUP BY stage"
+
+# List all KV session keys
+wrangler kv:key list --namespace-id YOUR_SESSIONS_KV_ID
+
+# Check unsubscribes in KV
+wrangler kv:key list --namespace-id YOUR_UNSUBSCRIBES_KV_ID --prefix "unsub:"
+```
