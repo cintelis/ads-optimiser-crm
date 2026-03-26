@@ -12,38 +12,40 @@
 const EMAIL_WORKER = 'https://365soft-email-worker.nick-598.workers.dev/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
 const DEFAULT_NAME = 'Nick | 365Soft Labs';
-const ADS_OPTIMISER_REAL_ESTATE_TEMPLATES = [
-  {
-    id: 'seed_ao_re_snapshot_v2',
-    name: 'Ads Optimiser - Snapshot Style',
-    subject: 'Turn listing photos into video walkthroughs buyers will watch',
-    html_body: renderSnapshotStyleTemplate()
-  },
-  {
-    id: 'seed_ao_re_prestige_magazine_v2',
-    name: 'Ads Optimiser - Prestige Magazine Style',
-    subject: 'A premium video walkthrough from the same listing photo set',
-    html_body: renderPrestigeMagazineTemplate()
-  },
-  {
-    id: 'seed_ao_re_market_insight_v2',
-    name: 'Ads Optimiser - Market Insight Style',
-    subject: 'In a million-dollar market, listings need more than static images',
-    html_body: renderMarketInsightTemplate()
-  },
-  {
-    id: 'seed_ao_re_agent_update_v2',
-    name: 'Ads Optimiser - Agent Update Style',
-    subject: 'A simple way to turn still listing images into walkthrough video',
-    html_body: renderAgentUpdateTemplate()
-  },
-  {
-    id: 'seed_ao_re_luxury_homes_editorial_v3',
-    name: 'Ads Optimiser - Luxury Homes Magazine Style',
-    subject: 'Luxury listings deserve more than a static image gallery',
-    html_body: renderLuxuryHomesEditorialTemplate()
-  }
-];
+function getAdsOptimiserRealEstateTemplates(origin = '') {
+  return [
+    {
+      id: 'seed_ao_re_snapshot_v2',
+      name: 'Ads Optimiser - Snapshot Style',
+      subject: 'Turn listing photos into video walkthroughs buyers will watch',
+      html_body: renderSnapshotStyleTemplate()
+    },
+    {
+      id: 'seed_ao_re_prestige_magazine_v2',
+      name: 'Ads Optimiser - Prestige Magazine Style',
+      subject: 'A premium video walkthrough from the same listing photo set',
+      html_body: renderPrestigeMagazineTemplate()
+    },
+    {
+      id: 'seed_ao_re_market_insight_v2',
+      name: 'Ads Optimiser - Market Insight Style',
+      subject: 'In a million-dollar market, listings need more than static images',
+      html_body: renderMarketInsightTemplate()
+    },
+    {
+      id: 'seed_ao_re_agent_update_v2',
+      name: 'Ads Optimiser - Agent Update Style',
+      subject: 'A simple way to turn still listing images into walkthrough video',
+      html_body: renderAgentUpdateTemplate()
+    },
+    {
+      id: 'seed_ao_re_luxury_homes_editorial_v3',
+      name: 'Ads Optimiser - Luxury Homes Magazine Style',
+      subject: 'Luxury listings deserve more than a static image gallery',
+      html_body: renderLuxuryHomesEditorialTemplate(origin)
+    }
+  ];
+}
 
 function renderBrandLockup(subtitle, dark = true) {
   return `<table role="presentation" cellspacing="0" cellpadding="0">
@@ -103,6 +105,12 @@ function renderTemplateShell(inner, footerNote, outerBackground = '#f3f4f6') {
     </table>
   </body>
 </html>`;
+}
+
+function absoluteAssetUrl(origin, path) {
+  const cleanPath = String(path || '').replace(/^\/+/, '');
+  const cleanOrigin = String(origin || '').replace(/\/+$/, '');
+  return cleanOrigin ? `${cleanOrigin}/${cleanPath}` : `/${cleanPath}`;
 }
 
 function renderSnapshotStyleTemplate() {
@@ -343,7 +351,17 @@ function renderAgentUpdateTemplate() {
   );
 }
 
-function renderLuxuryHomesEditorialTemplate() {
+function renderLuxuryHomesEditorialTemplate(origin = '') {
+  const heroImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/hero-image.webp');
+  const frame01ImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/video-frame-01.webp');
+  const frame02ImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/video-frame-02.webp');
+  const frame03ImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/video-frame-03.webp');
+  const frame04ImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/video-frame-04.webp');
+  const heroVideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7lqd15_65664d7224303b4f68cd726721cf60b3.mp4';
+  const frame01VideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7kmj0v_7731260bdfda87a874ecde241502f860.mp4';
+  const frame02VideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7lhh07_aedff491cab6e9f26f4eb67a54285e92.mp4';
+  const frame03VideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7kollr_5f4a7d29f0198333200b81234c225d3c.mp4';
+  const frame04VideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7kpljx_c467daf3a0d990cd08aa76558c206bcb.mp4';
   return renderTemplateShell(`
     <tr>
       <td align="center" style="padding:34px 36px 18px;background:#ffffff;">
@@ -366,7 +384,9 @@ function renderLuxuryHomesEditorialTemplate() {
     </tr>
     <tr>
       <td style="padding:0 24px 28px;background:#ffffff;">
-        <img src="https://placehold.co/1120x720/f3f4f6/0f172a?text=Luxury+Home+Hero+Image" alt="Luxury home hero placeholder" style="width:100%;border:0;display:block;border-radius:18px;max-width:592px;" width="592" />
+        <a href="${heroVideoUrl}" style="display:block;text-decoration:none;">
+          <img src="${heroImageUrl}" alt="Luxury home hero frame" style="width:100%;border:0;display:block;border-radius:18px;max-width:592px;" width="592" />
+        </a>
       </td>
     </tr>
     <tr>
@@ -382,22 +402,34 @@ function renderLuxuryHomesEditorialTemplate() {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
           <tr>
             <td style="padding:0 10px 18px 0;width:50%;vertical-align:top;">
-              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+01" alt="Video frame placeholder 1" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <a href="${frame01VideoUrl}" style="display:block;text-decoration:none;">
+                <img src="${frame01ImageUrl}" alt="Video frame 1" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Front elevation reveal</div>
+              <div style="padding-top:6px;"><a href="${frame01VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
             <td style="padding:0 0 18px 10px;width:50%;vertical-align:top;">
-              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+02" alt="Video frame placeholder 2" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <a href="${frame02VideoUrl}" style="display:block;text-decoration:none;">
+                <img src="${frame02ImageUrl}" alt="Video frame 2" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Kitchen and living sweep</div>
+              <div style="padding-top:6px;"><a href="${frame02VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
           </tr>
           <tr>
             <td style="padding:0 10px 0 0;width:50%;vertical-align:top;">
-              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+03" alt="Video frame placeholder 3" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <a href="${frame03VideoUrl}" style="display:block;text-decoration:none;">
+                <img src="${frame03ImageUrl}" alt="Video frame 3" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Primary suite sequence</div>
+              <div style="padding-top:6px;"><a href="${frame03VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
             <td style="padding:0 0 0 10px;width:50%;vertical-align:top;">
-              <img src="https://placehold.co/560x360/e5e7eb/1f2937?text=Video+Frame+04" alt="Video frame placeholder 4" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              <a href="${frame04VideoUrl}" style="display:block;text-decoration:none;">
+                <img src="${frame04ImageUrl}" alt="Video frame 4" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
+              </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Outdoor entertaining close</div>
+              <div style="padding-top:6px;"><a href="${frame04VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
           </tr>
         </table>
@@ -405,14 +437,14 @@ function renderLuxuryHomesEditorialTemplate() {
     </tr>
     <tr>
       <td align="center" style="padding:22px 36px 8px;background:#ffffff;">
-        <p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#6b7280;">Replace the hero image and the four preview frames with listing stills or exported first frames from your walkthrough video before sending.</p>
+        <p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#6b7280;">The hero frame and each image below are linked to a hosted walkthrough clip. Click any frame to open the associated video.</p>
         <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto;">
           <tr>
             <td style="padding:0 10px 12px 0;">
-              <a href="https://www.youtube.com/watch?v=replace-me" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;">View sample on YouTube</a>
+              <a href="${heroVideoUrl}" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;">Play hero walkthrough</a>
             </td>
             <td style="padding:0 0 12px 10px;">
-              <a href="https://app.adsoptimiser.com.au/media/videos/replace-me.mp4" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-weight:700;border:1px solid #bfdbfe;">View hosted walkthrough</a>
+              <a href="${frame01VideoUrl}" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-weight:700;border:1px solid #bfdbfe;">Open front elevation clip</a>
             </td>
           </tr>
         </table>
@@ -516,7 +548,7 @@ async function route(req, env, url, path) {
   const m = req.method;
   if (res === 'stats' && m === 'GET') return getStats(env);
   if (res === 'templates') {
-    if (m === 'POST' && id === 'seed' && sub === 'real-estate') return seedAdsOptimiserRealEstateTemplates(env);
+    if (m === 'POST' && id === 'seed' && sub === 'real-estate') return seedAdsOptimiserRealEstateTemplates(env, url.origin);
     if (m === 'GET' && !id) return listTemplates(env);
     if (m === 'GET' && id) return getTemplate(env, id);
     if (m === 'POST' && !id) return createTemplate(req, env);
@@ -586,14 +618,22 @@ async function listTemplates(env) {
   const { results } = await env.DB.prepare('SELECT id,name,subject,created_at,updated_at FROM templates ORDER BY created_at DESC').all();
   return jres(results);
 }
-async function seedAdsOptimiserRealEstateTemplates(env) {
+async function seedAdsOptimiserRealEstateTemplates(env, origin = '') {
+  const templates = getAdsOptimiserRealEstateTemplates(origin);
   const created = [];
   const existing = [];
   await env.DB.prepare('DELETE FROM templates WHERE id=?').bind('seed_ads_optimiser_real_estate_video_walkthrough_v1').run();
-  for (const template of ADS_OPTIMISER_REAL_ESTATE_TEMPLATES) {
+  for (const template of templates) {
     const row = await env.DB.prepare('SELECT id,name,subject,created_at,updated_at FROM templates WHERE id=? LIMIT 1')
       .bind(template.id).first();
     if (row) {
+      if (template.id === 'seed_ao_re_luxury_homes_editorial_v3') {
+        const ts = now();
+        await env.DB.prepare('UPDATE templates SET name=?,subject=?,html_body=?,updated_at=? WHERE id=?')
+          .bind(template.name, template.subject, template.html_body, ts, template.id).run();
+        existing.push({ ...row, name: template.name, subject: template.subject, updated_at: ts });
+        continue;
+      }
       existing.push(row);
       continue;
     }
