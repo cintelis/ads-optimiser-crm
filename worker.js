@@ -12,7 +12,8 @@
 const EMAIL_WORKER = 'https://365soft-email-worker.nick-598.workers.dev/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
 const DEFAULT_NAME = 'Nick | 365Soft Labs';
-function getAdsOptimiserRealEstateTemplates(origin = '') {
+const CRM_PUBLIC_BASE_URL = 'https://crm.adsoptimiser.com.au';
+function getAdsOptimiserRealEstateTemplates() {
   return [
     {
       id: 'seed_ao_re_snapshot_v2',
@@ -42,7 +43,7 @@ function getAdsOptimiserRealEstateTemplates(origin = '') {
       id: 'seed_ao_re_luxury_homes_editorial_v3',
       name: 'Ads Optimiser - Luxury Homes Magazine Style',
       subject: 'Luxury listings deserve more than a static image gallery',
-      html_body: renderLuxuryHomesEditorialTemplate(origin)
+      html_body: renderLuxuryHomesEditorialTemplate(CRM_PUBLIC_BASE_URL)
     }
   ];
 }
@@ -548,7 +549,7 @@ async function route(req, env, url, path) {
   const m = req.method;
   if (res === 'stats' && m === 'GET') return getStats(env);
   if (res === 'templates') {
-    if (m === 'POST' && id === 'seed' && sub === 'real-estate') return seedAdsOptimiserRealEstateTemplates(env, url.origin);
+    if (m === 'POST' && id === 'seed' && sub === 'real-estate') return seedAdsOptimiserRealEstateTemplates(env);
     if (m === 'GET' && !id) return listTemplates(env);
     if (m === 'GET' && id) return getTemplate(env, id);
     if (m === 'POST' && !id) return createTemplate(req, env);
@@ -618,8 +619,8 @@ async function listTemplates(env) {
   const { results } = await env.DB.prepare('SELECT id,name,subject,created_at,updated_at FROM templates ORDER BY created_at DESC').all();
   return jres(results);
 }
-async function seedAdsOptimiserRealEstateTemplates(env, origin = '') {
-  const templates = getAdsOptimiserRealEstateTemplates(origin);
+async function seedAdsOptimiserRealEstateTemplates(env) {
+  const templates = getAdsOptimiserRealEstateTemplates();
   const created = [];
   const existing = [];
   await env.DB.prepare('DELETE FROM templates WHERE id=?').bind('seed_ads_optimiser_real_estate_video_walkthrough_v1').run();

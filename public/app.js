@@ -13,7 +13,7 @@ const SECTION_TITLES = {
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
-const REAL_ESTATE_TEMPLATE_SEED_KEY = 'crm_seed_ads_optimiser_real_estate_collection_v4';
+const REAL_ESTATE_TEMPLATE_SEED_KEY = 'crm_seed_ads_optimiser_real_estate_collection_v5';
 const TEMPLATE_PREVIEW_WIDTH_KEY = 'crm_template_preview_width_v1';
 const CONTACT_COLUMNS_KEY = 'crm_contact_columns_v1';
 const CONTACT_PAGE_SIZE_KEY = 'crm_contact_page_size_v1';
