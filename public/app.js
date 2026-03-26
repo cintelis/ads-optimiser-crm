@@ -15,9 +15,23 @@ const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'fo
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
 const REAL_ESTATE_TEMPLATE_SEED_KEY = 'crm_seed_ads_optimiser_real_estate_collection_v3';
 const TEMPLATE_PREVIEW_WIDTH_KEY = 'crm_template_preview_width_v1';
+const CONTACT_COLUMNS_KEY = 'crm_contact_columns_v1';
+const CONTACT_PAGE_SIZE_KEY = 'crm_contact_page_size_v1';
 const TEMPLATE_DESKTOP_BREAKPOINT = 960;
+const CONTACT_PAGE_SIZE_DEFAULT = 25;
+const CONTACT_TABLE_COLUMNS = [
+  { key: 'contact', label: 'Contact' },
+  { key: 'email', label: 'Email' },
+  { key: 'company', label: 'Company' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'stage', label: 'Stage' },
+  { key: 'added', label: 'Added' }
+];
+const DEFAULT_CONTACT_COLUMNS = ['contact', 'email', 'company', 'phone', 'stage', 'added'];
 const TEMPLATE_PREVIEW_DEFAULTS = {
   name: 'Alex Morgan',
+  first_name: 'Alex',
+  last_name: 'Morgan',
   email: 'alex@harbourproperty.com.au',
   company: 'Harbour Property Group',
   unsubscribe_url: 'https://app.adsoptimiser.com.au/unsubscribe-preview',
@@ -35,6 +49,13 @@ let state = {
   unsubs: [],
   ui: {
     pipelineStage: 'lead',
+    contactsQuery: '',
+    contactsPage: 1,
+    contactsPageSize: getStoredContactPageSize(),
+    contactColumns: getStoredContactColumns(),
+    contactColumnsOpen: false,
+    contactModalBase: null,
+    contactModalReturnId: '',
     selectedTemplateId: '',
     templateDraft: null,
     templateLoading: false,
@@ -155,6 +176,8 @@ function createEmptyTemplateDraft() {
 
 function mergeTemplatePreview(html) {
   return String(html || '')
+    .replace(/\{\{first_name\}\}/gi, TEMPLATE_PREVIEW_DEFAULTS.first_name)
+    .replace(/\{\{last_name\}\}/gi, TEMPLATE_PREVIEW_DEFAULTS.last_name)
     .replace(/\{\{name\}\}/gi, TEMPLATE_PREVIEW_DEFAULTS.name)
     .replace(/\{\{email\}\}/gi, TEMPLATE_PREVIEW_DEFAULTS.email)
     .replace(/\{\{company\}\}/gi, TEMPLATE_PREVIEW_DEFAULTS.company)
@@ -177,7 +200,7 @@ function renderTemplatePreviewPane() {
   const title = document.getElementById('template-workspace-title');
   const meta = document.getElementById('template-workspace-meta');
   if (title) title.textContent = draft.name || 'New Template';
-  if (meta) meta.textContent = draft.subject || 'Preview uses sample merge values for name, email, company, unsubscribe link, and address.';
+  if (meta) meta.textContent = draft.subject || 'Preview uses sample merge values for first name, last name, full name, email, company, unsubscribe link, and address.';
 }
 
 async function loadTemplateIntoWorkspace(id, force = false) {
@@ -237,7 +260,7 @@ async function renderSection(s) {
   c.innerHTML = '<div class="empty"><div class="empty-icon">...</div><p>Loading...</p></div>';
   if (s === 'overview') { await loadStats(); await loadLogs(); renderOverview(); }
   else if (s === 'templates') { await loadTemplates(); renderTemplates(); }
-  else if (s === 'contacts') { await loadContacts(); renderContacts(); }
+  else if (s === 'contacts') { await loadContacts(state.ui.contactsQuery); renderContacts(); }
   else if (s === 'lists') { await loadLists(); renderLists(); }
   else if (s === 'campaigns') { await Promise.all([loadCampaigns(), loadTemplates(), loadLists()]); renderCampaigns(); }
   else if (s === 'logs') { await loadLogs(); renderLogs(); }
@@ -249,11 +272,96 @@ async function renderSection(s) {
 // ── Loaders ───────────────────────────────────────────────────
 async function loadStats() { state.stats = await api('GET','/api/stats') || {}; }
 async function loadTemplates() { state.templates = await api('GET','/api/templates') || []; }
-async function loadContacts(q='') { state.contacts = await api('GET','/api/contacts'+(q?'?q='+encodeURIComponent(q):'')) || []; }
+async function loadContacts(q = state.ui.contactsQuery || '') {
+  state.ui.contactsQuery = q;
+  const data = await api('GET','/api/contacts'+(q?'?q='+encodeURIComponent(q):'')) || [];
+  state.contacts = Array.isArray(data) ? data.map(normalizeContactRecord) : [];
+  const maxPage = Math.max(1, Math.ceil(state.contacts.length / state.ui.contactsPageSize));
+  state.ui.contactsPage = Math.min(state.ui.contactsPage, maxPage);
+}
 async function loadLists() { state.lists = await api('GET','/api/lists') || []; }
 async function loadCampaigns() { state.campaigns = await api('GET','/api/campaigns') || []; }
 async function loadLogs() { state.logs = await api('GET','/api/logs?limit=200') || []; }
 async function loadUnsubs() { state.unsubs = await api('GET','/api/unsubscribes') || []; }
+
+function getStoredContactColumns() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CONTACT_COLUMNS_KEY) || '[]');
+    const allowed = raw.filter(key => CONTACT_TABLE_COLUMNS.some(col => col.key === key));
+    return allowed.length ? allowed : DEFAULT_CONTACT_COLUMNS.slice();
+  } catch {
+    return DEFAULT_CONTACT_COLUMNS.slice();
+  }
+}
+
+function getStoredContactPageSize() {
+  const value = parseInt(localStorage.getItem(CONTACT_PAGE_SIZE_KEY) || `${CONTACT_PAGE_SIZE_DEFAULT}`, 10);
+  return [10, 25, 50, 100].includes(value) ? value : CONTACT_PAGE_SIZE_DEFAULT;
+}
+
+function splitFullName(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { first_name: '', last_name: '' };
+  return { first_name: parts[0], last_name: parts.slice(1).join(' ') };
+}
+
+function composeContactName(firstName, lastName, fallbackName = '') {
+  const fullName = [String(firstName || '').trim(), String(lastName || '').trim()].filter(Boolean).join(' ').trim();
+  return fullName || String(fallbackName || '').trim();
+}
+
+function normalizeContactRecord(contact) {
+  const base = contact || {};
+  const split = splitFullName(base.name);
+  const firstName = String(base.first_name || '').trim() || split.first_name;
+  const lastName = String(base.last_name || '').trim() || split.last_name;
+  let tags = [];
+  if (Array.isArray(base.tags)) tags = base.tags;
+  else {
+    try { tags = JSON.parse(base.tags || '[]'); } catch { tags = []; }
+  }
+  return {
+    ...base,
+    first_name: firstName,
+    last_name: lastName,
+    tags,
+    image_url: String(base.image_url || '').trim(),
+    name: composeContactName(firstName, lastName, base.name)
+  };
+}
+
+function getContactDisplayName(contact) {
+  return composeContactName(contact?.first_name, contact?.last_name, contact?.name) || contact?.email || 'Unnamed contact';
+}
+
+function getContactInitials(contact) {
+  const parts = [contact?.first_name, contact?.last_name].map(part => String(part || '').trim()).filter(Boolean);
+  if (parts.length) return parts.slice(0, 2).map(part => part[0].toUpperCase()).join('');
+  const fallback = String(contact?.name || contact?.email || '?').trim();
+  return fallback.slice(0, 2).toUpperCase();
+}
+
+function renderContactAvatar(contact, large = false) {
+  const className = `contact-avatar${large ? ' contact-avatar-lg' : ''}`;
+  if (contact?.image_url) {
+    return `<img src="${esc(contact.image_url)}" alt="${esc(getContactDisplayName(contact))}" class="${className}">`;
+  }
+  return `<div class="${className} contact-avatar-fallback">${esc(getContactInitials(contact))}</div>`;
+}
+
+function getVisibleContactColumns() {
+  const columns = state.ui.contactColumns.filter(key => CONTACT_TABLE_COLUMNS.some(col => col.key === key));
+  return columns.length ? columns : ['contact'];
+}
+
+function fmtDateShort(s) {
+  if (!s) return '-';
+  try {
+    return new Date(s).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return s;
+  }
+}
 
 // ── Overview ──────────────────────────────────────────────────
 function renderOverview() {
@@ -322,7 +430,7 @@ function renderTemplatesDesktop() {
       <div class="template-detail-head">
         <div>
           <div class="template-detail-title" id="template-workspace-title">${draft.name || (selectedId === 'new' ? 'New Template' : 'Loading template...')}</div>
-          <div class="template-detail-meta" id="template-workspace-meta">${draft.subject || 'Preview uses sample merge values for name, email, company, unsubscribe link, and address.'}</div>
+          <div class="template-detail-meta" id="template-workspace-meta">${draft.subject || 'Preview uses sample merge values for first name, last name, full name, email, company, unsubscribe link, and address.'}</div>
         </div>
         <div class="template-detail-actions">
           ${draft.id ? '<button class="btn btn-ghost btn-sm" onclick="loadTemplateIntoWorkspace(\''+draft.id+'\', true)">Reset</button>' : ''}
@@ -334,7 +442,7 @@ function renderTemplatesDesktop() {
         <div class="template-editor-pane">
           <div class="form-group"><label>Template Name</label><input id="tw-name" value="${esc(draft.name)}" placeholder="e.g. AI Outreach - Intro" oninput="updateTemplateWorkspaceField('name', this.value)" ${isLoading?'disabled':''}></div>
           <div class="form-group"><label>Email Subject</label><input id="tw-subj" value="${esc(draft.subject)}" placeholder="Subject line..." oninput="updateTemplateWorkspaceField('subject', this.value)" ${isLoading?'disabled':''}></div>
-          <div class="form-group template-editor-grow"><label>HTML Body <span class="text-muted text-sm">(use {{name}}, {{email}}, {{company}}, {{unsubscribe_url}}, {{physical_address}})</span></label><textarea id="tw-body" oninput="updateTemplateWorkspaceField('html_body', this.value)" ${isLoading?'disabled':''}>${esc(draft.html_body)}</textarea></div>
+          <div class="form-group template-editor-grow"><label>HTML Body <span class="text-muted text-sm">(use {{first_name}}, {{last_name}}, {{name}}, {{email}}, {{company}}, {{unsubscribe_url}}, {{physical_address}})</span></label><textarea id="tw-body" oninput="updateTemplateWorkspaceField('html_body', this.value)" ${isLoading?'disabled':''}>${esc(draft.html_body)}</textarea></div>
           <div class="alert alert-error" id="t-work-err"></div>
         </div>
         <div class="template-splitter" onmousedown="startTemplateResize(event)" title="Resize preview pane"></div>
@@ -380,7 +488,7 @@ function openTemplateModal(tmpl) {
   <div class="modal-body">
     <div class="form-group"><label>Template Name</label><input id="t-name" value="${esc(t.name)}" placeholder="e.g. AI Outreach - Intro"></div>
     <div class="form-group"><label>Email Subject</label><input id="t-subj" value="${esc(t.subject)}" placeholder="Subject line..."></div>
-    <div class="form-group"><label>HTML Body <span class="text-muted text-sm">(use {{name}}, {{email}}, {{company}})</span></label><textarea id="t-body" style="min-height:240px">${esc(t.html_body)}</textarea></div>
+    <div class="form-group"><label>HTML Body <span class="text-muted text-sm">(use {{first_name}}, {{last_name}}, {{name}}, {{email}}, {{company}})</span></label><textarea id="t-body" style="min-height:240px">${esc(t.html_body)}</textarea></div>
     <div class="alert alert-error" id="t-err"></div>
     <div class="flex gap" style="justify-content:flex-end;margin-top:8px">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -433,38 +541,154 @@ async function deleteTemplate(id) {
 }
 
 // ── Contacts ──────────────────────────────────────────────────
-function renderContacts(q='') {
+function renderContacts(q = state.ui.contactsQuery || '') {
   const ct = state.contacts;
+  const columns = getVisibleContactColumns();
+  const total = ct.length;
+  const pageSize = state.ui.contactsPageSize;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(state.ui.contactsPage, totalPages);
+  state.ui.contactsPage = page;
+  const start = total ? ((page - 1) * pageSize) + 1 : 0;
+  const end = Math.min(total, page * pageSize);
+  const rows = ct.slice(start ? start - 1 : 0, end);
+  const columnMenu = CONTACT_TABLE_COLUMNS.map(col => `
+    <label class="contact-column-option">
+      <input type="checkbox" ${columns.includes(col.key) ? 'checked' : ''} onchange="toggleContactColumn('${col.key}', this.checked)">
+      <span>${col.label}</span>
+    </label>`).join('');
+  const headers = columns.map(key => `<th>${CONTACT_TABLE_COLUMNS.find(col => col.key === key)?.label || key}</th>`).join('');
+  const body = rows.length ? rows.map(c => `<tr>
+      ${columns.map(key => renderContactTableCell(c, key)).join('')}
+      <td data-label="Actions">
+        <div class="table-actions contact-actions">
+          <button class="icon-btn" title="Edit contact" aria-label="Edit contact" onclick="editContact('${c.id}')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4.75L19 9.75 14.25 5 4 15.25V20zm12.06-13.94 1.88-1.88a1.5 1.5 0 0 1 2.12 0l1.76 1.76a1.5 1.5 0 0 1 0 2.12l-1.88 1.88-3.88-3.88z"/></svg>
+          </button>
+          <button class="icon-btn icon-btn-danger" title="Delete contact" aria-label="Delete contact" onclick="deleteContact('${c.id}')">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 7h2v8h-2v-8zm4 0h2v8h-2v-8zM7 10h2v8H7v-8zm-1 10h12l1-13H5l1 13z"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="${columns.length + 1}" style="text-align:center;color:var(--muted2);padding:28px">No contacts yet.</td></tr>`;
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
-    <input class="search-box" placeholder="Search email, name, company..." value="${esc(q)}" oninput="searchContacts(this.value)" style="max-width:320px">
-    <div class="toolbar-meta" style="flex:1"><span class="text-muted text-sm">${ct.length} contact${ct.length!==1?'s':''}</span></div>
+    <input class="search-box" placeholder="Search email, name, company, phone..." value="${esc(q)}" oninput="searchContacts(this.value)" style="max-width:340px">
+    <div class="toolbar-meta" style="flex:1">
+      <span class="text-muted text-sm">${total} contact${total!==1?'s':''}</span>
+      <span class="text-muted text-sm">${start ? `Showing ${start}-${end}` : 'Showing 0'}</span>
+      <label class="text-muted text-sm">Rows
+        <select class="contact-page-size" onchange="setContactsPageSize(this.value)">
+          ${[10,25,50,100].map(size => `<option value="${size}" ${pageSize===size?'selected':''}>${size}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+    <button class="btn btn-ghost" onclick="toggleContactColumnsMenu()">Columns</button>
     <button class="btn btn-ghost" onclick="openImportModal()">Import CSV</button>
     <button class="btn btn-primary" onclick="openContactModal()">+ Add Contact</button>
   </div>
-  <div class="table-wrap stack-on-mobile">
-    <table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Added</th><th style="width:110px">Actions</th></tr></thead><tbody>
-    ${ct.length ? ct.map(c=>`<tr>
-      <td class="mono" data-label="Email" style="font-size:12px">${esc(c.email)}</td>
-      <td data-label="Name">${esc(c.name)||'-'}</td>
-      <td class="text-muted" data-label="Company">${esc(c.company)||'-'}</td>
-      <td class="text-muted text-sm" data-label="Added">${fmtDate(c.created_at)}</td>
-      <td data-label="Actions"><div class="table-actions"><button class="btn btn-ghost btn-sm" onclick="editContact('${c.id}','${esc(c.name)}','${esc(c.company)}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteContact('${c.id}')">Delete</button></div></td>
-    </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:32px">No contacts yet.</td></tr>'}
+  ${state.ui.contactColumnsOpen ? `<div class="contact-column-panel">${columnMenu}</div>` : ''}
+  <div class="table-wrap stack-on-mobile contacts-table-wrap">
+    <table class="contacts-table"><thead><tr>${headers}<th style="width:96px">Actions</th></tr></thead><tbody>
+    ${body}
     </tbody></table>
+  </div>
+  <div class="pagination-bar">
+    <div class="pagination-meta">Page ${page} of ${totalPages}</div>
+    <div class="pagination-actions">
+      <button class="btn btn-ghost btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="setContactsPage(${page - 1})">Previous</button>
+      <button class="btn btn-ghost btn-sm" ${page >= totalPages ? 'disabled' : ''} onclick="setContactsPage(${page + 1})">Next</button>
+    </div>
   </div>`;
 }
 
-async function searchContacts(q) { await loadContacts(q); renderContacts(q); }
+function renderContactTableCell(contact, key) {
+  if (key === 'contact') {
+    const name = getContactDisplayName(contact);
+    return `<td data-label="Contact">
+      <div class="contact-cell">
+        ${renderContactAvatar(contact)}
+        <div class="contact-copy">
+          <div class="contact-primary">${esc(name)}</div>
+          <div class="contact-secondary">${esc(contact.phone || contact.email || '-')}</div>
+        </div>
+      </div>
+    </td>`;
+  }
+  if (key === 'email') return `<td data-label="Email" class="mono contact-email">${esc(contact.email || '-')}</td>`;
+  if (key === 'company') return `<td data-label="Company" class="text-muted">${esc(contact.company || '-')}</td>`;
+  if (key === 'phone') return `<td data-label="Phone">${esc(contact.phone || '-')}</td>`;
+  if (key === 'stage') return `<td data-label="Stage"><span class="badge badge-${esc(contact.stage || 'draft')}">${esc(STAGE_LABELS?.[contact.stage] || contact.stage || 'Lead')}</span></td>`;
+  if (key === 'added') return `<td data-label="Added" class="text-muted text-sm">${fmtDateShort(contact.created_at)}</td>`;
+  return `<td data-label="${esc(key)}">-</td>`;
+}
 
-function openContactModal(c) {
-  const ct = c || { id:'', email:'', name:'', company:'' };
+async function searchContacts(q) {
+  state.ui.contactsPage = 1;
+  await loadContacts(q);
+  renderContacts(q);
+}
+
+function toggleContactColumnsMenu() {
+  state.ui.contactColumnsOpen = !state.ui.contactColumnsOpen;
+  renderContacts(state.ui.contactsQuery);
+}
+
+function toggleContactColumn(key, checked) {
+  const next = checked
+    ? Array.from(new Set([...state.ui.contactColumns, key]))
+    : state.ui.contactColumns.filter(item => item !== key);
+  state.ui.contactColumns = next.length ? next : ['contact'];
+  localStorage.setItem(CONTACT_COLUMNS_KEY, JSON.stringify(state.ui.contactColumns));
+  renderContacts(state.ui.contactsQuery);
+}
+
+function setContactsPage(page) {
+  const totalPages = Math.max(1, Math.ceil(state.contacts.length / state.ui.contactsPageSize));
+  state.ui.contactsPage = Math.max(1, Math.min(totalPages, Number(page) || 1));
+  renderContacts(state.ui.contactsQuery);
+}
+
+function setContactsPageSize(value) {
+  const next = [10, 25, 50, 100].includes(Number(value)) ? Number(value) : CONTACT_PAGE_SIZE_DEFAULT;
+  state.ui.contactsPageSize = next;
+  state.ui.contactsPage = 1;
+  localStorage.setItem(CONTACT_PAGE_SIZE_KEY, String(next));
+  renderContacts(state.ui.contactsQuery);
+}
+
+function openContactModal(c, options = {}) {
+  const ct = normalizeContactRecord(c || { id:'', email:'', name:'', first_name:'', last_name:'', company:'', phone:'', linkedin:'', image_url:'' });
+  state.ui.contactModalBase = ct;
+  state.ui.contactModalReturnId = options.returnToDrawer || '';
   setModal(`<div class="modal-head"><h3>${ct.id?'Edit Contact':'Add Contact'}</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
-    <div class="form-group"><label>Email *</label><input id="c-email" type="email" value="${esc(ct.email)}" placeholder="contact@example.com" ${ct.id?'readonly':''}></div>
+    <div class="contact-upload-row">
+      <div id="contact-image-preview">${renderContactAvatar(ct, true)}</div>
+      <div style="flex:1">
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Contact Image</label>
+          <input id="c-image-url" type="hidden" value="${esc(ct.image_url || '')}">
+          <input type="file" id="c-image-file" accept="image/*" style="display:none" onchange="readContactImage(this)">
+          <div class="flex gap">
+            <button class="btn btn-ghost btn-sm" onclick="triggerContactImageUpload()">Upload Image</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearContactImage()">Remove</button>
+          </div>
+        </div>
+        <div class="text-muted text-sm">Image is optional. A small headshot or agency photo works best.</div>
+      </div>
+    </div>
     <div class="form-row">
-      <div class="form-group"><label>Name</label><input id="c-name" value="${esc(ct.name)}" placeholder="Full name"></div>
+      <div class="form-group"><label>Email *</label><input id="c-email" type="email" value="${esc(ct.email)}" placeholder="contact@example.com" ${ct.id?'readonly':''} oninput="refreshContactImagePreview()"></div>
+      <div class="form-group"><label>Phone</label><input id="c-phone" value="${esc(ct.phone || '')}" placeholder="0400 000 000"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>First Name</label><input id="c-first-name" value="${esc(ct.first_name || '')}" placeholder="First name" oninput="refreshContactImagePreview()"></div>
+      <div class="form-group"><label>Last Name</label><input id="c-last-name" value="${esc(ct.last_name || '')}" placeholder="Last name" oninput="refreshContactImagePreview()"></div>
+    </div>
+    <div class="form-row">
       <div class="form-group"><label>Company</label><input id="c-company" value="${esc(ct.company)}" placeholder="Company name"></div>
+      <div class="form-group"><label>LinkedIn URL</label><input id="c-linkedin" value="${esc(ct.linkedin || '')}" placeholder="https://www.linkedin.com/in/..."></div>
     </div>
     <div class="alert alert-error" id="c-err"></div>
     <div class="flex gap" style="justify-content:flex-end">
@@ -475,31 +699,65 @@ function openContactModal(c) {
   </div>`);
 }
 
-function editContact(id, name, company) { openContactModal({ id, name, company, email: '' }); }
+function editContact(id) {
+  const contact = state.contacts.find(item => item.id === id);
+  if (!contact) return;
+  openContactModal(contact);
+}
 
 async function saveContact(id) {
   const email = document.getElementById('c-email')?.value.trim();
-  const name = document.getElementById('c-name').value.trim();
+  const first_name = document.getElementById('c-first-name').value.trim();
+  const last_name = document.getElementById('c-last-name').value.trim();
+  const name = composeContactName(first_name, last_name);
   const company = document.getElementById('c-company').value.trim();
+  const phone = document.getElementById('c-phone').value.trim();
+  const linkedin = document.getElementById('c-linkedin').value.trim();
+  const image_url = document.getElementById('c-image-url').value.trim();
+  const base = state.ui.contactModalBase || {};
   let r;
-  if (id) r = await api('PUT',`/api/contacts/${id}`,{name,company});
-  else { if (!email) { showAlert('c-err','Email required'); return; } r = await api('POST','/api/contacts',{email,name,company}); }
+  if (id) {
+    r = await api('PUT',`/api/contacts/${id}`,{
+      name,
+      first_name,
+      last_name,
+      company,
+      stage: base.stage || 'lead',
+      deal_value: base.deal_value || 0,
+      tags: base.tags || [],
+      phone,
+      linkedin,
+      follow_up_at: base.follow_up_at || null,
+      image_url
+    });
+  } else {
+    if (!email) { showAlert('c-err','Email required'); return; }
+    r = await api('POST','/api/contacts',{ email, name, first_name, last_name, company, phone, linkedin, image_url });
+  }
   if (r.error) { showAlert('c-err', r.error); return; }
-  closeModal(); await loadContacts(); renderContacts();
+  const returnId = state.ui.contactModalReturnId;
+  closeModal();
+  state.ui.contactModalBase = null;
+  state.ui.contactModalReturnId = '';
+  await loadContacts(state.ui.contactsQuery);
+  if (currentSection === 'contacts') renderContacts(state.ui.contactsQuery);
+  if (currentSection === 'pipeline') { await Promise.all([loadPipeline(), loadCrmStats()]); renderPipeline(); }
+  if (currentSection === 'followups') { await loadFollowUps(); renderFollowUps(); }
+  if (returnId) openDrawer(returnId);
 }
 
 async function deleteContact(id) {
   if (!confirm('Delete this contact?')) return;
   await api('DELETE',`/api/contacts/${id}`);
-  await loadContacts(); renderContacts();
+  await loadContacts(state.ui.contactsQuery); renderContacts(state.ui.contactsQuery);
 }
 
 function openImportModal() {
   setModal(`<div class="modal-head"><h3>Import Contacts (CSV)</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
-    <p class="text-muted text-sm" style="margin-bottom:12px">CSV must have an <strong>email</strong> column. Optional columns: <strong>name</strong>, <strong>company</strong>.</p>
+    <p class="text-muted text-sm" style="margin-bottom:12px">CSV must have an <strong>email</strong> column. Optional columns: <strong>first_name</strong>, <strong>last_name</strong>, <strong>name</strong>, <strong>company</strong>, <strong>phone</strong>, <strong>stage</strong>, <strong>deal_value</strong>, <strong>image_url</strong>.</p>
     <div class="form-group"><label>Paste CSV or upload file</label>
-      <textarea id="csv-data" placeholder="email,name,company&#10;john@example.com,John Smith,Acme Corp" style="min-height:180px"></textarea>
+      <textarea id="csv-data" placeholder="email,first_name,last_name,company,phone&#10;john@example.com,John,Smith,Acme Corp,0400 000 000" style="min-height:180px"></textarea>
     </div>
     <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="readCsv(this)">
     <div class="flex gap" style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('csv-file').click()">Upload CSV file</button></div>
@@ -525,7 +783,56 @@ async function doImport() {
   const r = await api('POST','/api/contacts/import',{csv});
   if (r.error) { showAlert('imp-err',r.error); return; }
   showAlert('imp-ok',`Imported ${r.imported} contacts, skipped ${r.skipped}`,'alert-success');
-  await loadContacts();
+  state.ui.contactsPage = 1;
+  await loadContacts(state.ui.contactsQuery);
+  if (currentSection === 'contacts') renderContacts(state.ui.contactsQuery);
+}
+
+function triggerContactImageUpload() {
+  document.getElementById('c-image-file')?.click();
+}
+
+function clearContactImage() {
+  const imageInput = document.getElementById('c-image-url');
+  if (imageInput) imageInput.value = '';
+  refreshContactImagePreview();
+}
+
+function refreshContactImagePreview() {
+  const preview = document.getElementById('contact-image-preview');
+  if (!preview) return;
+  const contact = {
+    first_name: document.getElementById('c-first-name')?.value || '',
+    last_name: document.getElementById('c-last-name')?.value || '',
+    email: document.getElementById('c-email')?.value || '',
+    image_url: document.getElementById('c-image-url')?.value || ''
+  };
+  preview.innerHTML = renderContactAvatar(contact, true);
+}
+
+function readContactImage(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = event => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSize = 320;
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const value = canvas.toDataURL('image/jpeg', 0.82);
+      const imageInput = document.getElementById('c-image-url');
+      if (imageInput) imageInput.value = value;
+      refreshContactImagePreview();
+    };
+    img.src = event.target?.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // ── Lists ─────────────────────────────────────────────────────
@@ -1057,33 +1364,10 @@ async function deleteNoteFromDrawer(contactId, noteId) {
   if (el) el.remove();
 }
 
-function openContactEditModal(id) {
-  const c = Object.values(state.pipeline||{}).flat().find(x=>x.id===id) || {};
-  setModal(`<div class="modal-head"><h3>Edit Contact</h3><button class="modal-close" onclick="closeModal()">x</button></div>
-  <div class="modal-body">
-    <div class="form-row">
-      <div class="form-group"><label>Name</label><input id="ce-name" value="${esc(c.name||'')}"></div>
-      <div class="form-group"><label>Company</label><input id="ce-company" value="${esc(c.company||'')}"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label>Phone</label><input id="ce-phone" value="${esc(c.phone||'')}"></div>
-      <div class="form-group"><label>LinkedIn URL</label><input id="ce-linkedin" value="${esc(c.linkedin||'')}"></div>
-    </div>
-    <div class="flex gap" style="justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveContactEdit('${id}')">Save</button>
-    </div>
-  </div>`);
-}
-
-async function saveContactEdit(id) {
-  const name = document.getElementById('ce-name').value.trim();
-  const company = document.getElementById('ce-company').value.trim();
-  const phone = document.getElementById('ce-phone').value.trim();
-  const linkedin = document.getElementById('ce-linkedin').value.trim();
-  await api('PATCH',`/api/crm/contact/${id}`,{name,company,phone,linkedin});
-  closeModal();
-  openDrawer(id);
+async function openContactEditModal(id) {
+  const detail = await api('GET',`/api/crm/contact/${id}`);
+  if (detail?.error) return;
+  openContactModal(normalizeContactRecord(detail.contact), { returnToDrawer: id });
 }
 
 function editTags(id, tags) {

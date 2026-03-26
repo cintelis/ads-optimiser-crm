@@ -98,6 +98,14 @@ ALTER TABLE contacts ADD COLUMN linkedin TEXT DEFAULT '';
 ALTER TABLE contacts ADD COLUMN phone TEXT DEFAULT '';
 ALTER TABLE contacts ADD COLUMN notes_count INTEGER DEFAULT 0;
 
+CREATE TABLE IF NOT EXISTS contact_profiles (
+  contact_id TEXT PRIMARY KEY,
+  first_name TEXT DEFAULT '',
+  last_name TEXT DEFAULT '',
+  image_url TEXT DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS contact_notes (
   id TEXT PRIMARY KEY,
   contact_id TEXT NOT NULL,
@@ -109,3 +117,4 @@ CREATE TABLE IF NOT EXISTS contact_notes (
 CREATE INDEX IF NOT EXISTS idx_notes_contact ON contact_notes(contact_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_contacts_stage ON contacts(stage);
 CREATE INDEX IF NOT EXISTS idx_contacts_followup ON contacts(follow_up_at);
+CREATE INDEX IF NOT EXISTS idx_contact_profiles_name ON contact_profiles(last_name, first_name);
