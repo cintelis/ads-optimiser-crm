@@ -28,6 +28,11 @@ const CONTACT_TABLE_COLUMNS = [
   { key: 'added', label: 'Added' }
 ];
 const DEFAULT_CONTACT_COLUMNS = ['contact', 'email', 'company', 'phone', 'stage', 'added'];
+const CONTACT_IMPORT_SAMPLE_CSV = [
+  'email,first_name,last_name,company,phone,stage,deal_value,image_url',
+  'john.smith@example.com,John,Smith,Acme Realty,0400 000 000,lead,0,',
+  'sarah.lee@example.com,Sarah,Lee,Harbour Property,0411 222 333,qualified,850000,https://example.com/sarah.jpg'
+].join('\n');
 const TEMPLATE_PREVIEW_DEFAULTS = {
   name: 'Alex Morgan',
   first_name: 'Alex',
@@ -753,9 +758,27 @@ async function deleteContact(id) {
 }
 
 function openImportModal() {
+  const stageList = STAGE_ORDER.map(stage => `<code>${stage}</code>`).join(', ');
   setModal(`<div class="modal-head"><h3>Import Contacts (CSV)</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
-    <p class="text-muted text-sm" style="margin-bottom:12px">CSV must have an <strong>email</strong> column. Optional columns: <strong>first_name</strong>, <strong>last_name</strong>, <strong>name</strong>, <strong>company</strong>, <strong>phone</strong>, <strong>stage</strong>, <strong>deal_value</strong>, <strong>image_url</strong>.</p>
+    <div style="margin-bottom:14px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface2)">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted2);margin-bottom:8px">How CSV Import Works</div>
+      <div class="text-muted text-sm" style="line-height:1.7">
+        <div><strong>Required:</strong> <code>email</code></div>
+        <div><strong>Optional:</strong> <code>first_name</code>, <code>last_name</code>, <code>name</code>, <code>company</code>, <code>phone</code>, <code>stage</code>, <code>deal_value</code>, <code>image_url</code></div>
+        <div>If you provide <code>first_name</code> and <code>last_name</code>, the full <code>name</code> is built automatically during import.</div>
+        <div>If you already have a single <code>name</code> column, that still works.</div>
+        <div>Valid stage values: ${stageList}</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Example CSV Template</label>
+      <textarea readonly style="min-height:110px;font-family:var(--font-mono);font-size:12px;opacity:.9">${esc(CONTACT_IMPORT_SAMPLE_CSV)}</textarea>
+    </div>
+    <div class="flex gap" style="margin:-4px 0 14px">
+      <button class="btn btn-ghost btn-sm" onclick="loadContactImportExample()">Load Example Into Import Box</button>
+      <button class="btn btn-ghost btn-sm" onclick="downloadContactImportTemplate()">Download Example CSV</button>
+    </div>
     <div class="form-group"><label>Paste CSV or upload file</label>
       <textarea id="csv-data" placeholder="email,first_name,last_name,company,phone&#10;john@example.com,John,Smith,Acme Corp,0400 000 000" style="min-height:180px"></textarea>
     </div>
@@ -775,6 +798,23 @@ function readCsv(input) {
   const r = new FileReader();
   r.onload = e => { document.getElementById('csv-data').value = e.target.result; };
   r.readAsText(f);
+}
+
+function loadContactImportExample() {
+  const input = document.getElementById('csv-data');
+  if (input) input.value = CONTACT_IMPORT_SAMPLE_CSV;
+}
+
+function downloadContactImportTemplate() {
+  const blob = new Blob([CONTACT_IMPORT_SAMPLE_CSV], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'contacts-import-template.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function doImport() {
