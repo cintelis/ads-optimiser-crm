@@ -33,6 +33,7 @@ const CONTACT_IMPORT_SAMPLE_CSV = [
   'john.smith@example.com,John,Smith,Acme Realty,0400 000 000,lead,0,',
   'sarah.lee@example.com,Sarah,Lee,Harbour Property,0411 222 333,qualified,850000,https://example.com/sarah.jpg'
 ].join('\n');
+const SEEDED_REAL_ESTATE_TEMPLATE_PREFIX = 'seed_ao_re_';
 const TEMPLATE_PREVIEW_DEFAULTS = {
   name: 'Alex Morgan',
   first_name: 'Alex',
@@ -164,6 +165,38 @@ async function seedRealEstateTemplate() {
   if (localStorage.getItem(REAL_ESTATE_TEMPLATE_SEED_KEY) === '1') return;
   const seeded = await api('POST', '/api/templates/seed/real-estate');
   if (!seeded?.error) localStorage.setItem(REAL_ESTATE_TEMPLATE_SEED_KEY, '1');
+}
+
+function isSeededRealEstateTemplateId(id) {
+  return String(id || '').startsWith(SEEDED_REAL_ESTATE_TEMPLATE_PREFIX);
+}
+
+function showTemplateMessage(message, kind = 'success') {
+  const alertId = isDesktopTemplateWorkspace() ? 't-work-err' : 't-err';
+  const alertClass = kind === 'success' ? 'alert-success' : 'alert-error';
+  const el = document.getElementById(alertId);
+  if (el) {
+    showAlert(alertId, message, alertClass);
+    return;
+  }
+  window.alert(message);
+}
+
+async function refreshSeededTemplates(selectedTemplateId = state.ui.selectedTemplateId) {
+  const seeded = await api('POST', '/api/templates/seed/real-estate');
+  if (seeded?.error) {
+    showTemplateMessage(seeded.error || 'Unable to refresh seeded templates.');
+    return;
+  }
+  localStorage.setItem(REAL_ESTATE_TEMPLATE_SEED_KEY, '1');
+  await loadTemplates();
+  if (selectedTemplateId && selectedTemplateId !== 'new') {
+    await loadTemplateIntoWorkspace(selectedTemplateId, true);
+  } else if (isDesktopTemplateWorkspace()) {
+    renderTemplates();
+  }
+  if (!isDesktopTemplateWorkspace()) renderTemplates();
+  showTemplateMessage(`Seeded templates refreshed${seeded.created_count ? ` (${seeded.created_count} created)` : ''}.`, 'success');
 }
 
 function isDesktopTemplateWorkspace() {
@@ -419,7 +452,10 @@ function renderTemplatesDesktop() {
           <div class="template-list-title">Templates</div>
           <div class="text-muted text-sm">${t.length} template${t.length!==1?'s':''}</div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="createNewTemplateWorkspace()">+ New</button>
+        <div class="template-detail-actions">
+          <button class="btn btn-ghost btn-sm" onclick="refreshSeededTemplates()">Refresh Seeded</button>
+          <button class="btn btn-primary btn-sm" onclick="createNewTemplateWorkspace()">+ New</button>
+        </div>
       </div>
       <div class="template-list-body">
         ${t.length ? t.map(r => `
@@ -438,7 +474,7 @@ function renderTemplatesDesktop() {
           <div class="template-detail-meta" id="template-workspace-meta">${draft.subject || 'Preview uses sample merge values for first name, last name, full name, email, company, unsubscribe link, and address.'}</div>
         </div>
         <div class="template-detail-actions">
-          ${draft.id ? '<button class="btn btn-ghost btn-sm" onclick="loadTemplateIntoWorkspace(\''+draft.id+'\', true)">Reset</button>' : ''}
+          ${draft.id ? `<button class="btn btn-ghost btn-sm" onclick="${isSeededRealEstateTemplateId(draft.id) ? `refreshSeededTemplates('${draft.id}')` : `loadTemplateIntoWorkspace('${draft.id}', true)`}">Reset</button>` : ''}
           ${draft.id ? '<button class="btn btn-danger btn-sm" onclick="deleteTemplate(\''+draft.id+'\')">Delete</button>' : ''}
           <button class="btn btn-primary" onclick="saveTemplate('${draft.id || ''}')">Save Template</button>
         </div>
@@ -473,6 +509,7 @@ function renderTemplatesMobile() {
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
     <div class="toolbar-meta" style="flex:1"><span class="text-muted text-sm">${t.length} template${t.length!==1?'s':''}</span></div>
+    <button class="btn btn-ghost" onclick="refreshSeededTemplates()">Refresh Seeded</button>
     <button class="btn btn-primary" onclick="openTemplateModal()">+ New Template</button>
   </div>
   <div class="table-wrap stack-on-mobile">
