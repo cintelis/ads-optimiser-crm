@@ -22,16 +22,17 @@ const CONTACT_PAGE_SIZE_DEFAULT = 25;
 const CONTACT_TABLE_COLUMNS = [
   { key: 'contact', label: 'Contact' },
   { key: 'email', label: 'Email' },
+  { key: 'title', label: 'Title' },
   { key: 'company', label: 'Company' },
   { key: 'phone', label: 'Phone' },
   { key: 'stage', label: 'Stage' },
   { key: 'added', label: 'Added' }
 ];
-const DEFAULT_CONTACT_COLUMNS = ['contact', 'email', 'company', 'phone', 'stage', 'added'];
+const DEFAULT_CONTACT_COLUMNS = ['contact', 'email', 'title', 'company', 'phone', 'stage', 'added'];
 const CONTACT_IMPORT_SAMPLE_CSV = [
-  'email,first_name,last_name,company,phone,stage,deal_value,image_url',
-  'john.smith@example.com,John,Smith,Acme Realty,0400 000 000,lead,0,',
-  'sarah.lee@example.com,Sarah,Lee,Harbour Property,0411 222 333,qualified,850000,https://example.com/sarah.jpg'
+  'email,first_name,last_name,title,company,phone,stage,deal_value,image_url',
+  'john.smith@example.com,John,Smith,Sales Agent,Acme Realty,0400 000 000,lead,0,',
+  'sarah.lee@example.com,Sarah,Lee,Property Manager,Harbour Property,0411 222 333,qualified,850000,https://example.com/sarah.jpg'
 ].join('\n');
 const SEEDED_REAL_ESTATE_TEMPLATE_PREFIX = 'seed_ao_re_';
 const TEMPLATE_PREVIEW_DEFAULTS = {
@@ -56,6 +57,7 @@ let state = {
   ui: {
     pipelineStage: 'lead',
     contactsQuery: '',
+    contactsTitle: '',
     contactsPage: 1,
     contactsPageSize: getStoredContactPageSize(),
     contactColumns: getStoredContactColumns(),
@@ -71,6 +73,7 @@ let state = {
 };
 let currentSection = 'overview';
 let campaignEditingId = '';
+let campaignModalMode = 'create';
 let campaignScheduleDraft = {};
 let listEditingId = '';
 const ICONS = {
@@ -80,6 +83,7 @@ const ICONS = {
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a1 1 0 0 0-.95.68L7.8 4.5H5a1 1 0 1 0 0 2h.6l.9 11.1A2 2 0 0 0 8.5 19.5h7a2 2 0 0 0 2-1.9l.9-11.1H19a1 1 0 1 0 0-2h-2.8l-.25-.82A1 1 0 0 0 15 3H9zm.52 2h4.96l.15.5H9.37l.15-.5zm-.98 3.5a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1zm6 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1z"/></svg>',
   settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2l.4 2.1a7.3 7.3 0 0 1 1.8.7l1.8-1.1 1.4 1.4-1.1 1.8c.3.6.5 1.2.7 1.8L21 11v2l-2.1.4a7.3 7.3 0 0 1-.7 1.8l1.1 1.8-1.4 1.4-1.8-1.1a7.3 7.3 0 0 1-1.8.7L13 21h-2l-.4-2.1a7.3 7.3 0 0 1-1.8-.7l-1.8 1.1-1.4-1.4 1.1-1.8a7.3 7.3 0 0 1-.7-1.8L3 13v-2l2.1-.4c.1-.6.4-1.2.7-1.8L4.7 7l1.4-1.4 1.8 1.1c.6-.3 1.2-.5 1.8-.7L11 3zm1 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>',
   send: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 11.2 19.7 4.1c.9-.4 1.8.5 1.4 1.4l-7.1 16.3c-.4.9-1.7.8-1.9-.2l-1.1-5-5-1.1c-1-.2-1.1-1.5-.2-1.9zm3.6 1 4.2.9a1 1 0 0 1 .76.76l.9 4.2 5.1-11.7L7 12.2z"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a2 2 0 0 0-2 2v1H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V8.4a2 2 0 0 0-.59-1.41l-2.4-2.4A2 2 0 0 0 13.6 4H9zm0 2h4v2a2 2 0 0 0 2 2h2v5h-2V8a2 2 0 0 0-2-2H9V5zm6 1.4L16.6 8H15V6.4zM6 8h7v9H6V8z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5a1 1 0 0 1 1 1v12a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1zm8 0a1 1 0 0 1 1 1v12a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1z"/></svg>',
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 5.2a1 1 0 0 1 1.05.07l8 5.5a1.5 1.5 0 0 1 0 2.42l-8 5.5A1 1 0 0 1 8 17.9V6.1c0-.36.2-.7.52-.88.06-.01.12-.03.18-.02z"/></svg>',
   stepback: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 6.7a1 1 0 0 1 0 1.4L7.7 11H18a1 1 0 1 1 0 2H7.7l2.9 2.9a1 1 0 1 1-1.4 1.4l-4.6-4.6a1 1 0 0 1 0-1.4l4.6-4.6a1 1 0 0 1 1.4 0z"/></svg>',
@@ -322,7 +326,7 @@ async function renderSection(s) {
   if (s === 'overview') { await loadStats(); await loadLogs(); renderOverview(); }
   else if (s === 'templates') { await loadTemplates(); renderTemplates(); }
   else if (s === 'contacts') { await loadContacts(state.ui.contactsQuery); renderContacts(); }
-  else if (s === 'lists') { await Promise.all([loadLists(), loadContacts('')]); renderLists(); }
+  else if (s === 'lists') { await Promise.all([loadLists(), loadContacts('', '')]); renderLists(); }
   else if (s === 'campaigns') { await Promise.all([loadCampaigns(), loadTemplates(), loadLists()]); renderCampaigns(); }
   else if (s === 'logs') { await loadLogs(); renderLogs(); }
   else if (s === 'unsubs') { await loadUnsubs(); renderUnsubs(); }
@@ -333,9 +337,13 @@ async function renderSection(s) {
 // ── Loaders ───────────────────────────────────────────────────
 async function loadStats() { state.stats = await api('GET','/api/stats') || {}; }
 async function loadTemplates() { state.templates = await api('GET','/api/templates') || []; }
-async function loadContacts(q = state.ui.contactsQuery || '') {
+async function loadContacts(q = state.ui.contactsQuery || '', title = state.ui.contactsTitle || '') {
   state.ui.contactsQuery = q;
-  const data = await api('GET','/api/contacts'+(q?'?q='+encodeURIComponent(q):'')) || [];
+  state.ui.contactsTitle = title;
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (title) params.set('title', title);
+  const data = await api('GET','/api/contacts'+(params.size ? `?${params.toString()}` : '')) || [];
   state.contacts = Array.isArray(data) ? data.map(normalizeContactRecord) : [];
   const maxPage = Math.max(1, Math.ceil(state.contacts.length / state.ui.contactsPageSize));
   state.ui.contactsPage = Math.min(state.ui.contactsPage, maxPage);
@@ -385,6 +393,7 @@ function normalizeContactRecord(contact) {
     ...base,
     first_name: firstName,
     last_name: lastName,
+    title: String(base.title || '').trim(),
     tags,
     image_url: String(base.image_url || '').trim(),
     name: composeContactName(firstName, lastName, base.name)
@@ -608,6 +617,9 @@ async function deleteTemplate(id) {
 // ── Contacts ──────────────────────────────────────────────────
 function renderContacts(q = state.ui.contactsQuery || '') {
   const ct = state.contacts;
+  const selectedTitle = state.ui.contactsTitle || '';
+  const titleOptions = Array.from(new Set((state.contacts || []).map(contact => String(contact.title || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  if (selectedTitle && !titleOptions.includes(selectedTitle)) titleOptions.unshift(selectedTitle);
   const columns = getVisibleContactColumns();
   const total = ct.length;
   const pageSize = state.ui.contactsPageSize;
@@ -638,7 +650,7 @@ function renderContacts(q = state.ui.contactsQuery || '') {
     </tr>`).join('') : `<tr><td colspan="${columns.length + 1}" style="text-align:center;color:var(--muted2);padding:28px">No contacts yet.</td></tr>`;
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
-    <input class="search-box" placeholder="Search email, name, company, phone..." value="${esc(q)}" oninput="searchContacts(this.value)" style="max-width:340px">
+    <input class="search-box" placeholder="Search email, name, title, company, phone..." value="${esc(q)}" oninput="searchContacts(this.value)" style="max-width:340px">
     <div class="toolbar-meta" style="flex:1">
       <span class="text-muted text-sm">${total} contact${total!==1?'s':''}</span>
       <span class="text-muted text-sm">${start ? `Showing ${start}-${end}` : 'Showing 0'}</span>
@@ -648,13 +660,17 @@ function renderContacts(q = state.ui.contactsQuery || '') {
         </select>
       </label>
     </div>
+    <select class="contact-page-size" onchange="setContactsTitleFilter(this.value)" style="min-width:180px">
+      <option value="">All Functions</option>
+      ${titleOptions.map(title => `<option value="${esc(title)}"${selectedTitle===title?' selected':''}>${esc(title)}</option>`).join('')}
+    </select>
     <button class="btn btn-ghost" onclick="toggleContactColumnsMenu()">Columns</button>
     <button class="btn btn-ghost" onclick="openImportModal()">Import CSV</button>
     <button class="btn btn-primary" onclick="openContactModal()">+ Add Contact</button>
   </div>
   ${state.ui.contactColumnsOpen ? `<div class="contact-column-panel">${columnMenu}</div>` : ''}
   <div class="table-wrap stack-on-mobile contacts-table-wrap">
-    <table class="contacts-table"><thead><tr>${headers}<th style="width:96px">Actions</th></tr></thead><tbody>
+    <table class="contacts-table"><thead><tr>${headers}<th style="width:76px">Actions</th></tr></thead><tbody>
     ${body}
     </tbody></table>
   </div>
@@ -670,17 +686,19 @@ function renderContacts(q = state.ui.contactsQuery || '') {
 function renderContactTableCell(contact, key) {
   if (key === 'contact') {
     const name = getContactDisplayName(contact);
+    const secondary = [contact.title, contact.phone || contact.email || '-'].map(value => String(value || '').trim()).filter(Boolean).join(' | ');
     return `<td data-label="Contact">
       <div class="contact-cell">
         ${renderContactAvatar(contact)}
         <div class="contact-copy">
           <div class="contact-primary">${esc(name)}</div>
-          <div class="contact-secondary">${esc(contact.phone || contact.email || '-')}</div>
+          <div class="contact-secondary">${esc(secondary)}</div>
         </div>
       </div>
     </td>`;
   }
   if (key === 'email') return `<td data-label="Email" class="mono contact-email">${esc(contact.email || '-')}</td>`;
+  if (key === 'title') return `<td data-label="Title" class="text-muted">${esc(contact.title || '-')}</td>`;
   if (key === 'company') return `<td data-label="Company" class="text-muted">${esc(contact.company || '-')}</td>`;
   if (key === 'phone') return `<td data-label="Phone">${esc(contact.phone || '-')}</td>`;
   if (key === 'stage') return `<td data-label="Stage"><span class="badge badge-${esc(contact.stage || 'draft')}">${esc(STAGE_LABELS?.[contact.stage] || contact.stage || 'Lead')}</span></td>`;
@@ -690,8 +708,14 @@ function renderContactTableCell(contact, key) {
 
 async function searchContacts(q) {
   state.ui.contactsPage = 1;
-  await loadContacts(q);
+  await loadContacts(q, state.ui.contactsTitle);
   renderContacts(q);
+}
+
+async function setContactsTitleFilter(title) {
+  state.ui.contactsPage = 1;
+  await loadContacts(state.ui.contactsQuery, title);
+  renderContacts(state.ui.contactsQuery);
 }
 
 function toggleContactColumnsMenu() {
@@ -723,7 +747,7 @@ function setContactsPageSize(value) {
 }
 
 function openContactModal(c, options = {}) {
-  const ct = normalizeContactRecord(c || { id:'', email:'', name:'', first_name:'', last_name:'', company:'', phone:'', linkedin:'', image_url:'' });
+  const ct = normalizeContactRecord(c || { id:'', email:'', name:'', first_name:'', last_name:'', title:'', company:'', phone:'', linkedin:'', image_url:'' });
   state.ui.contactModalBase = ct;
   state.ui.contactModalReturnId = options.returnToDrawer || '';
   setModal(`<div class="modal-head"><h3>${ct.id?'Edit Contact':'Add Contact'}</h3><button class="modal-close" onclick="closeModal()">x</button></div>
@@ -752,9 +776,10 @@ function openContactModal(c, options = {}) {
       <div class="form-group"><label>Last Name</label><input id="c-last-name" value="${esc(ct.last_name || '')}" placeholder="Last name" oninput="refreshContactImagePreview()"></div>
     </div>
     <div class="form-row">
+      <div class="form-group"><label>Title</label><input id="c-title" value="${esc(ct.title || '')}" placeholder="Sales Agent"></div>
       <div class="form-group"><label>Company</label><input id="c-company" value="${esc(ct.company)}" placeholder="Company name"></div>
-      <div class="form-group"><label>LinkedIn URL</label><input id="c-linkedin" value="${esc(ct.linkedin || '')}" placeholder="https://www.linkedin.com/in/..."></div>
     </div>
+    <div class="form-group"><label>LinkedIn URL</label><input id="c-linkedin" value="${esc(ct.linkedin || '')}" placeholder="https://www.linkedin.com/in/..."></div>
     <div class="alert alert-error" id="c-err"></div>
     <div class="flex gap" style="justify-content:flex-end">
       ${ct.id ? '' : '<button class="btn btn-ghost" onclick="closeModal();openImportModal()">Bulk Import CSV</button>'}
@@ -775,6 +800,7 @@ async function saveContact(id) {
   const first_name = document.getElementById('c-first-name').value.trim();
   const last_name = document.getElementById('c-last-name').value.trim();
   const name = composeContactName(first_name, last_name);
+  const title = document.getElementById('c-title').value.trim();
   const company = document.getElementById('c-company').value.trim();
   const phone = document.getElementById('c-phone').value.trim();
   const linkedin = document.getElementById('c-linkedin').value.trim();
@@ -786,6 +812,7 @@ async function saveContact(id) {
       name,
       first_name,
       last_name,
+      title,
       company,
       stage: base.stage || 'lead',
       deal_value: base.deal_value || 0,
@@ -797,7 +824,7 @@ async function saveContact(id) {
     });
   } else {
     if (!email) { showAlert('c-err','Email required'); return; }
-    r = await api('POST','/api/contacts',{ email, name, first_name, last_name, company, phone, linkedin, image_url });
+    r = await api('POST','/api/contacts',{ email, name, first_name, last_name, title, company, phone, linkedin, image_url });
   }
   if (r.error) { showAlert('c-err', r.error); return; }
   const returnId = state.ui.contactModalReturnId;
@@ -825,7 +852,7 @@ function openImportModal() {
       <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted2);margin-bottom:8px">How CSV Import Works</div>
       <div class="text-muted text-sm" style="line-height:1.7">
         <div><strong>Required:</strong> <code>email</code></div>
-        <div><strong>Optional:</strong> <code>first_name</code>, <code>last_name</code>, <code>name</code>, <code>company</code>, <code>phone</code>, <code>stage</code>, <code>deal_value</code>, <code>image_url</code></div>
+        <div><strong>Optional:</strong> <code>first_name</code>, <code>last_name</code>, <code>name</code>, <code>title</code>, <code>company</code>, <code>phone</code>, <code>stage</code>, <code>deal_value</code>, <code>image_url</code></div>
         <div>If you provide <code>first_name</code> and <code>last_name</code>, the full <code>name</code> is built automatically during import.</div>
         <div>If you already have a single <code>name</code> column, that still works.</div>
         <div>Valid stage values: ${stageList}</div>
@@ -840,7 +867,7 @@ function openImportModal() {
       <button class="btn btn-ghost btn-sm" onclick="downloadContactImportTemplate()">Download Example CSV</button>
     </div>
     <div class="form-group"><label>Paste CSV or upload file</label>
-      <textarea id="csv-data" placeholder="email,first_name,last_name,company,phone&#10;john@example.com,John,Smith,Acme Corp,0400 000 000" style="min-height:180px"></textarea>
+      <textarea id="csv-data" placeholder="email,first_name,last_name,title,company,phone&#10;john@example.com,John,Smith,Sales Agent,Acme Corp,0400 000 000" style="min-height:180px"></textarea>
     </div>
     <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="readCsv(this)">
     <div class="flex gap" style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="document.getElementById('csv-file').click()">Upload CSV file</button></div>
@@ -904,6 +931,7 @@ function refreshContactImagePreview() {
   const contact = {
     first_name: document.getElementById('c-first-name')?.value || '',
     last_name: document.getElementById('c-last-name')?.value || '',
+    title: document.getElementById('c-title')?.value || '',
     email: document.getElementById('c-email')?.value || '',
     image_url: document.getElementById('c-image-url')?.value || ''
   };
@@ -992,7 +1020,7 @@ async function deleteList(id) {
 }
 
 async function viewList(id, name) {
-  if (!state.contacts.length) await loadContacts('');
+  if (!state.contacts.length) await loadContacts('', '');
   const members = await api('GET',`/api/lists/${id}/contacts`) || [];
   const all = state.contacts;
   const memberIds = new Set(members.map(m=>m.id));
@@ -1045,7 +1073,7 @@ function renderCampaigns() {
     <button class="btn btn-primary" onclick="openCampaignModal()">+ New Campaign</button>
   </div>
   <div class="table-wrap stack-on-mobile">
-    <table><thead><tr><th>Name</th><th>List</th><th>Type</th><th>Status</th><th style="width:220px">Actions</th></tr></thead><tbody>
+    <table><thead><tr><th>Name</th><th>List</th><th>Type</th><th>Status</th><th style="width:260px">Actions</th></tr></thead><tbody>
     ${cs.length ? cs.map(c=>`<tr>
       <td data-label="Name" style="font-weight:600">${esc(c.name)}</td>
       <td class="text-muted" data-label="List">${esc(c.list_name||'-')}</td>
@@ -1053,6 +1081,7 @@ function renderCampaigns() {
       <td data-label="Status"><span class="badge badge-${c.status}">${c.status}</span></td>
       <td data-label="Actions"><div class="table-actions">
         ${iconButton('settings', 'Manage campaign', `openCampaignModal('${c.id}')`)}
+        ${iconButton('copy', 'Copy campaign', `copyCampaign('${c.id}')`)}
         ${c.status==='active'?iconButton('pause', 'Pause campaign', `setCampaignStatus('${c.id}','pause')`):''}
         ${c.status==='paused'||c.status==='draft'?iconButton('play', 'Activate campaign', `setCampaignStatus('${c.id}','activate')`, 'success'):''}
         ${iconButton('send', 'Send campaign now', `sendCampaignNow('${c.id}','${esc(c.name)}')`, 'primary')}
@@ -1067,6 +1096,7 @@ let campaignSteps = [{ template_id: '', delay_days: 0 }];
 
 function openCampaignModal(id = '') {
   const campaign = id ? state.campaigns.find(item => item.id === id) : null;
+  campaignModalMode = campaign ? 'edit' : 'create';
   campaignEditingId = campaign?.id || '';
   campaignScheduleDraft = { ...(campaign?.schedule_config || {}) };
   campaignSteps = campaign?.steps?.length
@@ -1075,10 +1105,26 @@ function openCampaignModal(id = '') {
   renderCampaignModal();
 }
 
-function renderCampaignModal() {
-  const campaign = campaignEditingId ? state.campaigns.find(item => item.id === campaignEditingId) : null;
-  const title = campaign ? 'Manage Campaign' : 'New Campaign';
-  const submitLabel = campaign ? 'Save Changes' : 'Create Campaign';
+function copyCampaign(id) {
+  const campaign = state.campaigns.find(item => item.id === id);
+  if (!campaign) return;
+  campaignModalMode = 'copy';
+  campaignEditingId = '';
+  campaignScheduleDraft = { ...(campaign.schedule_config || {}) };
+  campaignSteps = campaign.steps?.length
+    ? campaign.steps.map(step => ({ template_id: step.template_id, delay_days: step.delay_days || 0 }))
+    : [{ template_id: '', delay_days: 0 }];
+  renderCampaignModal({
+    ...campaign,
+    id: '',
+    name: campaign.name ? `${campaign.name} Copy` : 'Campaign Copy'
+  });
+}
+
+function renderCampaignModal(campaignOverride = null) {
+  const campaign = campaignOverride || (campaignEditingId ? state.campaigns.find(item => item.id === campaignEditingId) : null);
+  const title = campaignModalMode === 'edit' ? 'Manage Campaign' : campaignModalMode === 'copy' ? 'Copy Campaign' : 'New Campaign';
+  const submitLabel = campaignModalMode === 'edit' ? 'Save Changes' : campaignModalMode === 'copy' ? 'Create Copy' : 'Create Campaign';
   const tOpts = state.templates.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
   const lOpts = state.lists.map(l=>`<option value="${l.id}"${campaign?.list_id===l.id?' selected':''}>${esc(l.name)} (${l.cnt||0} contacts)</option>`).join('');
   setModal(`<div class="modal-head"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">x</button></div>
@@ -1175,6 +1221,7 @@ async function saveCampaign() {
   const r = await api(method, path, {name,list_id,schedule_type,schedule_config,steps:campaignSteps,from_name,from_email});
   if (r.error) { showAlert('ca-err',r.error); return; }
   campaignEditingId = '';
+  campaignModalMode = 'create';
   campaignScheduleDraft = {};
   closeModal(); await loadCampaigns(); renderCampaigns();
 }
@@ -1398,7 +1445,7 @@ async function openDrawer(contactId) {
 function renderDrawerContent(d) {
   const c = d.contact;
   document.getElementById('drawer-name').textContent = c.name || c.email;
-  document.getElementById('drawer-company').textContent = c.company || '';
+  document.getElementById('drawer-company').textContent = [c.title, c.company].filter(Boolean).join(' | ');
   const tags = c.tags || [];
   document.getElementById('drawer-body').innerHTML = `
   <div class="drawer-section">
@@ -1421,6 +1468,7 @@ function renderDrawerContent(d) {
     <div class="drawer-section-title">Contact Info ${iconButton('edit', 'Edit contact', `openContactEditModal('${c.id}')`)}</div>
     <div class="info-grid">
       <div class="info-item"><label>Email</label><span class="mono" style="font-size:12px">${esc(c.email)}</span></div>
+      <div class="info-item"><label>Title</label><span>${esc(c.title||'-')}</span></div>
       <div class="info-item"><label>Phone</label><span>${esc(c.phone||'-')}</span></div>
       <div class="info-item"><label>Company</label><span>${esc(c.company||'-')}</span></div>
       <div class="info-item"><label>LinkedIn</label>${c.linkedin?`<a href="${esc(c.linkedin)}" target="_blank" style="color:var(--cyan);font-size:12px">View Profile</a>`:'<span>-</span>'}</div>

@@ -723,17 +723,23 @@ async function listContacts(env, url) {
   await ensureContactProfileTable(env);
   const q = url.searchParams.get('q') || '';
   const stage = url.searchParams.get('stage') || '';
+  const title = url.searchParams.get('title') || '';
   let sql = `SELECT c.*,
     COALESCE(p.first_name,'') first_name,
     COALESCE(p.last_name,'') last_name,
+    COALESCE(p.title,'') title,
     COALESCE(p.image_url,'') image_url
     FROM contacts c
     LEFT JOIN contact_profiles p ON p.contact_id=c.id
     WHERE c.unsubscribed=0`;
   const params = [];
   if (q) {
-    sql += ' AND (c.email LIKE ? OR c.name LIKE ? OR c.company LIKE ? OR c.phone LIKE ?)';
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+    sql += ' AND (c.email LIKE ? OR c.name LIKE ? OR c.company LIKE ? OR c.phone LIKE ? OR p.title LIKE ?)';
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  if (title) {
+    sql += ' AND p.title = ?';
+    params.push(title);
   }
   if (stage) { sql += ' AND c.stage=?'; params.push(stage); }
   sql += ' ORDER BY c.created_at DESC LIMIT 1000';
@@ -743,14 +749,14 @@ async function listContacts(env, url) {
 }
 async function createContact(req, env) {
   await ensureContactProfileTable(env);
-  const { email, name, first_name, last_name, company, stage, deal_value, tags, phone, linkedin, image_url } = await req.json();
+  const { email, name, first_name, last_name, title, company, stage, deal_value, tags, phone, linkedin, image_url } = await req.json();
   if (!email) return jres({ error: 'Email required' }, 400);
   const id = uid();
   const fullName = formatContactName(first_name, last_name, name);
   try {
     await env.DB.prepare('INSERT INTO contacts (id,email,name,company,stage,deal_value,tags,phone,linkedin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
       .bind(id, email.toLowerCase().trim(), fullName, company||'', stage||'lead', deal_value||0, JSON.stringify(tags||[]), phone||'', linkedin||'', now()).run();
-    await saveContactProfile(env, id, first_name, last_name, image_url);
+    await saveContactProfile(env, id, first_name, last_name, title, image_url);
     return jres({ id, email });
   } catch { return jres({ error: 'Email already exists' }, 409); }
 }
@@ -764,6 +770,7 @@ async function importContacts(req, env) {
   const ni = hdr.indexOf('name');
   const fi = hdr.indexOf('first_name');
   const li = hdr.indexOf('last_name');
+  const ti = hdr.indexOf('title');
   const ci = hdr.indexOf('company');
   const si = hdr.indexOf('stage');
   const di = hdr.indexOf('deal_value');
@@ -777,13 +784,14 @@ async function importContacts(req, env) {
     if (!email || !email.includes('@')) { skipped++; continue; }
     const firstName = fi >= 0 ? cols[fi] || '' : '';
     const lastName = li >= 0 ? cols[li] || '' : '';
+    const title = ti >= 0 ? cols[ti] || '' : '';
     const fullName = formatContactName(firstName, lastName, ni >= 0 ? cols[ni] || '' : '');
     const insertId = uid();
     try {
       const result = await env.DB.prepare('INSERT OR IGNORE INTO contacts (id,email,name,company,stage,deal_value,phone,tags,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
         .bind(insertId, email, fullName, ci>=0?cols[ci]||'':'', si>=0?cols[si]||'lead':'lead', di>=0?parseFloat(cols[di])||0:0, pi>=0?cols[pi]||'':'', '[]', now()).run();
       const row = await env.DB.prepare('SELECT id FROM contacts WHERE email=? LIMIT 1').bind(email).first();
-      if (row?.id) await saveContactProfile(env, row.id, firstName, lastName, ii >= 0 ? cols[ii] || '' : '');
+      if (row?.id) await saveContactProfile(env, row.id, firstName, lastName, title, ii >= 0 ? cols[ii] || '' : '');
       if (result.meta?.changes) imported++;
       else skipped++;
     } catch { skipped++; }
@@ -792,11 +800,11 @@ async function importContacts(req, env) {
 }
 async function updateContact(req, env, id) {
   await ensureContactProfileTable(env);
-  const { name, first_name, last_name, company, stage, deal_value, tags, phone, linkedin, follow_up_at, image_url } = await req.json();
+  const { name, first_name, last_name, title, company, stage, deal_value, tags, phone, linkedin, follow_up_at, image_url } = await req.json();
   const fullName = formatContactName(first_name, last_name, name);
   await env.DB.prepare('UPDATE contacts SET name=?,company=?,stage=?,deal_value=?,tags=?,phone=?,linkedin=?,follow_up_at=? WHERE id=?')
     .bind(fullName, company||'', stage||'lead', deal_value||0, JSON.stringify(tags||[]), phone||'', linkedin||'', follow_up_at||null, id).run();
-  await saveContactProfile(env, id, first_name, last_name, image_url);
+  await saveContactProfile(env, id, first_name, last_name, title, image_url);
   return jres({ ok: true });
 }
 async function deleteContact(env, id) {
@@ -1084,6 +1092,7 @@ async function getContactDetail(env, id) {
   const contact = await env.DB.prepare(`SELECT c.*,
       COALESCE(p.first_name,'') first_name,
       COALESCE(p.last_name,'') last_name,
+      COALESCE(p.title,'') title,
       COALESCE(p.image_url,'') image_url
     FROM contacts c
     LEFT JOIN contact_profiles p ON p.contact_id=c.id
@@ -1101,9 +1110,16 @@ async function ensureContactProfileTable(env) {
     contact_id TEXT PRIMARY KEY,
     first_name TEXT DEFAULT '',
     last_name TEXT DEFAULT '',
+    title TEXT DEFAULT '',
     image_url TEXT DEFAULT '',
     updated_at TEXT NOT NULL
   )`).run();
+  try {
+    await env.DB.prepare(`ALTER TABLE contact_profiles ADD COLUMN title TEXT DEFAULT ''`).run();
+  } catch (err) {
+    const message = String(err?.message || err || '');
+    if (!message.includes('duplicate column name')) throw err;
+  }
 }
 
 function formatContactName(firstName, lastName, fallbackName) {
@@ -1111,16 +1127,17 @@ function formatContactName(firstName, lastName, fallbackName) {
   return fullName || String(fallbackName || '').trim();
 }
 
-async function saveContactProfile(env, contactId, firstName, lastName, imageUrl) {
+async function saveContactProfile(env, contactId, firstName, lastName, title, imageUrl) {
   const ts = now();
-  await env.DB.prepare(`INSERT INTO contact_profiles (contact_id,first_name,last_name,image_url,updated_at)
-    VALUES (?,?,?,?,?)
+  await env.DB.prepare(`INSERT INTO contact_profiles (contact_id,first_name,last_name,title,image_url,updated_at)
+    VALUES (?,?,?,?,?,?)
     ON CONFLICT(contact_id) DO UPDATE SET
       first_name=excluded.first_name,
       last_name=excluded.last_name,
+      title=excluded.title,
       image_url=excluded.image_url,
       updated_at=excluded.updated_at`)
-    .bind(contactId, firstName || '', lastName || '', imageUrl || '', ts).run();
+    .bind(contactId, firstName || '', lastName || '', title || '', imageUrl || '', ts).run();
 }
 
 async function patchContact(req, env, id) {

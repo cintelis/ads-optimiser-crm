@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS contact_profiles (
   contact_id TEXT PRIMARY KEY,
   first_name TEXT DEFAULT '',
   last_name TEXT DEFAULT '',
+  title TEXT DEFAULT '',
   image_url TEXT DEFAULT '',
   updated_at TEXT NOT NULL
 );

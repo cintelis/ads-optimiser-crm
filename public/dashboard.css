@@ -79,19 +79,21 @@ tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(255,255,255,.02)}
 .table-actions{display:flex;gap:8px;flex-wrap:wrap}
 .contacts-table-wrap{overflow:auto}
-.contacts-table th,.contacts-table td{padding:8px 12px}
+.contacts-table th,.contacts-table td{padding:7px 10px}
 .contacts-table td{font-size:12px}
-.contacts-table .table-actions{justify-content:flex-end}
-.contact-cell{display:flex;align-items:center;gap:10px;min-width:0}
+.contacts-table .table-actions{justify-content:flex-end;flex-wrap:nowrap}
+.contact-cell{display:flex;align-items:center;gap:8px;min-width:0}
 .contact-copy{min-width:0}
-.contact-primary{font-size:13px;font-weight:700;line-height:1.25;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.contact-secondary{margin-top:2px;font-size:11px;line-height:1.35;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.contact-avatar{width:34px;height:34px;border-radius:12px;object-fit:cover;display:block;background:#111827;border:1px solid var(--border2);flex-shrink:0}
+.contact-primary{font-size:12px;font-weight:700;line-height:1.2;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-secondary{margin-top:1px;font-size:10px;line-height:1.25;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-avatar{width:30px;height:30px;border-radius:10px;object-fit:cover;display:block;background:#111827;border:1px solid var(--border2);flex-shrink:0}
 .contact-avatar-lg{width:72px;height:72px;border-radius:20px}
 .contact-avatar-fallback{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(37,99,235,.9),rgba(6,182,212,.9));color:#ffffff;font-size:13px;font-weight:800;letter-spacing:.04em}
 .contact-avatar-lg.contact-avatar-fallback{font-size:22px}
 .contact-email{font-size:11px;word-break:break-word}
-.contact-actions{gap:6px}
+.contact-actions{gap:4px}
+.contact-actions .icon-btn{width:28px;height:28px;border-radius:8px}
+.contact-actions .icon-btn svg{width:13px;height:13px}
 .icon-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--border2);background:#10111a;color:var(--muted2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,transform .15s,background .15s,opacity .15s}
 .icon-btn:hover{border-color:rgba(0,200,255,.28);background:#141827;transform:translateY(-1px);color:var(--text)}
 .icon-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
