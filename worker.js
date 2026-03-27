@@ -596,6 +596,7 @@ async function route(req, env, url, path) {
     if (m === 'DELETE' && id) return deleteTemplate(env, id);
   }
   if (res === 'contacts') {
+    if (m === 'GET' && id === 'companies') return listContactCompanies(env);
     if (m === 'GET' && !id) return listContacts(env, url);
     if (m === 'POST' && id === 'import') return importContacts(req, env);
     if (m === 'POST' && !id) return createContact(req, env);
@@ -724,6 +725,7 @@ async function listContacts(env, url) {
   const q = url.searchParams.get('q') || '';
   const stage = url.searchParams.get('stage') || '';
   const title = url.searchParams.get('title') || '';
+  const companies = url.searchParams.getAll('company').map(value => value.trim()).filter(Boolean);
   let sql = `SELECT c.*,
     COALESCE(p.first_name,'') first_name,
     COALESCE(p.last_name,'') last_name,
@@ -741,11 +743,23 @@ async function listContacts(env, url) {
     sql += ' AND p.title = ?';
     params.push(title);
   }
+  if (companies.length) {
+    sql += ` AND c.company IN (${companies.map(() => '?').join(',')})`;
+    params.push(...companies);
+  }
   if (stage) { sql += ' AND c.stage=?'; params.push(stage); }
   sql += ' ORDER BY c.created_at DESC LIMIT 1000';
   const stmt = env.DB.prepare(sql);
   const { results } = await (params.length ? stmt.bind(...params) : stmt).all();
   return jres(results);
+}
+
+async function listContactCompanies(env) {
+  const { results } = await env.DB.prepare(`SELECT DISTINCT company
+    FROM contacts
+    WHERE unsubscribed=0 AND TRIM(COALESCE(company,'')) <> ''
+    ORDER BY company COLLATE NOCASE ASC`).all();
+  return jres(results.map(row => row.company));
 }
 async function createContact(req, env) {
   await ensureContactProfileTable(env);

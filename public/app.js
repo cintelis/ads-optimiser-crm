@@ -49,6 +49,7 @@ let token = localStorage.getItem('token');
 let state = {
   templates: [],
   contacts: [],
+  contactCompanies: [],
   lists: [],
   campaigns: [],
   logs: [],
@@ -58,10 +59,12 @@ let state = {
     pipelineStage: 'lead',
     contactsQuery: '',
     contactsTitle: '',
+    contactsCompanies: [],
     contactsPage: 1,
     contactsPageSize: getStoredContactPageSize(),
     contactColumns: getStoredContactColumns(),
     contactColumnsOpen: false,
+    contactCompaniesOpen: false,
     contactModalBase: null,
     contactModalReturnId: '',
     selectedTemplateId: '',
@@ -325,8 +328,8 @@ async function renderSection(s) {
   c.innerHTML = '<div class="empty"><div class="empty-icon">...</div><p>Loading...</p></div>';
   if (s === 'overview') { await loadStats(); await loadLogs(); renderOverview(); }
   else if (s === 'templates') { await loadTemplates(); renderTemplates(); }
-  else if (s === 'contacts') { await loadContacts(state.ui.contactsQuery); renderContacts(); }
-  else if (s === 'lists') { await Promise.all([loadLists(), loadContacts('', '')]); renderLists(); }
+  else if (s === 'contacts') { await Promise.all([loadContacts(state.ui.contactsQuery), loadContactCompanies()]); renderContacts(); }
+  else if (s === 'lists') { await Promise.all([loadLists(), loadContacts('', '', [])]); renderLists(); }
   else if (s === 'campaigns') { await Promise.all([loadCampaigns(), loadTemplates(), loadLists()]); renderCampaigns(); }
   else if (s === 'logs') { await loadLogs(); renderLogs(); }
   else if (s === 'unsubs') { await loadUnsubs(); renderUnsubs(); }
@@ -337,16 +340,22 @@ async function renderSection(s) {
 // ── Loaders ───────────────────────────────────────────────────
 async function loadStats() { state.stats = await api('GET','/api/stats') || {}; }
 async function loadTemplates() { state.templates = await api('GET','/api/templates') || []; }
-async function loadContacts(q = state.ui.contactsQuery || '', title = state.ui.contactsTitle || '') {
+async function loadContacts(q = state.ui.contactsQuery || '', title = state.ui.contactsTitle || '', companies = state.ui.contactsCompanies || []) {
   state.ui.contactsQuery = q;
   state.ui.contactsTitle = title;
+  state.ui.contactsCompanies = Array.isArray(companies) ? companies.filter(Boolean) : [];
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (title) params.set('title', title);
+  for (const company of state.ui.contactsCompanies) params.append('company', company);
   const data = await api('GET','/api/contacts'+(params.size ? `?${params.toString()}` : '')) || [];
   state.contacts = Array.isArray(data) ? data.map(normalizeContactRecord) : [];
   const maxPage = Math.max(1, Math.ceil(state.contacts.length / state.ui.contactsPageSize));
   state.ui.contactsPage = Math.min(state.ui.contactsPage, maxPage);
+}
+async function loadContactCompanies() {
+  const data = await api('GET', '/api/contacts/companies') || [];
+  state.contactCompanies = Array.isArray(data) ? data.filter(Boolean) : [];
 }
 async function loadLists() { state.lists = await api('GET','/api/lists') || []; }
 async function loadCampaigns() { state.campaigns = await api('GET','/api/campaigns') || []; }
@@ -618,8 +627,10 @@ async function deleteTemplate(id) {
 function renderContacts(q = state.ui.contactsQuery || '') {
   const ct = state.contacts;
   const selectedTitle = state.ui.contactsTitle || '';
+  const selectedCompanies = state.ui.contactsCompanies || [];
   const titleOptions = Array.from(new Set((state.contacts || []).map(contact => String(contact.title || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   if (selectedTitle && !titleOptions.includes(selectedTitle)) titleOptions.unshift(selectedTitle);
+  const companyOptions = Array.from(new Set([...(state.contactCompanies || []), ...selectedCompanies])).filter(Boolean).sort((a, b) => a.localeCompare(b));
   const columns = getVisibleContactColumns();
   const total = ct.length;
   const pageSize = state.ui.contactsPageSize;
@@ -664,10 +675,22 @@ function renderContacts(q = state.ui.contactsQuery || '') {
       <option value="">All Functions</option>
       ${titleOptions.map(title => `<option value="${esc(title)}"${selectedTitle===title?' selected':''}>${esc(title)}</option>`).join('')}
     </select>
+    <button class="btn btn-ghost" onclick="toggleContactCompaniesMenu()">${selectedCompanies.length ? `Companies (${selectedCompanies.length})` : 'Companies'}</button>
     <button class="btn btn-ghost" onclick="toggleContactColumnsMenu()">Columns</button>
     <button class="btn btn-ghost" onclick="openImportModal()">Import CSV</button>
     <button class="btn btn-primary" onclick="openContactModal()">+ Add Contact</button>
   </div>
+  ${state.ui.contactCompaniesOpen ? `<div class="contact-column-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <div class="text-muted text-sm" style="font-weight:600">Filter by company</div>
+      ${selectedCompanies.length ? `<button class="btn btn-ghost btn-sm" onclick="clearContactCompanies()">Clear</button>` : ''}
+    </div>
+    ${companyOptions.length ? companyOptions.map(company => `
+      <label class="contact-column-option">
+        <input type="checkbox" ${selectedCompanies.includes(company) ? 'checked' : ''} onchange="toggleContactCompany('${esc(company)}', this.checked)">
+        <span>${esc(company)}</span>
+      </label>`).join('') : '<div class="text-muted text-sm">No companies available.</div>'}
+  </div>` : ''}
   ${state.ui.contactColumnsOpen ? `<div class="contact-column-panel">${columnMenu}</div>` : ''}
   <div class="table-wrap stack-on-mobile contacts-table-wrap">
     <table class="contacts-table"><thead><tr>${headers}<th style="width:76px">Actions</th></tr></thead><tbody>
@@ -708,13 +731,33 @@ function renderContactTableCell(contact, key) {
 
 async function searchContacts(q) {
   state.ui.contactsPage = 1;
-  await loadContacts(q, state.ui.contactsTitle);
+  await loadContacts(q, state.ui.contactsTitle, state.ui.contactsCompanies);
   renderContacts(q);
 }
 
 async function setContactsTitleFilter(title) {
   state.ui.contactsPage = 1;
-  await loadContacts(state.ui.contactsQuery, title);
+  await loadContacts(state.ui.contactsQuery, title, state.ui.contactsCompanies);
+  renderContacts(state.ui.contactsQuery);
+}
+
+function toggleContactCompaniesMenu() {
+  state.ui.contactCompaniesOpen = !state.ui.contactCompaniesOpen;
+  renderContacts(state.ui.contactsQuery);
+}
+
+async function toggleContactCompany(company, checked) {
+  const next = checked
+    ? Array.from(new Set([...(state.ui.contactsCompanies || []), company]))
+    : (state.ui.contactsCompanies || []).filter(item => item !== company);
+  state.ui.contactsPage = 1;
+  await loadContacts(state.ui.contactsQuery, state.ui.contactsTitle, next);
+  renderContacts(state.ui.contactsQuery);
+}
+
+async function clearContactCompanies() {
+  state.ui.contactsPage = 1;
+  await loadContacts(state.ui.contactsQuery, state.ui.contactsTitle, []);
   renderContacts(state.ui.contactsQuery);
 }
 
@@ -832,7 +875,10 @@ async function saveContact(id) {
   state.ui.contactModalBase = null;
   state.ui.contactModalReturnId = '';
   await loadContacts(state.ui.contactsQuery);
-  if (currentSection === 'contacts') renderContacts(state.ui.contactsQuery);
+  if (currentSection === 'contacts') {
+    await loadContactCompanies();
+    renderContacts(state.ui.contactsQuery);
+  }
   if (currentSection === 'pipeline') { await Promise.all([loadPipeline(), loadCrmStats()]); renderPipeline(); }
   if (currentSection === 'followups') { await loadFollowUps(); renderFollowUps(); }
   if (returnId) openDrawer(returnId);
@@ -841,7 +887,9 @@ async function saveContact(id) {
 async function deleteContact(id) {
   if (!confirm('Delete this contact?')) return;
   await api('DELETE',`/api/contacts/${id}`);
-  await loadContacts(state.ui.contactsQuery); renderContacts(state.ui.contactsQuery);
+  await loadContacts(state.ui.contactsQuery);
+  if (currentSection === 'contacts') await loadContactCompanies();
+  renderContacts(state.ui.contactsQuery);
 }
 
 function openImportModal() {
@@ -912,7 +960,10 @@ async function doImport() {
   showAlert('imp-ok',`Imported ${r.imported} contacts, skipped ${r.skipped}`,'alert-success');
   state.ui.contactsPage = 1;
   await loadContacts(state.ui.contactsQuery);
-  if (currentSection === 'contacts') renderContacts(state.ui.contactsQuery);
+  if (currentSection === 'contacts') {
+    await loadContactCompanies();
+    renderContacts(state.ui.contactsQuery);
+  }
 }
 
 function triggerContactImageUpload() {
@@ -1020,7 +1071,7 @@ async function deleteList(id) {
 }
 
 async function viewList(id, name) {
-  if (!state.contacts.length) await loadContacts('', '');
+  if (!state.contacts.length) await loadContacts('', '', []);
   const members = await api('GET',`/api/lists/${id}/contacts`) || [];
   const all = state.contacts;
   const memberIds = new Set(members.map(m=>m.id));
