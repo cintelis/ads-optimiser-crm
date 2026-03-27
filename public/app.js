@@ -54,8 +54,10 @@ let state = {
   campaigns: [],
   logs: [],
   stats: {},
+  overview: {},
   unsubs: [],
   ui: {
+    overviewRange: 'all',
     pipelineStage: 'lead',
     pipelineSearch: '',
     pipelineExpandedGroups: {},
@@ -155,7 +157,7 @@ async function api(method, path, body, auth = true) {
 }
 
 // ── Navigation ────────────────────────────────────────────────
-function nav(section) {
+async function nav(section) {
   currentSection = section;
   closeMobileMenu();
   document.querySelectorAll('.nav-item, .mobile-tab, .mobile-sheet-item').forEach(el => el.classList.remove('active'));
@@ -173,9 +175,9 @@ function nav(section) {
     if (moreTab) moreTab.classList.add('active');
   }
   document.getElementById('page-title').textContent = SECTION_TITLES[section] || section;
-  renderSection(section);
+  return renderSection(section);
 }
-async function refreshCurrent() { nav(currentSection); }
+async function refreshCurrent() { return nav(currentSection); }
 
 function updateFollowUpBadges(count) {
   ['fu-badge', 'mobile-fu-badge'].forEach(id => {
@@ -336,7 +338,7 @@ function startTemplateResize(event) {
 async function renderSection(s) {
   const c = document.getElementById('content');
   c.innerHTML = '<div class="empty"><div class="empty-icon">...</div><p>Loading...</p></div>';
-  if (s === 'overview') { await loadStats(); await loadLogs(); renderOverview(); }
+  if (s === 'overview') { await loadOverview(); renderOverview(); }
   else if (s === 'templates') { await loadTemplates(); renderTemplates(); }
   else if (s === 'contacts') { await loadContacts(state.ui.contactsQuery); renderContacts(); }
   else if (s === 'lists') { await Promise.all([loadLists(), loadContacts('', '')]); renderLists(); }
@@ -348,7 +350,17 @@ async function renderSection(s) {
 }
 
 // ── Loaders ───────────────────────────────────────────────────
-async function loadStats() { state.stats = await api('GET','/api/stats') || {}; }
+async function loadOverview() {
+  const params = new URLSearchParams();
+  const range = state.ui.overviewRange || 'all';
+  if (range !== 'all') params.set('range', range);
+  const data = await api('GET', '/api/overview' + (params.size ? `?${params.toString()}` : '')) || {};
+  state.overview = data;
+  state.stats = data;
+  state.logs = Array.isArray(data.recent_sends) ? data.recent_sends : [];
+  updateFollowUpBadges(Number(data.follow_ups_overdue || 0) + Number(data.follow_ups_today || 0));
+}
+async function loadStats() { await loadOverview(); }
 async function loadTemplates() { state.templates = await api('GET','/api/templates') || []; }
 async function loadContacts(q = state.ui.contactsQuery || '', title = state.ui.contactsTitle || '') {
   state.ui.contactsQuery = q;
@@ -464,28 +476,258 @@ function fmtDateShort(s) {
 }
 
 // ── Overview ──────────────────────────────────────────────────
+const OVERVIEW_RANGE_OPTIONS = [
+  { value: '7d', label: '7d' },
+  { value: '30d', label: '30d' },
+  { value: 'month', label: 'This Month' },
+  { value: 'all', label: 'All Time' }
+];
+
+function getOverviewRangeLabel(range) {
+  const match = OVERVIEW_RANGE_OPTIONS.find(option => option.value === range);
+  return match ? match.label : 'All Time';
+}
+
+function getOverviewWonLabel(range) {
+  if (range === '7d') return 'Won Last 7 Days';
+  if (range === '30d') return 'Won Last 30 Days';
+  if (range === 'month') return 'Won This Month';
+  return 'Won All Time';
+}
+
+async function setOverviewRange(range) {
+  if (!OVERVIEW_RANGE_OPTIONS.some(option => option.value === range) || state.ui.overviewRange === range) return;
+  state.ui.overviewRange = range;
+  if (currentSection !== 'overview') return;
+  await loadOverview();
+  renderOverview();
+}
+
+async function openOverviewAddContact() {
+  await nav('contacts');
+  openContactModal();
+}
+
+async function openOverviewNewCampaign() {
+  await nav('campaigns');
+  openCampaignModal();
+}
+
+async function openOverviewImportCsv() {
+  await nav('contacts');
+  openImportModal();
+}
+
+async function openOverviewNewTemplate() {
+  await nav('templates');
+  createNewTemplateWorkspace();
+}
+
+function trimOverviewText(value, limit = 96) {
+  const text = String(value || '').trim();
+  if (text.length <= limit) return text;
+  return text.slice(0, limit - 3) + '...';
+}
+
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return fmtDate(dateStr);
+  const diffMs = date.getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+  const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+  if (absMs < hour) return formatter.format(Math.round(diffMs / minute), 'minute');
+  if (absMs < day) return formatter.format(Math.round(diffMs / hour), 'hour');
+  if (absMs < week) return formatter.format(Math.round(diffMs / day), 'day');
+  return formatter.format(Math.round(diffMs / week), 'week');
+}
+
+function getOverviewActivityLabel(type) {
+  if (type === 'call') return 'Call logged';
+  if (type === 'meeting') return 'Meeting booked';
+  if (type === 'email') return 'Email sent';
+  if (type === 'stage') return 'Stage changed';
+  return 'Note added';
+}
+
+function getOverviewActivityGlyph(type) {
+  if (type === 'call') return 'C';
+  if (type === 'meeting') return 'M';
+  if (type === 'email') return 'E';
+  if (type === 'stage') return 'S';
+  return 'N';
+}
+
+function renderOverviewTimeline(items) {
+  if (!items.length) {
+    return '<div class="overview-empty">No activity in this range.</div>';
+  }
+  return items.map(item => {
+    const type = String(item.type || 'note').toLowerCase();
+    const contactName = item.contact_name || item.contact_email || 'Unknown contact';
+    const clickable = item.contact_id ? ` onclick="openDrawer('${item.contact_id}')"` : '';
+    return `<div class="overview-timeline-item${item.contact_id ? ' overview-timeline-item-clickable' : ''}"${clickable}>
+      <div class="overview-timeline-icon overview-timeline-icon-${type}">${getOverviewActivityGlyph(type)}</div>
+      <div class="overview-timeline-copy">
+        <div class="overview-timeline-top">
+          <span class="overview-timeline-title">${getOverviewActivityLabel(type)}</span>
+          <span class="overview-timeline-time">${formatRelativeTime(item.created_at)}</span>
+        </div>
+        <div class="overview-timeline-contact">${esc(contactName)}</div>
+        <div class="overview-timeline-body">${esc(trimOverviewText(item.body || '-'))}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderOverviewFunnel(stages) {
+  const rows = stages.length ? stages : ['lead', 'prospect', 'qualified', 'proposal'].map(stage => ({ stage, count: 0, value: 0 }));
+  const maxCount = Math.max(...rows.map(row => Number(row.count || 0)), 1);
+  return rows.map((row, index) => {
+    const count = Number(row.count || 0);
+    const value = Number(row.value || 0);
+    const previous = index > 0 ? Number(rows[index - 1].count || 0) : 0;
+    const conversion = index > 0 && previous > 0 ? Math.round((count / previous) * 100) : null;
+    const width = count > 0 ? Math.max(8, Math.round((count / maxCount) * 100)) : 0;
+    return `<div class="overview-funnel-row">
+      <div class="overview-funnel-copy">
+        <div class="overview-funnel-stage">${esc(STAGE_LABELS[row.stage] || row.stage)}</div>
+        <div class="overview-funnel-meta">${count} contact${count !== 1 ? 's' : ''}${value > 0 ? ` | ${fmtCurrency(value)}` : ''}</div>
+      </div>
+      <div class="overview-funnel-bar-wrap">
+        <div class="overview-funnel-bar overview-funnel-bar-${row.stage}" style="width:${width}%"></div>
+      </div>
+      <div class="overview-funnel-side">
+        <div class="overview-funnel-count">${count}</div>
+        <div class="overview-funnel-conversion">${conversion === null ? 'Base' : `${conversion}%`}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderOverview() {
-  const s = state.stats;
-  const recent = (state.logs.length ? state.logs : []).slice(0,10);
+  const s = state.overview || state.stats || {};
+  const recent = Array.isArray(s.recent_sends) ? s.recent_sends : [];
+  const activity = Array.isArray(s.recent_activity) ? s.recent_activity : [];
+  const stages = Array.isArray(s.pipeline_stages) ? s.pipeline_stages : [];
+  const won = s.won || { count: 0, value: 0 };
+  const lost = s.lost || { count: 0, value: 0 };
+  const wonInRange = s.won_in_range || { count: 0, value: 0 };
+  const avgDealSize = Number(won.count || 0) ? Number(won.value || 0) / Number(won.count || 1) : 0;
+  const winRateBase = Number(won.count || 0) + Number(lost.count || 0);
+  const winRate = winRateBase ? Math.round((Number(won.count || 0) / winRateBase) * 100) : 0;
+  const overdue = Number(s.follow_ups_overdue || 0);
+  const today = Number(s.follow_ups_today || 0);
+  const hasAlert = overdue > 0 || today > 0;
+  const range = s.range || state.ui.overviewRange || 'all';
+
   document.getElementById('content').innerHTML = `
-  <div class="stats-grid stats-grid-overview">
-    <div class="stat-card"><div class="stat-label">Active Contacts</div><div class="stat-val">${s.contacts||0}</div></div>
-    <div class="stat-card"><div class="stat-label">Templates</div><div class="stat-val">${s.templates||0}</div></div>
-    <div class="stat-card"><div class="stat-label">Live Campaigns</div><div class="stat-val">${s.campaigns||0}</div></div>
-    <div class="stat-card"><div class="stat-label">Emails Sent</div><div class="stat-val">${s.sent||0}</div></div>
-    <div class="stat-card"><div class="stat-label">Pipeline Value</div><div class="stat-val" style="font-size:22px">${fmtCurrency(s.pipeline_value||0)}</div></div>
-  </div>
-  <div class="table-wrap stack-on-mobile">
-    <table><thead><tr><th>Recipient</th><th>Subject</th><th>Campaign</th><th>Status</th><th>Sent At</th></tr></thead><tbody>
-    ${recent.length ? recent.map(l=>`<tr>
-      <td class="mono" data-label="Recipient" style="font-size:12px">${l.contact_email}</td>
-      <td data-label="Subject">${l.subject||'-'}</td>
-      <td data-label="Campaign">${l.campaign_name||'-'}</td>
-      <td data-label="Status"><span class="badge badge-${l.status}">${l.status}</span></td>
-      <td class="text-muted text-sm" data-label="Sent At">${fmtDate(l.sent_at)}</td>
-    </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:32px">No emails sent yet.</td></tr>'}
-    </tbody></table>
-  </div>`; 
+  <div class="overview-stack">
+    ${hasAlert ? `<div class="dashboard-alert ${overdue > 0 ? 'dashboard-alert-danger' : 'dashboard-alert-warning'}">
+      <div class="dashboard-alert-copy">
+        <strong>${overdue} overdue</strong>
+        <span>${today} due today</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="nav('followups')">View Follow-ups</button>
+    </div>` : ''}
+
+    <div class="quick-actions">
+      <button class="btn btn-primary" type="button" onclick="openOverviewAddContact()">+ Add Contact</button>
+      <button class="btn btn-ghost" type="button" onclick="openOverviewNewCampaign()">+ New Campaign</button>
+      <button class="btn btn-ghost" type="button" onclick="openOverviewImportCsv()">Import CSV</button>
+      <button class="btn btn-ghost" type="button" onclick="openOverviewNewTemplate()">+ New Template</button>
+    </div>
+
+    <div class="overview-range-row">
+      <div class="overview-range-label">Date Range</div>
+      <div class="overview-range-pills">
+        ${OVERVIEW_RANGE_OPTIONS.map(option => `
+          <button
+            class="btn btn-ghost btn-sm${range === option.value ? ' btn-active' : ''}"
+            type="button"
+            onclick="setOverviewRange('${option.value}')"
+          >${option.label}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="stats-grid stats-grid-overview">
+      <div class="stat-card"><div class="stat-label">Active Contacts</div><div class="stat-val">${s.contacts || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">Templates</div><div class="stat-val">${s.templates || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">Live Campaigns</div><div class="stat-val">${s.campaigns || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">Emails Sent (${getOverviewRangeLabel(range)})</div><div class="stat-val">${s.sent || 0}</div></div>
+      <div class="stat-card"><div class="stat-label">Pipeline Value</div><div class="stat-val" style="font-size:22px">${fmtCurrency(s.pipeline_value || 0)}</div></div>
+    </div>
+
+    <div class="overview-metrics-grid">
+      <div class="overview-metric-card">
+        <div class="overview-metric-label">${getOverviewWonLabel(range)}</div>
+        <div class="overview-metric-value">${fmtCurrency(wonInRange.value || 0)}</div>
+        <div class="overview-metric-note">${wonInRange.count || 0} deal${Number(wonInRange.count || 0) !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="overview-metric-card">
+        <div class="overview-metric-label">Pipeline Value</div>
+        <div class="overview-metric-value">${fmtCurrency(s.pipeline_value || 0)}</div>
+        <div class="overview-metric-note">Open opportunities only</div>
+      </div>
+      <div class="overview-metric-card">
+        <div class="overview-metric-label">Avg Deal Size</div>
+        <div class="overview-metric-value">${fmtCurrency(avgDealSize)}</div>
+        <div class="overview-metric-note">Across all won deals</div>
+      </div>
+      <div class="overview-metric-card">
+        <div class="overview-metric-label">Win Rate</div>
+        <div class="overview-metric-value">${winRate}%</div>
+        <div class="overview-metric-note">${won.count || 0} won / ${lost.count || 0} lost</div>
+      </div>
+    </div>
+
+    <div class="overview-panel">
+      <div class="overview-panel-head">
+        <div>
+          <div class="overview-panel-title">Pipeline Funnel</div>
+          <div class="overview-panel-note">Current stage counts and value across the active pipeline.</div>
+        </div>
+      </div>
+      <div class="overview-funnel">${renderOverviewFunnel(stages)}</div>
+    </div>
+
+    <div class="overview-columns">
+      <div class="overview-panel">
+        <div class="overview-panel-head">
+          <div>
+            <div class="overview-panel-title">Activity Timeline</div>
+            <div class="overview-panel-note">Last 15 notes, calls, meetings, and sent emails in ${getOverviewRangeLabel(range).toLowerCase()}.</div>
+          </div>
+        </div>
+        <div class="overview-timeline">${renderOverviewTimeline(activity)}</div>
+      </div>
+
+      <div class="overview-panel">
+        <div class="overview-panel-head">
+          <div>
+            <div class="overview-panel-title">Recent Sends</div>
+            <div class="overview-panel-note">Latest email activity for the selected range.</div>
+          </div>
+        </div>
+        <div class="table-wrap stack-on-mobile overview-table-wrap">
+          <table><thead><tr><th>Recipient</th><th>Subject</th><th>Campaign</th><th>Status</th><th>Sent At</th></tr></thead><tbody>
+          ${recent.length ? recent.map(l => `<tr>
+            <td class="mono" data-label="Recipient" style="font-size:12px">${esc(l.contact_email || '-')}</td>
+            <td data-label="Subject">${esc(l.subject || '-')}</td>
+            <td data-label="Campaign">${esc(l.campaign_name || '-')}</td>
+            <td data-label="Status"><span class="badge badge-${l.status}">${esc(l.status || '-')}</span></td>
+            <td class="text-muted text-sm" data-label="Sent At">${fmtDate(l.sent_at)}</td>
+          </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:32px">No emails sent in this range.</td></tr>'}
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ── Templates ─────────────────────────────────────────────────
@@ -942,6 +1184,7 @@ async function saveContact(id) {
   if (currentSection === 'contacts') renderContacts(state.ui.contactsQuery);
   if (currentSection === 'pipeline') { await Promise.all([loadPipeline(), loadCrmStats()]); renderPipeline(); }
   if (currentSection === 'followups') { await loadFollowUps(); renderFollowUps(); }
+  if (currentSection === 'overview') { await loadOverview(); renderOverview(); }
   if (returnId) openDrawer(returnId);
 }
 
@@ -1833,6 +2076,10 @@ async function patchContact(id, field, value) {
     await loadFollowUps();
     renderFollowUps();
   }
+  if (currentSection==='overview') {
+    await loadOverview();
+    renderOverview();
+  }
 }
 
 async function addNoteFromDrawer(contactId) {
@@ -1850,12 +2097,20 @@ async function addNoteFromDrawer(contactId) {
     div.innerHTML = `<span class="note-type note-${r.type}">${r.type}</span><div class="note-content">${esc(r.content)}</div><div class="flex" style="justify-content:space-between;align-items:center;margin-top:4px"><span class="note-date">just now</span>${iconButton('trash', 'Delete note', `deleteNoteFromDrawer('${contactId}','${r.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div>`;
     nl.prepend(div);
   }
+  if (currentSection === 'overview') {
+    await loadOverview();
+    renderOverview();
+  }
 }
 
 async function deleteNoteFromDrawer(contactId, noteId) {
   await api('DELETE',`/api/crm/contact/${contactId}/notes/${noteId}`);
   const el = document.getElementById('note-'+noteId);
   if (el) el.remove();
+  if (currentSection === 'overview') {
+    await loadOverview();
+    renderOverview();
+  }
 }
 
 async function openContactEditModal(id) {

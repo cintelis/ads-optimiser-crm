@@ -593,7 +593,7 @@ async function route(req, env, url, path) {
   const parts = path.replace('/api/', '').split('/');
   const [res, id, sub, sub2] = parts;
   const m = req.method;
-  if (res === 'stats' && m === 'GET') return getStats(env);
+  if ((res === 'stats' || res === 'overview') && m === 'GET') return getOverview(env, url);
   if (res === 'templates') {
     if (m === 'POST' && id === 'seed' && sub === 'real-estate') return seedAdsOptimiserRealEstateTemplates(env);
     if (m === 'GET' && !id) return listTemplates(env);
@@ -650,15 +650,172 @@ async function route(req, env, url, path) {
 }
 
 // ── Stats ────────────────────────────────────────────────────
-async function getStats(env) {
-  const [c, t, ca, s, pv] = await Promise.all([
+async function getStats(env, url) {
+  return getOverview(env, url);
+}
+
+function normalizeOverviewRange(value) {
+  const allowed = new Set(['7d', '30d', 'month', 'all']);
+  const range = String(value || 'all').toLowerCase();
+  return allowed.has(range) ? range : 'all';
+}
+
+function getOverviewDateFilter(range, column) {
+  if (range === '7d') return ` AND datetime(${column}) >= datetime('now', '-7 days')`;
+  if (range === '30d') return ` AND datetime(${column}) >= datetime('now', '-30 days')`;
+  if (range === 'month') return ` AND datetime(${column}) >= datetime('now', 'start of month')`;
+  return '';
+}
+
+async function contactHasColumn(env, columnName) {
+  const { results } = await env.DB.prepare('PRAGMA table_info(contacts)').all();
+  return (results || []).some(column => String(column.name || '').toLowerCase() === String(columnName || '').toLowerCase());
+}
+
+async function getOverview(env, url) {
+  await ensureContactProfileTable(env);
+  const range = normalizeOverviewRange(url?.searchParams?.get('range'));
+  const sentFilter = getOverviewDateFilter(range, 'sent_at');
+  const recentSendsFilter = getOverviewDateFilter(range, 'sent_at');
+  const noteActivityFilter = getOverviewDateFilter(range, 'n.created_at');
+  const emailActivityFilter = getOverviewDateFilter(range, 's.sent_at');
+  const wonDateColumn = await contactHasColumn(env, 'updated_at') ? 'updated_at' : 'created_at';
+  const wonRangeFilter = getOverviewDateFilter(range, wonDateColumn);
+
+  const [
+    contacts,
+    templates,
+    campaigns,
+    sent,
+    pipelineValue,
+    followUps,
+    stageRows,
+    wonInRange,
+    recentSends,
+    recentActivity
+  ] = await Promise.all([
     env.DB.prepare('SELECT COUNT(*) n FROM contacts WHERE unsubscribed=0').first(),
     env.DB.prepare('SELECT COUNT(*) n FROM templates').first(),
     env.DB.prepare('SELECT COUNT(*) n FROM campaigns WHERE status NOT IN ("draft","completed")').first(),
-    env.DB.prepare('SELECT COUNT(*) n FROM sent_log WHERE status="sent"').first(),
+    env.DB.prepare(`SELECT COUNT(*) n FROM sent_log WHERE status="sent"${sentFilter}`).first(),
     env.DB.prepare('SELECT COALESCE(SUM(deal_value),0) v FROM contacts WHERE unsubscribed=0 AND stage NOT IN ("lost","won")').first(),
+    env.DB.prepare(`
+      SELECT
+        COALESCE(SUM(CASE
+          WHEN follow_up_at IS NOT NULL
+            AND date(follow_up_at) < date('now')
+            AND stage NOT IN ('won','lost')
+          THEN 1 ELSE 0 END), 0) overdue,
+        COALESCE(SUM(CASE
+          WHEN follow_up_at IS NOT NULL
+            AND date(follow_up_at) = date('now')
+            AND stage NOT IN ('won','lost')
+          THEN 1 ELSE 0 END), 0) today
+      FROM contacts
+      WHERE unsubscribed=0
+    `).first(),
+    env.DB.prepare(`
+      SELECT stage, COUNT(*) count, COALESCE(SUM(deal_value),0) value
+      FROM contacts
+      WHERE unsubscribed=0
+      GROUP BY stage
+    `).all(),
+    env.DB.prepare(`
+      SELECT COUNT(*) count, COALESCE(SUM(deal_value),0) value
+      FROM contacts
+      WHERE unsubscribed=0
+        AND stage='won'${wonRangeFilter}
+    `).first(),
+    env.DB.prepare(`
+      SELECT id, campaign_name, contact_email, subject, status, sent_at
+      FROM sent_log
+      WHERE 1=1${recentSendsFilter}
+      ORDER BY sent_at DESC
+      LIMIT 10
+    `).all(),
+    env.DB.prepare(`
+      SELECT id, contact_id, contact_name, contact_email, type, body, created_at
+      FROM (
+        SELECT
+          n.id,
+          n.contact_id,
+          COALESCE(
+            NULLIF(TRIM(COALESCE(cp.first_name,'') || ' ' || COALESCE(cp.last_name,'')), ''),
+            NULLIF(c.name, ''),
+            c.email
+          ) contact_name,
+          c.email contact_email,
+          LOWER(COALESCE(n.type, 'note')) type,
+          n.content body,
+          n.created_at
+        FROM contact_notes n
+        JOIN contacts c ON c.id = n.contact_id
+        LEFT JOIN contact_profiles cp ON cp.contact_id = n.contact_id
+        WHERE 1=1${noteActivityFilter}
+
+        UNION ALL
+
+        SELECT
+          s.id,
+          s.contact_id,
+          COALESCE(
+            NULLIF(TRIM(COALESCE(cp.first_name,'') || ' ' || COALESCE(cp.last_name,'')), ''),
+            NULLIF(c.name, ''),
+            s.contact_email
+          ) contact_name,
+          COALESCE(c.email, s.contact_email) contact_email,
+          'email' type,
+          COALESCE(NULLIF(s.subject, ''), 'Email sent') body,
+          s.sent_at created_at
+        FROM sent_log s
+        LEFT JOIN contacts c ON c.id = s.contact_id
+        LEFT JOIN contact_profiles cp ON cp.contact_id = s.contact_id
+        WHERE 1=1${emailActivityFilter}
+      ) activity
+      ORDER BY created_at DESC
+      LIMIT 15
+    `).all()
   ]);
-  return jres({ contacts: c.n, templates: t.n, campaigns: ca.n, sent: s.n, pipeline_value: pv.v });
+
+  const stageLookup = {};
+  for (const row of stageRows?.results || []) {
+    stageLookup[row.stage] = {
+      count: Number(row.count || 0),
+      value: Number(row.value || 0)
+    };
+  }
+
+  const pipelineStages = ['lead', 'prospect', 'qualified', 'proposal'].map(stage => ({
+    stage,
+    count: stageLookup[stage]?.count || 0,
+    value: stageLookup[stage]?.value || 0
+  }));
+
+  return jres({
+    range,
+    contacts: Number(contacts?.n || 0),
+    templates: Number(templates?.n || 0),
+    campaigns: Number(campaigns?.n || 0),
+    sent: Number(sent?.n || 0),
+    pipeline_value: Number(pipelineValue?.v || 0),
+    follow_ups_overdue: Number(followUps?.overdue || 0),
+    follow_ups_today: Number(followUps?.today || 0),
+    pipeline_stages: pipelineStages,
+    won: {
+      count: stageLookup.won?.count || 0,
+      value: stageLookup.won?.value || 0
+    },
+    lost: {
+      count: stageLookup.lost?.count || 0,
+      value: stageLookup.lost?.value || 0
+    },
+    won_in_range: {
+      count: Number(wonInRange?.count || 0),
+      value: Number(wonInRange?.value || 0)
+    },
+    recent_sends: recentSends?.results || [],
+    recent_activity: recentActivity?.results || []
+  });
 }
 
 // ── Templates ────────────────────────────────────────────────
@@ -860,9 +1017,12 @@ async function updateContact(req, env, id) {
   await ensureContactProfileTable(env);
   const { name, first_name, last_name, title, company, stage, deal_value, tags, phone, linkedin, follow_up_at, image_url } = await req.json();
   const fullName = formatContactName(first_name, last_name, name);
+  const current = await env.DB.prepare('SELECT stage FROM contacts WHERE id=?').bind(id).first();
+  const nextStage = stage || 'lead';
   await env.DB.prepare('UPDATE contacts SET name=?,company=?,stage=?,deal_value=?,tags=?,phone=?,linkedin=?,follow_up_at=? WHERE id=?')
-    .bind(fullName, company||'', stage||'lead', deal_value||0, JSON.stringify(tags||[]), phone||'', linkedin||'', follow_up_at||null, id).run();
+    .bind(fullName, company||'', nextStage, deal_value||0, JSON.stringify(tags||[]), phone||'', linkedin||'', follow_up_at||null, id).run();
   await saveContactProfile(env, id, first_name, last_name, title, image_url);
+  await logStageChangeActivity(env, id, current?.stage || 'lead', nextStage);
   return jres({ ok: true });
 }
 async function deleteContact(env, id) {
@@ -1147,6 +1307,23 @@ function addCors(res) {
 // ── CRM Backend ───────────────────────────────────────────────
 const STAGES = ['lead','prospect','qualified','proposal','won','lost'];
 
+function formatStageActivityValue(stage) {
+  const value = String(stage || 'lead').trim().toLowerCase();
+  return STAGES.includes(value) ? value[0].toUpperCase() + value.slice(1) : 'Lead';
+}
+
+async function logStageChangeActivity(env, contactId, fromStage, toStage) {
+  if (!contactId) return;
+  const previous = String(fromStage || 'lead').trim().toLowerCase();
+  const next = String(toStage || 'lead').trim().toLowerCase();
+  if (previous === next) return;
+  const id = uid();
+  const content = `${formatStageActivityValue(previous)} -> ${formatStageActivityValue(next)}`;
+  await env.DB.prepare('INSERT INTO contact_notes (id,contact_id,content,type,created_at) VALUES (?,?,?,?,?)')
+    .bind(id, contactId, content, 'stage', now()).run();
+  await env.DB.prepare('UPDATE contacts SET notes_count=notes_count+1 WHERE id=?').bind(contactId).run();
+}
+
 async function getCrmPipeline(env) {
   const { results } = await env.DB.prepare(
     'SELECT * FROM contacts WHERE unsubscribed=0 ORDER BY last_contacted_at DESC NULLS LAST, created_at DESC'
@@ -1272,6 +1449,9 @@ async function patchContact(req, env, id) {
   const fields = [];
   const vals = [];
   const allowed = ['name','company','stage','deal_value','tags','phone','linkedin','follow_up_at'];
+  const current = 'stage' in body
+    ? await env.DB.prepare('SELECT stage FROM contacts WHERE id=?').bind(id).first()
+    : null;
   for (const k of allowed) {
     if (k in body) {
       fields.push(`${k}=?`);
@@ -1281,6 +1461,7 @@ async function patchContact(req, env, id) {
   if (!fields.length) return jres({ error: 'No fields to update' }, 400);
   vals.push(id);
   await env.DB.prepare(`UPDATE contacts SET ${fields.join(',')} WHERE id=?`).bind(...vals).run();
+  if ('stage' in body) await logStageChangeActivity(env, id, current?.stage || 'lead', body.stage || 'lead');
   return jres({ ok: true });
 }
 

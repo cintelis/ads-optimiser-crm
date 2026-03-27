@@ -279,6 +279,57 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .info-item label{display:block;font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
 .info-item span{font-size:13px;color:var(--text)}
+.overview-stack{display:flex;flex-direction:column;gap:18px}
+.dashboard-alert{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}
+.dashboard-alert-copy{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px}
+.dashboard-alert-danger{border-color:rgba(255,82,82,.32);background:linear-gradient(135deg,rgba(255,82,82,.14),rgba(255,45,120,.08))}
+.dashboard-alert-warning{border-color:rgba(255,171,64,.3);background:linear-gradient(135deg,rgba(255,171,64,.14),rgba(255,255,255,.02))}
+.quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.quick-actions .btn{width:100%}
+.overview-range-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.overview-range-label{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em}
+.overview-range-pills{display:flex;gap:8px;flex-wrap:wrap}
+.overview-metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.overview-metric-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 20px;min-height:122px;display:flex;flex-direction:column;justify-content:space-between}
+.overview-metric-label{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em}
+.overview-metric-value{font-size:28px;font-weight:700;letter-spacing:-.04em;line-height:1.1}
+.overview-metric-note{margin-top:8px;font-size:12px;color:var(--muted2)}
+.overview-panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden}
+.overview-panel-head{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.overview-panel-title{font-family:var(--font-head);font-size:18px;font-weight:700}
+.overview-panel-note{margin-top:4px;font-size:12px;color:var(--muted2);line-height:1.6}
+.overview-funnel{padding:18px 20px 20px;display:flex;flex-direction:column;gap:14px}
+.overview-funnel-row{display:grid;grid-template-columns:170px minmax(0,1fr) 70px;gap:14px;align-items:center}
+.overview-funnel-copy{min-width:0}
+.overview-funnel-stage{font-size:13px;font-weight:700}
+.overview-funnel-meta{margin-top:4px;font-size:11px;color:var(--muted2)}
+.overview-funnel-bar-wrap{height:14px;border-radius:999px;background:#0d0d15;border:1px solid var(--border2);overflow:hidden}
+.overview-funnel-bar{height:100%;border-radius:999px;background:linear-gradient(135deg,var(--cyan),var(--purple));min-width:0}
+.overview-funnel-bar-lead{background:linear-gradient(135deg,#5a9fd4,#6fd7ff)}
+.overview-funnel-bar-prospect{background:linear-gradient(135deg,var(--cyan),#63e6ff)}
+.overview-funnel-bar-qualified{background:linear-gradient(135deg,var(--purple),#a57ce0)}
+.overview-funnel-bar-proposal{background:linear-gradient(135deg,var(--amber),#ffd166)}
+.overview-funnel-side{text-align:right}
+.overview-funnel-count{font-size:14px;font-weight:700}
+.overview-funnel-conversion{margin-top:3px;font-size:11px;color:var(--muted2)}
+.overview-columns{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:18px}
+.overview-table-wrap{background:transparent;border:none;border-radius:0}
+.overview-timeline{padding:10px 20px 20px;display:flex;flex-direction:column;gap:12px}
+.overview-timeline-item{display:flex;gap:12px;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface2)}
+.overview-timeline-item-clickable{cursor:pointer;transition:border-color .15s,transform .15s}
+.overview-timeline-item-clickable:hover{border-color:rgba(0,200,255,.26);transform:translateY(-1px)}
+.overview-timeline-icon{width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;background:rgba(90,90,122,.18);color:var(--muted2)}
+.overview-timeline-icon-call{background:rgba(0,200,255,.12);color:var(--cyan)}
+.overview-timeline-icon-meeting{background:rgba(0,230,118,.12);color:var(--green)}
+.overview-timeline-icon-email{background:rgba(123,94,167,.15);color:var(--purple)}
+.overview-timeline-icon-stage{background:rgba(255,171,64,.16);color:var(--amber)}
+.overview-timeline-copy{min-width:0;flex:1}
+.overview-timeline-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.overview-timeline-title{font-size:13px;font-weight:700}
+.overview-timeline-time{font-size:11px;color:var(--muted2);white-space:nowrap}
+.overview-timeline-contact{margin-top:3px;font-size:12px;color:var(--text)}
+.overview-timeline-body{margin-top:6px;font-size:12px;line-height:1.6;color:var(--muted2)}
+.overview-empty{padding:26px 0;color:var(--muted2);font-size:13px}
 
 @media (max-width: 960px){
   #app,.layout{height:auto;min-height:100vh}
@@ -311,6 +362,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
   .pipeline-actions{justify-content:flex-start}
   .pipeline-search{min-width:0;width:100%}
   .pipeline-summary{min-width:0}
+  .dashboard-alert{flex-direction:column;align-items:flex-start}
+  .quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .overview-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .overview-columns{grid-template-columns:1fr}
+  .overview-funnel-row{grid-template-columns:1fr}
+  .overview-funnel-side{text-align:left}
   .pipeline-desktop{display:none}
   .pipeline-mobile{display:flex;flex-direction:column;gap:12px}
   .pipeline-col{width:100%;max-width:none}
@@ -355,6 +412,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
   .toolbar{align-items:stretch}
   .toolbar > *{width:100%}
   .toolbar .search-box{min-width:0}
+  .quick-actions{grid-template-columns:1fr}
+  .overview-range-row{align-items:flex-start}
+  .overview-range-pills{width:100%}
+  .overview-range-pills .btn{flex:1}
+  .overview-metrics-grid{grid-template-columns:1fr}
+  .overview-panel-head,.overview-funnel,.overview-timeline{padding-left:16px;padding-right:16px}
+  .overview-timeline-top{flex-direction:column;gap:4px}
   .pipeline-actions{display:grid;grid-template-columns:1fr;gap:10px}
   .pipeline-actions .btn{width:100%}
   .pipeline-head{padding:12px 14px 10px}
