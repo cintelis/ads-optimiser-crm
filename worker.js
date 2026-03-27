@@ -87,12 +87,13 @@ function renderFooter(note) {
 }
 
 function renderLuxuryHomesFooter() {
-  const iconStyle = 'display:block;width:34px;height:34px;line-height:34px;text-align:center;';
-  const instagramIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><rect x="4.5" y="4.5" width="15" height="15" rx="4" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2" fill="#1d4ed8"/></svg>`;
-  const youtubeIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><rect x="3.5" y="6" width="17" height="12" rx="3.2" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><path d="M10 9.2l5.2 2.8-5.2 2.8V9.2z" fill="#1d4ed8"/></svg>`;
-  const tiktokIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><path d="M14 4c.7 2 2 3.4 4 4v3a8 8 0 0 1-4-1.1v4.9a4.8 4.8 0 1 1-3.3-4.6v3.1a1.9 1.9 0 1 0 1.4 1.8V4H14z" fill="#1d4ed8"/></svg>`;
-  const facebookIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><path d="M13.5 20v-6h2.2l.3-2.6h-2.5V9.8c0-.8.2-1.3 1.4-1.3H16V6.1c-.2 0-.9-.1-1.8-.1-1.8 0-3.1 1.1-3.1 3.3v2.1H9v2.6h2.3v6h2.2z" fill="#1d4ed8"/></svg>`;
-  const linkedinIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><path d="M7.1 8.7A1.6 1.6 0 1 1 7 5.5a1.6 1.6 0 0 1 .1 3.2zM5.9 10h2.3v8H5.9v-8zm4 0h2.2v1.1h.1c.3-.6 1.1-1.4 2.4-1.4 2.5 0 3 1.6 3 3.8V18h-2.3v-4c0-1-.1-2.2-1.4-2.2-1.4 0-1.6 1.1-1.6 2.1V18H10v-8z" fill="#1d4ed8"/></svg>`;
+  const iconWrapStyle = 'display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;text-align:center;vertical-align:middle;';
+  const iconStyle = 'display:block;width:18px;height:18px;margin:8px auto;';
+  const instagramIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><rect x="4.5" y="4.5" width="15" height="15" rx="4" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2" fill="#1d4ed8"/></svg>`;
+  const youtubeIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><rect x="3.5" y="6" width="17" height="12" rx="3.2" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><path d="M10 9.2l5.2 2.8-5.2 2.8V9.2z" fill="#1d4ed8"/></svg>`;
+  const tiktokIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><path d="M14 4c.7 2 2 3.4 4 4v3a8 8 0 0 1-4-1.1v4.9a4.8 4.8 0 1 1-3.3-4.6v3.1a1.9 1.9 0 1 0 1.4 1.8V4H14z" fill="#1d4ed8"/></svg>`;
+  const facebookIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><path d="M13.5 20v-6h2.2l.3-2.6h-2.5V9.8c0-.8.2-1.3 1.4-1.3H16V6.1c-.2 0-.9-.1-1.8-.1-1.8 0-3.1 1.1-3.1 3.3v2.1H9v2.6h2.3v6h2.2z" fill="#1d4ed8"/></svg>`;
+  const linkedinIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><path d="M7.1 8.7A1.6 1.6 0 1 1 7 5.5a1.6 1.6 0 0 1 .1 3.2zM5.9 10h2.3v8H5.9v-8zm4 0h2.2v1.1h.1c.3-.6 1.1-1.4 2.4-1.4 2.5 0 3 1.6 3 3.8V18h-2.3v-4c0-1-.1-2.2-1.4-2.2-1.4 0-1.6 1.1-1.6 2.1V18H10v-8z" fill="#1d4ed8"/></svg>`;
   return `<tr>
     <td style="padding:24px 28px 28px;border-top:1px solid #e5e7eb;background:#fafafa;">
       <p style="margin:0 0 14px;font-size:13px;line-height:1.7;color:#6b7280;text-align:center;">Ads Optimiser helps luxury real estate agencies turn premium listing photography into polished video walkthrough campaigns.</p>
@@ -113,27 +114,27 @@ function renderLuxuryHomesFooter() {
             <table role="presentation" cellspacing="0" cellpadding="0">
               <tr>
                 <td style="padding:0 5px;">
-                  <a href="https://www.instagram.com/adsoptimiserapp" title="Instagram" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                  <a href="https://www.instagram.com/adsoptimiserapp" title="Instagram" style="${iconWrapStyle}">
                     ${instagramIcon}
                   </a>
                 </td>
                 <td style="padding:0 5px;">
-                  <a href="https://www.youtube.com/@adsoptimiserapp" title="YouTube" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                  <a href="https://www.youtube.com/@adsoptimiserapp" title="YouTube" style="${iconWrapStyle}">
                     ${youtubeIcon}
                   </a>
                 </td>
                 <td style="padding:0 5px;">
-                  <a href="https://www.tiktok.com/@plainenglishcyber" title="TikTok" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                  <a href="https://www.tiktok.com/@plainenglishcyber" title="TikTok" style="${iconWrapStyle}">
                     ${tiktokIcon}
                   </a>
                 </td>
                 <td style="padding:0 5px;">
-                  <a href="https://www.facebook.com/profile.php?id=61587247657068" title="Facebook" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                  <a href="https://www.facebook.com/profile.php?id=61587247657068" title="Facebook" style="${iconWrapStyle}">
                     ${facebookIcon}
                   </a>
                 </td>
                 <td style="padding:0 5px;">
-                  <a href="https://www.linkedin.com/company/ads-optimiser-app" title="LinkedIn" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                  <a href="https://www.linkedin.com/company/ads-optimiser-app" title="LinkedIn" style="${iconWrapStyle}">
                     ${linkedinIcon}
                   </a>
                 </td>
@@ -470,14 +471,12 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
                 <img src="${frame01ImageUrl}" alt="Video frame 1" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
               </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Front elevation reveal</div>
-              <div style="padding-top:6px;"><a href="${frame01VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
             <td style="padding:0 0 18px 10px;width:50%;vertical-align:top;">
               <a href="${frame02VideoUrl}" style="display:block;text-decoration:none;">
                 <img src="${frame02ImageUrl}" alt="Video frame 2" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
               </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Kitchen and living sweep</div>
-              <div style="padding-top:6px;"><a href="${frame02VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
           </tr>
           <tr>
@@ -486,32 +485,16 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
                 <img src="${frame03ImageUrl}" alt="Video frame 3" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
               </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Primary suite sequence</div>
-              <div style="padding-top:6px;"><a href="${frame03VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
             <td style="padding:0 0 0 10px;width:50%;vertical-align:top;">
               <a href="${frame04VideoUrl}" style="display:block;text-decoration:none;">
                 <img src="${frame04ImageUrl}" alt="Video frame 4" style="width:100%;border:0;display:block;border-radius:14px;" width="271" />
               </a>
               <div style="padding-top:10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Outdoor entertaining close</div>
-              <div style="padding-top:6px;"><a href="${frame04VideoUrl}" style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:700;">Play clip</a></div>
             </td>
           </tr>
         </table>
       </td>
-    </tr>
-    <tr>
-      <td align="center" style="padding:22px 36px 8px;background:#ffffff;">
-        <p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#6b7280;">The hero frame and each image below are linked to a hosted walkthrough clip. Click any frame to open the associated video.</p>
-        <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto;">
-          <tr>
-            <td style="padding:0 10px 12px 0;">
-              <a href="${heroVideoUrl}" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;">Play hero walkthrough</a>
-            </td>
-            <td style="padding:0 0 12px 10px;">
-              <a href="${frame01VideoUrl}" style="display:inline-block;padding:13px 18px;border-radius:10px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-weight:700;border:1px solid #bfdbfe;">Open front elevation clip</a>
-            </td>
-          </tr>
-        </table>
       </td>
     </tr>
     <tr>
