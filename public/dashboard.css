@@ -92,9 +92,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .contact-avatar-lg.contact-avatar-fallback{font-size:22px}
 .contact-email{font-size:11px;word-break:break-word}
 .contact-actions{gap:6px}
-.icon-btn{width:32px;height:32px;border-radius:10px;border:1px solid var(--border2);background:#10111a;color:var(--text);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,transform .15s,background .15s}
-.icon-btn:hover{border-color:rgba(0,200,255,.28);background:#141827;transform:translateY(-1px)}
+.icon-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--border2);background:#10111a;color:var(--muted2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s,transform .15s,background .15s,opacity .15s}
+.icon-btn:hover{border-color:rgba(0,200,255,.28);background:#141827;transform:translateY(-1px);color:var(--text)}
+.icon-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.icon-btn:disabled:hover{border-color:var(--border2);background:#10111a;color:var(--muted2)}
 .icon-btn svg{width:15px;height:15px;fill:currentColor}
+.icon-btn-ghost{background:#10111a}
+.icon-btn-primary{background:linear-gradient(135deg,#00C8FF,#7B5EA7);color:#fff;border:none}
+.icon-btn-primary:hover{opacity:.92;color:#fff}
+.icon-btn-success{background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.24)}
+.icon-btn-success:hover{background:rgba(0,230,118,.18);color:var(--green);border-color:rgba(0,230,118,.35)}
 .icon-btn-danger{color:#ff8a8a}
 .icon-btn-danger:hover{border-color:rgba(255,82,82,.3);background:rgba(255,82,82,.08)}
 .contact-column-panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;padding:12px 14px;margin:-4px 0 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px}

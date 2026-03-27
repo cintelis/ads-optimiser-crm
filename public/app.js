@@ -73,6 +73,26 @@ let currentSection = 'overview';
 let campaignEditingId = '';
 let campaignScheduleDraft = {};
 let listEditingId = '';
+const ICONS = {
+  refresh: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a7 7 0 1 1-6.2 10.2 1 1 0 1 1 1.76-.96A5 5 0 1 0 8 7.7h1.5a1 1 0 1 1 0 2H5.8a1 1 0 0 1-1-1V5a1 1 0 1 1 2 0v1.2A6.94 6.94 0 0 1 12 5z"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5z"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.8 3.3a2.3 2.3 0 0 1 3.2 3.2l-9.9 9.9-4.1.9.9-4.1 9.9-9.9zm1.8 1.4a.3.3 0 0 0-.4 0l-1.2 1.2 1.8 1.8L19 6.5a.3.3 0 0 0 0-.4l-1.4-1.4zM14.6 7.3l-7.8 7.8-.4 1.8 1.8-.4 7.8-7.8-1.4-1.4z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3a1 1 0 0 0-.95.68L7.8 4.5H5a1 1 0 1 0 0 2h.6l.9 11.1A2 2 0 0 0 8.5 19.5h7a2 2 0 0 0 2-1.9l.9-11.1H19a1 1 0 1 0 0-2h-2.8l-.25-.82A1 1 0 0 0 15 3H9zm.52 2h4.96l.15.5H9.37l.15-.5zm-.98 3.5a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1zm6 0a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0v-6a1 1 0 0 1 1-1z"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2l.4 2.1a7.3 7.3 0 0 1 1.8.7l1.8-1.1 1.4 1.4-1.1 1.8c.3.6.5 1.2.7 1.8L21 11v2l-2.1.4a7.3 7.3 0 0 1-.7 1.8l1.1 1.8-1.4 1.4-1.8-1.1a7.3 7.3 0 0 1-1.8.7L13 21h-2l-.4-2.1a7.3 7.3 0 0 1-1.8-.7l-1.8 1.1-1.4-1.4 1.1-1.8a7.3 7.3 0 0 1-.7-1.8L3 13v-2l2.1-.4c.1-.6.4-1.2.7-1.8L4.7 7l1.4-1.4 1.8 1.1c.6-.3 1.2-.5 1.8-.7L11 3zm1 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/></svg>',
+  send: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 11.2 19.7 4.1c.9-.4 1.8.5 1.4 1.4l-7.1 16.3c-.4.9-1.7.8-1.9-.2l-1.1-5-5-1.1c-1-.2-1.1-1.5-.2-1.9zm3.6 1 4.2.9a1 1 0 0 1 .76.76l.9 4.2 5.1-11.7L7 12.2z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5a1 1 0 0 1 1 1v12a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1zm8 0a1 1 0 0 1 1 1v12a1 1 0 1 1-2 0V6a1 1 0 0 1 1-1z"/></svg>',
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 5.2a1 1 0 0 1 1.05.07l8 5.5a1.5 1.5 0 0 1 0 2.42l-8 5.5A1 1 0 0 1 8 17.9V6.1c0-.36.2-.7.52-.88.06-.01.12-.03.18-.02z"/></svg>',
+  stepback: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 6.7a1 1 0 0 1 0 1.4L7.7 11H18a1 1 0 1 1 0 2H7.7l2.9 2.9a1 1 0 1 1-1.4 1.4l-4.6-4.6a1 1 0 0 1 0-1.4l4.6-4.6a1 1 0 0 1 1.4 0z"/></svg>',
+  stepforward: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.4 6.7a1 1 0 0 1 1.4 0l4.6 4.6a1 1 0 0 1 0 1.4l-4.6 4.6a1 1 0 0 1-1.4-1.4l2.9-2.9H6a1 1 0 1 1 0-2h10.3l-2.9-2.9a1 1 0 0 1 0-1.4z"/></svg>',
+  image: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v12h12V6H6zm2 9 2.4-3 1.8 2.2 2.6-3.2L18 15H8zm2-6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+  download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a1 1 0 1 1 2 0v8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4l2.3 2.3V4zm-6 13a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1a1 1 0 0 1 1-1z"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3H5a2 2 0 0 0-2 2v6.2a2 2 0 0 0 .59 1.41l7.8 7.8a2 2 0 0 0 2.82 0l6.2-6.2a2 2 0 0 0 0-2.82l-7.8-7.8A2 2 0 0 0 11 3zm-3 4.5A1.5 1.5 0 1 1 8 10.5 1.5 1.5 0 0 1 8 7.5z"/></svg>'
+};
+
+function iconButton(icon, title, onclick, variant = 'ghost', options = {}) {
+  const { disabled = false, extraClass = '' } = options;
+  return `<button class="icon-btn icon-btn-${variant}${extraClass ? ' ' + extraClass : ''}" type="button" title="${esc(title)}" aria-label="${esc(title)}" onclick="${onclick}" ${disabled ? 'disabled' : ''}>${ICONS[icon] || ICONS.edit}<span class="screen-reader-only">${esc(title)}</span></button>`;
+}
 
 // ── Auth ──────────────────────────────────────────────────────
 async function doLogin() {
@@ -456,7 +476,7 @@ function renderTemplatesDesktop() {
           <div class="text-muted text-sm">${t.length} template${t.length!==1?'s':''}</div>
         </div>
         <div class="template-detail-actions">
-          <button class="btn btn-ghost btn-sm" onclick="refreshSeededTemplates()">Refresh Seeded</button>
+          ${iconButton('refresh', 'Refresh seeded templates', 'refreshSeededTemplates()')}
           <button class="btn btn-primary btn-sm" onclick="createNewTemplateWorkspace()">+ New</button>
         </div>
       </div>
@@ -477,8 +497,8 @@ function renderTemplatesDesktop() {
           <div class="template-detail-meta" id="template-workspace-meta">${draft.subject || 'Preview uses sample merge values for first name, last name, full name, email, company, unsubscribe link, and address.'}</div>
         </div>
         <div class="template-detail-actions">
-          ${draft.id ? `<button class="btn btn-ghost btn-sm" onclick="${isSeededRealEstateTemplateId(draft.id) ? `refreshSeededTemplates('${draft.id}')` : `loadTemplateIntoWorkspace('${draft.id}', true)`}">Reset</button>` : ''}
-          ${draft.id ? '<button class="btn btn-danger btn-sm" onclick="deleteTemplate(\''+draft.id+'\')">Delete</button>' : ''}
+          ${draft.id ? iconButton('refresh', 'Reset template', isSeededRealEstateTemplateId(draft.id) ? `refreshSeededTemplates('${draft.id}')` : `loadTemplateIntoWorkspace('${draft.id}', true)`) : ''}
+          ${draft.id ? iconButton('trash', 'Delete template', `deleteTemplate('${draft.id}')`, 'ghost', { extraClass: 'icon-btn-danger' }) : ''}
           <button class="btn btn-primary" onclick="saveTemplate('${draft.id || ''}')">Save Template</button>
         </div>
       </div>
@@ -512,7 +532,7 @@ function renderTemplatesMobile() {
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
     <div class="toolbar-meta" style="flex:1"><span class="text-muted text-sm">${t.length} template${t.length!==1?'s':''}</span></div>
-    <button class="btn btn-ghost" onclick="refreshSeededTemplates()">Refresh Seeded</button>
+    ${iconButton('refresh', 'Refresh seeded templates', 'refreshSeededTemplates()')}
     <button class="btn btn-primary" onclick="openTemplateModal()">+ New Template</button>
   </div>
   <div class="table-wrap stack-on-mobile">
@@ -521,7 +541,7 @@ function renderTemplatesMobile() {
       <td data-label="Name" style="font-weight:600">${esc(r.name)}</td>
       <td class="text-muted" data-label="Subject">${esc(r.subject)}</td>
       <td class="text-muted text-sm" data-label="Updated">${fmtDate(r.updated_at)}</td>
-      <td data-label="Actions"><div class="table-actions"><button class="btn btn-ghost btn-sm" onclick="editTemplate('${r.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTemplate('${r.id}')">Delete</button></div></td>
+      <td data-label="Actions"><div class="table-actions">${iconButton('edit', 'Edit template', `editTemplate('${r.id}')`)}${iconButton('trash', 'Delete template', `deleteTemplate('${r.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div></td>
     </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted2);padding:32px">No templates yet. Create your first.</td></tr>'}
     </tbody></table>
   </div>`;
@@ -641,8 +661,8 @@ function renderContacts(q = state.ui.contactsQuery || '') {
   <div class="pagination-bar">
     <div class="pagination-meta">Page ${page} of ${totalPages}</div>
     <div class="pagination-actions">
-      <button class="btn btn-ghost btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="setContactsPage(${page - 1})">Previous</button>
-      <button class="btn btn-ghost btn-sm" ${page >= totalPages ? 'disabled' : ''} onclick="setContactsPage(${page + 1})">Next</button>
+      ${iconButton('stepback', 'Previous page', `setContactsPage(${page - 1})`, 'ghost', { disabled: page <= 1 })}
+      ${iconButton('stepforward', 'Next page', `setContactsPage(${page + 1})`, 'ghost', { disabled: page >= totalPages })}
     </div>
   </div>`;
 }
@@ -716,8 +736,8 @@ function openContactModal(c, options = {}) {
           <input id="c-image-url" type="hidden" value="${esc(ct.image_url || '')}">
           <input type="file" id="c-image-file" accept="image/*" style="display:none" onchange="readContactImage(this)">
           <div class="flex gap">
-            <button class="btn btn-ghost btn-sm" onclick="triggerContactImageUpload()">Upload Image</button>
-            <button class="btn btn-ghost btn-sm" onclick="clearContactImage()">Remove</button>
+            ${iconButton('image', 'Upload image', 'triggerContactImageUpload()')}
+            ${iconButton('trash', 'Remove image', 'clearContactImage()', 'ghost', { extraClass: 'icon-btn-danger' })}
           </div>
         </div>
         <div class="text-muted text-sm">Image is optional. A small headshot or agency photo works best.</div>
@@ -930,7 +950,7 @@ function renderLists() {
       <td class="text-muted" data-label="Description">${esc(l.description)||'-'}</td>
       <td data-label="Members"><span class="badge badge-active">${l.cnt||0}</span></td>
       <td class="text-muted text-sm" data-label="Created">${fmtDate(l.created_at)}</td>
-      <td data-label="Actions"><div class="table-actions"><button class="btn btn-ghost btn-sm" onclick="viewList('${l.id}','${esc(l.name)}')">Manage</button><button class="btn btn-ghost btn-sm" onclick="openListModal('${l.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteList('${l.id}')">Delete</button></div></td>
+      <td data-label="Actions"><div class="table-actions">${iconButton('settings', 'Manage list', `viewList('${l.id}','${esc(l.name)}')`)}${iconButton('edit', 'Edit list', `openListModal('${l.id}')`)}${iconButton('trash', 'Delete list', `deleteList('${l.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div></td>
     </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:32px">No lists yet.</td></tr>'}
     </tbody></table>
   </div>`;
@@ -986,13 +1006,13 @@ async function viewList(id, name) {
           <option value="">- Select a contact -</option>
           ${available.map(c=>`<option value="${c.id}">${esc(c.email)}${c.name?' ('+esc(c.name)+')':''}</option>`).join('')}
         </select>
-        <button class="btn btn-primary btn-sm" onclick="addContactToList('${id}')">Add</button>
+        ${iconButton('plus', 'Add contact to list', `addContactToList('${id}')`, 'primary')}
       </div>
     </div>
     <div class="table-wrap stack-on-mobile">
       <table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th></th></tr></thead>
       <tbody id="list-members">
-      ${members.length ? members.map(m=>`<tr><td class="mono" data-label="Email" style="font-size:12px">${esc(m.email)}</td><td data-label="Name">${esc(m.name)||'-'}</td><td class="text-muted" data-label="Company">${esc(m.company)||'-'}</td><td data-label="Actions"><div class="table-actions"><button class="btn btn-danger btn-sm" onclick="removeFromList('${id}','${m.id}','${esc(name)}')">Remove</button></div></td></tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted2);padding:24px">No members yet.</td></tr>'}
+      ${members.length ? members.map(m=>`<tr><td class="mono" data-label="Email" style="font-size:12px">${esc(m.email)}</td><td data-label="Name">${esc(m.name)||'-'}</td><td class="text-muted" data-label="Company">${esc(m.company)||'-'}</td><td data-label="Actions"><div class="table-actions">${iconButton('trash', 'Remove from list', `removeFromList('${id}','${m.id}','${esc(name)}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div></td></tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted2);padding:24px">No members yet.</td></tr>'}
       </tbody></table>
     </div>
   </div>`);
@@ -1032,11 +1052,11 @@ function renderCampaigns() {
       <td data-label="Type"><span class="badge badge-draft" style="background:rgba(0,200,255,.08);color:var(--cyan)">${c.schedule_type}</span></td>
       <td data-label="Status"><span class="badge badge-${c.status}">${c.status}</span></td>
       <td data-label="Actions"><div class="table-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openCampaignModal('${c.id}')">Manage</button>
-        ${c.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="setCampaignStatus('${c.id}','pause')">Pause</button>`:''}
-        ${c.status==='paused'||c.status==='draft'?`<button class="btn btn-success btn-sm" onclick="setCampaignStatus('${c.id}','activate')">Activate</button>`:''}
-        <button class="btn btn-primary btn-sm" onclick="sendCampaignNow('${c.id}','${esc(c.name)}')">Send Now</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteCampaign('${c.id}')">Delete</button>
+        ${iconButton('settings', 'Manage campaign', `openCampaignModal('${c.id}')`)}
+        ${c.status==='active'?iconButton('pause', 'Pause campaign', `setCampaignStatus('${c.id}','pause')`):''}
+        ${c.status==='paused'||c.status==='draft'?iconButton('play', 'Activate campaign', `setCampaignStatus('${c.id}','activate')`, 'success'):''}
+        ${iconButton('send', 'Send campaign now', `sendCampaignNow('${c.id}','${esc(c.name)}')`, 'primary')}
+        ${iconButton('trash', 'Delete campaign', `deleteCampaign('${c.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}
       </div></td>
     </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:32px">No campaigns yet.</td></tr>'}
     </tbody></table>
@@ -1081,7 +1101,7 @@ function renderCampaignModal() {
     </div>
     <div id="schedule-fields"></div>
     <div class="form-group" style="margin-top:4px">
-      <label>Email Steps <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="addStep()">+ Add Step</button></label>
+      <label>Email Steps <span style="display:inline-flex;vertical-align:middle;margin-left:8px">${iconButton('plus', 'Add step', 'addStep()')}</span></label>
       <div class="steps-list" id="steps-list">${renderSteps(tOpts)}</div>
     </div>
     <div class="alert alert-error" id="ca-err"></div>
@@ -1118,7 +1138,7 @@ function renderSteps(tOpts) {
         <div class="form-group" style="margin-bottom:0"><label>${i===0?'Send immediately':'Delay (days after prev)' }</label><input type="number" value="${s.delay_days}" min="0" onchange="campaignSteps[${i}].delay_days=parseInt(this.value)||0" ${i===0?'disabled':''}></div>
       </div>
     </div>
-    ${campaignSteps.length>1?'<button class="btn btn-danger btn-sm" onclick="removeStep('+i+')">Remove</button>':''}
+    ${campaignSteps.length>1?iconButton('trash', 'Remove step', `removeStep(${i})`, 'ghost', { extraClass: 'icon-btn-danger' }):''}
   </div>`).join('');
 }
 
@@ -1398,7 +1418,7 @@ function renderDrawerContent(d) {
   </div>
 
   <div class="drawer-section">
-    <div class="drawer-section-title">Contact Info <button class="btn btn-ghost btn-sm" onclick="openContactEditModal('${c.id}')">Edit</button></div>
+    <div class="drawer-section-title">Contact Info ${iconButton('edit', 'Edit contact', `openContactEditModal('${c.id}')`)}</div>
     <div class="info-grid">
       <div class="info-item"><label>Email</label><span class="mono" style="font-size:12px">${esc(c.email)}</span></div>
       <div class="info-item"><label>Phone</label><span>${esc(c.phone||'-')}</span></div>
@@ -1407,8 +1427,8 @@ function renderDrawerContent(d) {
       <div class="info-item"><label>Last Contacted</label><span class="text-sm">${c.last_contacted_at?fmtDate(c.last_contacted_at):'Never'}</span></div>
       <div class="info-item"><label>Added</label><span class="text-sm">${fmtDate(c.created_at)}</span></div>
     </div>
-    ${tags.length?`<div style="margin-top:10px;display:flex;gap:4px;flex-wrap:wrap">${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}<button class="btn btn-ghost btn-sm" onclick="editTags('${c.id}',${JSON.stringify(tags).replace(/'/g,'&#39;')})">+ Tags</button></div>`
-    :`<button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="editTags('${c.id}',${JSON.stringify(tags)})">+ Add Tags</button>`}
+    ${tags.length?`<div style="margin-top:10px;display:flex;gap:4px;flex-wrap:wrap">${tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${iconButton('tag', 'Edit tags', `editTags('${c.id}',${JSON.stringify(tags).replace(/'/g,'&#39;')})`)}</div>`
+    :`<div style="margin-top:8px">${iconButton('tag', 'Add tags', `editTags('${c.id}',${JSON.stringify(tags)})`)}</div>`}
   </div>
 
   <div class="drawer-section">
@@ -1418,7 +1438,7 @@ function renderDrawerContent(d) {
         <option value="note">Note</option><option value="call">Call</option><option value="meeting">Meeting</option><option value="email">Email</option>
       </select>
       <input id="note-input" class="drawer-note-input" placeholder="Log an activity or note..." onkeydown="if(event.key==='Enter')addNoteFromDrawer('${c.id}')">
-      <button class="btn btn-primary btn-sm" onclick="addNoteFromDrawer('${c.id}')">Add</button>
+      ${iconButton('plus', 'Add note', `addNoteFromDrawer('${c.id}')`, 'primary')}
     </div>
     <div id="notes-list">
     ${d.notes.length ? d.notes.map(n=>`<div class="note-item" id="note-${n.id}">
@@ -1426,7 +1446,7 @@ function renderDrawerContent(d) {
       <div class="note-content">${esc(n.content)}</div>
       <div class="flex" style="justify-content:space-between;align-items:center;margin-top:4px">
         <span class="note-date">${fmtDate(n.created_at)}</span>
-        <button class="btn btn-danger btn-sm" style="padding:2px 8px" onclick="deleteNoteFromDrawer('${c.id}','${n.id}')">Delete</button>
+        ${iconButton('trash', 'Delete note', `deleteNoteFromDrawer('${c.id}','${n.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}
       </div>
     </div>`).join('') : '<p class="text-muted text-sm">No notes yet.</p>'}
     </div>
@@ -1473,7 +1493,7 @@ async function addNoteFromDrawer(contactId) {
   if (nl) {
     const div = document.createElement('div');
     div.className = 'note-item'; div.id = 'note-'+r.id;
-    div.innerHTML = `<span class="note-type note-${r.type}">${r.type}</span><div class="note-content">${esc(r.content)}</div><div class="flex" style="justify-content:space-between;align-items:center;margin-top:4px"><span class="note-date">just now</span><button class="btn btn-danger btn-sm" style="padding:2px 8px" onclick="deleteNoteFromDrawer('${contactId}','${r.id}')">Delete</button></div>`;
+    div.innerHTML = `<span class="note-type note-${r.type}">${r.type}</span><div class="note-content">${esc(r.content)}</div><div class="flex" style="justify-content:space-between;align-items:center;margin-top:4px"><span class="note-date">just now</span>${iconButton('trash', 'Delete note', `deleteNoteFromDrawer('${contactId}','${r.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div>`;
     nl.prepend(div);
   }
 }
