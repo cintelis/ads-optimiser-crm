@@ -86,7 +86,70 @@ function renderFooter(note) {
   </tr>`;
 }
 
-function renderTemplateShell(inner, footerNote, outerBackground = '#f3f4f6') {
+function renderLuxuryHomesFooter() {
+  const iconStyle = 'display:block;width:34px;height:34px;line-height:34px;text-align:center;';
+  const instagramIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><rect x="4.5" y="4.5" width="15" height="15" rx="4" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2" fill="#1d4ed8"/></svg>`;
+  const youtubeIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><rect x="3.5" y="6" width="17" height="12" rx="3.2" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><path d="M10 9.2l5.2 2.8-5.2 2.8V9.2z" fill="#1d4ed8"/></svg>`;
+  const tiktokIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><path d="M14 4c.7 2 2 3.4 4 4v3a8 8 0 0 1-4-1.1v4.9a4.8 4.8 0 1 1-3.3-4.6v3.1a1.9 1.9 0 1 0 1.4 1.8V4H14z" fill="#1d4ed8"/></svg>`;
+  const facebookIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><path d="M13.5 20v-6h2.2l.3-2.6h-2.5V9.8c0-.8.2-1.3 1.4-1.3H16V6.1c-.2 0-.9-.1-1.8-.1-1.8 0-3.1 1.1-3.1 3.3v2.1H9v2.6h2.3v6h2.2z" fill="#1d4ed8"/></svg>`;
+  const linkedinIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}margin:8px auto 0;"><path d="M7.1 8.7A1.6 1.6 0 1 1 7 5.5a1.6 1.6 0 0 1 .1 3.2zM5.9 10h2.3v8H5.9v-8zm4 0h2.2v1.1h.1c.3-.6 1.1-1.4 2.4-1.4 2.5 0 3 1.6 3 3.8V18h-2.3v-4c0-1-.1-2.2-1.4-2.2-1.4 0-1.6 1.1-1.6 2.1V18H10v-8z" fill="#1d4ed8"/></svg>`;
+  return `<tr>
+    <td style="padding:24px 28px 28px;border-top:1px solid #e5e7eb;background:#fafafa;">
+      <p style="margin:0 0 14px;font-size:13px;line-height:1.7;color:#6b7280;text-align:center;">Ads Optimiser helps luxury real estate agencies turn premium listing photography into polished video walkthrough campaigns.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 14px;">
+        <tr>
+          <td align="center" style="padding:0 0 12px;">
+            <a href="https://adsoptimiser.com.au/#signup" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:700;">Sign Up</a>
+            <span style="padding:0 10px;color:#cbd5e1;">|</span>
+            <a href="https://adsoptimiser.com.au/terms.html" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:700;">Terms of use</a>
+            <span style="padding:0 10px;color:#cbd5e1;">|</span>
+            <a href="https://adsoptimiser.com.au/privacy.html" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:700;">Privacy Policy</a>
+            <span style="padding:0 10px;color:#cbd5e1;">|</span>
+            <a href="https://adsoptimiser.com.au/#contact" style="font-size:12px;color:#2563eb;text-decoration:none;font-weight:700;">Contact us</a>
+          </td>
+        </tr>
+        <tr>
+          <td align="center">
+            <table role="presentation" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="padding:0 5px;">
+                  <a href="https://www.instagram.com/adsoptimiserapp" title="Instagram" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                    ${instagramIcon}
+                  </a>
+                </td>
+                <td style="padding:0 5px;">
+                  <a href="https://www.youtube.com/@adsoptimiserapp" title="YouTube" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                    ${youtubeIcon}
+                  </a>
+                </td>
+                <td style="padding:0 5px;">
+                  <a href="https://www.tiktok.com/@plainenglishcyber" title="TikTok" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                    ${tiktokIcon}
+                  </a>
+                </td>
+                <td style="padding:0 5px;">
+                  <a href="https://www.facebook.com/profile.php?id=61587247657068" title="Facebook" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                    ${facebookIcon}
+                  </a>
+                </td>
+                <td style="padding:0 5px;">
+                  <a href="https://www.linkedin.com/company/ads-optimiser-app" title="LinkedIn" style="display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;">
+                    ${linkedinIcon}
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:0 0 10px;font-size:12px;line-height:1.7;color:#9ca3af;text-align:center;">You're receiving this because we think you'd be a great fit for what we do.</p>
+      <p style="margin:0 0 10px;font-size:12px;line-height:1.7;color:#9ca3af;text-align:center;">&copy; Ads Optimiser is a registered business name of Cintelis Pty Limited ABN 51 638 482 970. All rights reserved.</p>
+      <p style="margin:0;font-size:12px;line-height:1.7;color:#9ca3af;text-align:center;"><a href="{{unsubscribe_url}}" style="color:#2563eb;text-decoration:none;">Unsubscribe</a><span style="padding:0 10px;color:#cbd5e1;">|</span>Ads Optimiser, Sunshine Coast, QLD.</p>
+    </td>
+  </tr>`;
+}
+
+function renderTemplateShell(inner, footerNote, outerBackground = '#f3f4f6', customFooter = '') {
   return `<!DOCTYPE html>
 <html lang="en">
   <body style="margin:0;padding:0;background:${outerBackground};font-family:Arial,Helvetica,sans-serif;color:#111827;">
@@ -99,7 +162,7 @@ function renderTemplateShell(inner, footerNote, outerBackground = '#f3f4f6') {
         <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:18px;overflow:hidden;">
             ${inner}
-            ${renderFooter(footerNote)}
+            ${customFooter || renderFooter(footerNote)}
           </table>
         </td>
       </tr>
@@ -469,32 +532,8 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
           </tr>
         </table>
       </td>
-    </tr>
-    <tr>
-      <td align="center" style="padding:24px 30px 10px;background:#ffffff;">
-        <table role="presentation" cellspacing="0" cellpadding="0">
-          <tr>
-            <td style="padding:0 8px 8px;">
-              <a href="https://www.linkedin.com/company/ads-optimiser-app" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">LinkedIn</a>
-            </td>
-            <td style="padding:0 8px 8px;">
-              <a href="https://www.facebook.com/profile.php?id=61587247657068" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">Facebook</a>
-            </td>
-            <td style="padding:0 8px 8px;">
-              <a href="https://www.youtube.com/@adsoptimiserapp" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">YouTube</a>
-            </td>
-            <td style="padding:0 8px 8px;">
-              <a href="https://www.instagram.com/adsoptimiserapp" style="display:inline-block;padding:10px 14px;border-radius:999px;background:#eff6ff;color:#1d4ed8;text-decoration:none;font-size:13px;font-weight:700;">Instagram</a>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-    <tr>
-      <td align="center" style="padding:0 42px 24px;background:#ffffff;">
-        <p style="margin:0;font-size:12px;line-height:1.8;color:#9ca3af;">&copy; Copyright 2026. Ads Optimiser is a registered business name of Cintelis Pty Limited (ABN 51 638 482 970). All rights reserved.</p>
-      </td>
     </tr>`, 'Ads Optimiser helps luxury real estate agencies turn premium listing photography into polished video walkthrough campaigns.'
+    , '#f3f4f6', renderLuxuryHomesFooter()
   );
 }
 
