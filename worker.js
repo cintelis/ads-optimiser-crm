@@ -433,15 +433,17 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
   return renderTemplateShell(`
     <tr>
       <td align="center" style="padding:34px 36px 18px;background:#ffffff;">
-        <table role="presentation" cellspacing="0" cellpadding="0">
-          <tr>
-            <td style="width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);text-align:center;font-size:28px;font-weight:800;color:#ffffff;">AO</td>
-            <td style="padding-left:14px;">
-              <div style="font-size:22px;line-height:1.1;font-weight:700;color:#0f172a;">Ads Optimiser</div>
-              <div style="margin-top:6px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#64748b;">Luxury homes magazine style</div>
-            </td>
-          </tr>
-        </table>
+        <a href="https://adsoptimiser.com.au/" style="display:inline-block;text-decoration:none;">
+          <table role="presentation" cellspacing="0" cellpadding="0">
+            <tr>
+              <td style="width:58px;height:58px;border-radius:16px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);text-align:center;font-size:28px;font-weight:800;color:#ffffff;">AO</td>
+              <td style="padding-left:14px;">
+                <div style="font-size:22px;line-height:1.1;font-weight:700;color:#0f172a;">Ads Optimiser</div>
+                <div style="margin-top:6px;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#64748b;">Luxury homes magazine style</div>
+              </td>
+            </tr>
+          </table>
+        </a>
       </td>
     </tr>
     <tr>
@@ -458,11 +460,16 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
       </td>
     </tr>
     <tr>
+      <td align="center" style="padding:0 36px 26px;background:#ffffff;">
+        <a href="https://adsoptimiser.com.au/" style="display:inline-block;padding:14px 22px;border-radius:12px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Visit Ads Optimiser</a>
+      </td>
+    </tr>
+    <tr>
       <td style="padding:0 42px 12px;background:#ffffff;">
         <p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:27px;line-height:1.32;font-weight:400;color:#595959;">Luxury homes need more than a static gallery when buyers are screening properties online.</p>
         <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Hi {{first_name}}, when {{company}} is marketing a prestige property, the photography is usually already excellent. Ads Optimiser turns that same image set into a polished walkthrough video so the listing feels more cinematic, more premium, and more memorable before the first inspection.</p>
         <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Instead of organising a separate video production for every campaign, your agency can reuse the approved stills, layer in motion, sequencing, and branded framing, and send buyers or vendors a stronger presentation asset within the normal campaign cycle.</p>
-        <p style="margin:0;font-size:16px;line-height:1.85;color:#4b5563;">That means one elegant creative can support launch emails, agent prospecting, social promotion, premium suburb campaigns, and vendor reporting while keeping the visual standard expected of high-value homes.</p>
+        <p style="margin:0;font-size:16px;line-height:1.85;color:#4b5563;">That means one elegant creative can support launch emails, agent prospecting, social promotion, premium suburb campaigns, and vendor reporting while keeping the visual standard expected of high-value homes. You can also see more at <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;font-weight:700;">adsoptimiser.com.au</a>.</p>
       </td>
     </tr>
     <tr>
@@ -525,9 +532,9 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
                 <span style="display:inline-block;vertical-align:middle;margin-right:10px;">
                   <img src="${signatureWebIconUrl}" width="16" height="16" alt="" style="display:block;width:16px;height:16px;border:0;outline:none;text-decoration:none;">
                 </span>
-                <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;vertical-align:middle;">adsoptimiser.com.au</a>
+                <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;vertical-align:middle;font-weight:700;">adsoptimiser.com.au</a>
               </p>
-              <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">Polished walkthrough campaigns from premium property photography.</p>
+              <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#111827;">Polished walkthrough campaigns from premium property photography.</p>
             </td>
           </tr>
         </table>
