@@ -9,7 +9,7 @@
 // Set MAIL_UNSUBSCRIBE_NOTIFY_EMAIL on that worker for admin notifications.
 // ============================================================
 
-const EMAIL_WORKER = 'https://365soft-email-worker.nick-598.workers.dev/api/send';
+const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
 const DEFAULT_NAME = 'Nick | 365Soft Labs';
 const CRM_PUBLIC_BASE_URL = 'https://crm.adsoptimiser.com.au';
@@ -86,14 +86,14 @@ function renderFooter(note) {
   </tr>`;
 }
 
-function renderLuxuryHomesFooter() {
+function renderLuxuryHomesFooter(origin = CRM_PUBLIC_BASE_URL) {
   const iconWrapStyle = 'display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;text-align:center;vertical-align:middle;';
-  const iconStyle = 'display:block;width:18px;height:18px;margin:8px auto;';
-  const instagramIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><rect x="4.5" y="4.5" width="15" height="15" rx="4" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><circle cx="17.2" cy="6.8" r="1.2" fill="#1d4ed8"/></svg>`;
-  const youtubeIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><rect x="3.5" y="6" width="17" height="12" rx="3.2" fill="none" stroke="#1d4ed8" stroke-width="1.8"/><path d="M10 9.2l5.2 2.8-5.2 2.8V9.2z" fill="#1d4ed8"/></svg>`;
-  const tiktokIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><path d="M14 4c.7 2 2 3.4 4 4v3a8 8 0 0 1-4-1.1v4.9a4.8 4.8 0 1 1-3.3-4.6v3.1a1.9 1.9 0 1 0 1.4 1.8V4H14z" fill="#1d4ed8"/></svg>`;
-  const facebookIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><path d="M13.5 20v-6h2.2l.3-2.6h-2.5V9.8c0-.8.2-1.3 1.4-1.3H16V6.1c-.2 0-.9-.1-1.8-.1-1.8 0-3.1 1.1-3.1 3.3v2.1H9v2.6h2.3v6h2.2z" fill="#1d4ed8"/></svg>`;
-  const linkedinIcon = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="${iconStyle}"><path d="M7.1 8.7A1.6 1.6 0 1 1 7 5.5a1.6 1.6 0 0 1 .1 3.2zM5.9 10h2.3v8H5.9v-8zm4 0h2.2v1.1h.1c.3-.6 1.1-1.4 2.4-1.4 2.5 0 3 1.6 3 3.8V18h-2.3v-4c0-1-.1-2.2-1.4-2.2-1.4 0-1.6 1.1-1.6 2.1V18H10v-8z" fill="#1d4ed8"/></svg>`;
+  const iconStyle = 'display:block;width:18px;height:18px;margin:8px auto;border:0;outline:none;text-decoration:none;';
+  const instagramIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/instagram.png')}" width="18" height="18" alt="Instagram" style="${iconStyle}">`;
+  const youtubeIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/youtube.png')}" width="18" height="18" alt="YouTube" style="${iconStyle}">`;
+  const tiktokIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/tiktok.png')}" width="18" height="18" alt="TikTok" style="${iconStyle}">`;
+  const facebookIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/facebook.png')}" width="18" height="18" alt="Facebook" style="${iconStyle}">`;
+  const linkedinIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/linkedin.png')}" width="18" height="18" alt="LinkedIn" style="${iconStyle}">`;
   return `<tr>
     <td style="padding:24px 28px 28px;border-top:1px solid #e5e7eb;background:#fafafa;">
       <p style="margin:0 0 14px;font-size:13px;line-height:1.7;color:#6b7280;text-align:center;">Ads Optimiser helps luxury real estate agencies turn premium listing photography into polished video walkthrough campaigns.</p>
@@ -455,7 +455,7 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
       </td>
     </tr>
     <tr>
-      <td align="center" style="padding:0 42px 12px;background:#ffffff;">
+      <td style="padding:0 42px 12px;background:#ffffff;">
         <p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:27px;line-height:1.32;font-weight:400;color:#595959;">Luxury homes need more than a static gallery when buyers are screening properties online.</p>
         <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Hi {{first_name}}, when {{company}} is marketing a prestige property, the photography is usually already excellent. Ads Optimiser turns that same image set into a polished walkthrough video so the listing feels more cinematic, more premium, and more memorable before the first inspection.</p>
         <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Instead of organising a separate video production for every campaign, your agency can reuse the approved stills, layer in motion, sequencing, and branded framing, and send buyers or vendors a stronger presentation asset within the normal campaign cycle.</p>
@@ -497,7 +497,7 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
       </td>
     </tr>
     <tr>
-      <td align="center" style="padding:8px 42px 0;background:#ffffff;">
+      <td style="padding:8px 42px 0;background:#ffffff;">
         <p style="margin:0 0 18px;font-size:16px;line-height:1.85;color:#4b5563;">If you would like, reply with one current prestige listing and we can show you how that property could be presented as a polished walkthrough using the image set your team already has.</p>
         <p style="margin:0;font-size:16px;line-height:1.85;color:#4b5563;">Best regards,</p>
       </td>
@@ -894,7 +894,7 @@ async function sendNow(env, id) {
   const { results: contacts } = await env.DB.prepare('SELECT c.* FROM contacts c JOIN contact_list_members m ON c.id=m.contact_id WHERE m.list_id=?').bind(campaign.list_id).all();
   let sent = 0, failed = 0, skipped = 0;
   for (const contact of contacts) {
-    const r = await sendEmail({ to: contact.email, subject: step.subject, html_body: merge(step.html_body, contact), from_email: campaign.from_email, from_name: campaign.from_name });
+    const r = await sendEmail(env, { to: contact.email, subject: step.subject, html_body: merge(step.html_body, contact), from_email: campaign.from_email, from_name: campaign.from_name });
     const status = r.ok ? 'sent' : r.skipped ? 'skipped' : 'failed';
     await addLog(env, { campaign_id: id, campaign_name: campaign.name, contact_id: contact.id, contact_email: contact.email, template_id: step.template_id, template_name: step.tname, subject: step.subject, status, error: r.error });
     if (r.ok) sent++; else if (r.skipped) skipped++; else failed++;
@@ -958,7 +958,7 @@ async function processDrip(env, campaign, ts) {
     if (prog.completed || prog.next_send_at > ts) continue;
     const step = steps[prog.current_step];
     if (!step) { await env.DB.prepare('UPDATE drip_progress SET completed=1 WHERE campaign_id=? AND contact_id=?').bind(campaign.id, contact.id).run(); continue; }
-    const r = await sendEmail({ to: contact.email, subject: step.subject, html_body: merge(step.html_body, contact), from_email: campaign.from_email, from_name: campaign.from_name });
+    const r = await sendEmail(env, { to: contact.email, subject: step.subject, html_body: merge(step.html_body, contact), from_email: campaign.from_email, from_name: campaign.from_name });
     const status = r.ok ? 'sent' : r.skipped ? 'skipped' : 'failed';
     await addLog(env, { campaign_id: campaign.id, campaign_name: campaign.name, contact_id: contact.id, contact_email: contact.email, template_id: step.template_id, template_name: step.tname, subject: step.subject, status, error: r.error });
     // If skipped (unsubscribed), mark drip sequence as completed for this contact
@@ -974,11 +974,22 @@ async function processDrip(env, campaign, ts) {
 }
 
 // ── Email + Utils ─────────────────────────────────────────────
-async function sendEmail({ to, subject, html_body, from_email, from_name }) {
+async function sendEmail(env, { to, subject, html_body, from_email, from_name }) {
   try {
-    const r = await fetch(EMAIL_WORKER, {
+    const apiUrl = String(env.EMAIL_API_URL || env.EMAIL_WORKER_URL || EMAIL_WORKER).trim();
+    const clientId = String(env.CF_ACCESS_CLIENT_ID || '').trim();
+    const clientSecret = String(env.CF_ACCESS_CLIENT_SECRET || '').trim();
+    if (!apiUrl) return { ok: false, skipped: false, error: 'Email API URL is not configured.' };
+    if (!clientId || !clientSecret) {
+      return { ok: false, skipped: false, error: 'Cloudflare Access service token is not configured.' };
+    }
+    const r = await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'CF-Access-Client-Id': clientId,
+        'CF-Access-Client-Secret': clientSecret
+      },
       body: JSON.stringify({ to, subject, message: html_body, contentType: 'HTML', fromEmail: from_email, fromName: from_name })
     });
     const d = await r.json().catch(() => ({}));

@@ -70,6 +70,8 @@ let state = {
   }
 };
 let currentSection = 'overview';
+let campaignEditingId = '';
+let campaignScheduleDraft = {};
 
 // ── Auth ──────────────────────────────────────────────────────
 async function doLogin() {
@@ -299,7 +301,7 @@ async function renderSection(s) {
   if (s === 'overview') { await loadStats(); await loadLogs(); renderOverview(); }
   else if (s === 'templates') { await loadTemplates(); renderTemplates(); }
   else if (s === 'contacts') { await loadContacts(state.ui.contactsQuery); renderContacts(); }
-  else if (s === 'lists') { await loadLists(); renderLists(); }
+  else if (s === 'lists') { await Promise.all([loadLists(), loadContacts('')]); renderLists(); }
   else if (s === 'campaigns') { await Promise.all([loadCampaigns(), loadTemplates(), loadLists()]); renderCampaigns(); }
   else if (s === 'logs') { await loadLogs(); renderLogs(); }
   else if (s === 'unsubs') { await loadUnsubs(); renderUnsubs(); }
@@ -962,6 +964,7 @@ async function deleteList(id) {
 }
 
 async function viewList(id, name) {
+  if (!state.contacts.length) await loadContacts('');
   const members = await api('GET',`/api/lists/${id}/contacts`) || [];
   const all = state.contacts;
   const memberIds = new Set(members.map(m=>m.id));
@@ -1016,6 +1019,7 @@ function renderCampaigns() {
       <td data-label="Type"><span class="badge badge-draft" style="background:rgba(0,200,255,.08);color:var(--cyan)">${c.schedule_type}</span></td>
       <td data-label="Status"><span class="badge badge-${c.status}">${c.status}</span></td>
       <td data-label="Actions"><div class="table-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openCampaignModal('${c.id}')">Manage</button>
         ${c.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="setCampaignStatus('${c.id}','pause')">Pause</button>`:''}
         ${c.status==='paused'||c.status==='draft'?`<button class="btn btn-success btn-sm" onclick="setCampaignStatus('${c.id}','activate')">Activate</button>`:''}
         <button class="btn btn-primary btn-sm" onclick="sendCampaignNow('${c.id}','${esc(c.name)}')">Send Now</button>
@@ -1028,30 +1032,38 @@ function renderCampaigns() {
 
 let campaignSteps = [{ template_id: '', delay_days: 0 }];
 
-function openCampaignModal() {
-  campaignSteps = [{ template_id: '', delay_days: 0 }];
+function openCampaignModal(id = '') {
+  const campaign = id ? state.campaigns.find(item => item.id === id) : null;
+  campaignEditingId = campaign?.id || '';
+  campaignScheduleDraft = { ...(campaign?.schedule_config || {}) };
+  campaignSteps = campaign?.steps?.length
+    ? campaign.steps.map(step => ({ template_id: step.template_id, delay_days: step.delay_days || 0 }))
+    : [{ template_id: '', delay_days: 0 }];
   renderCampaignModal();
 }
 
 function renderCampaignModal() {
+  const campaign = campaignEditingId ? state.campaigns.find(item => item.id === campaignEditingId) : null;
+  const title = campaign ? 'Manage Campaign' : 'New Campaign';
+  const submitLabel = campaign ? 'Save Changes' : 'Create Campaign';
   const tOpts = state.templates.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
-  const lOpts = state.lists.map(l=>`<option value="${l.id}">${esc(l.name)} (${l.cnt||0} contacts)</option>`).join('');
-  setModal(`<div class="modal-head"><h3>New Campaign</h3><button class="modal-close" onclick="closeModal()">x</button></div>
+  const lOpts = state.lists.map(l=>`<option value="${l.id}"${campaign?.list_id===l.id?' selected':''}>${esc(l.name)} (${l.cnt||0} contacts)</option>`).join('');
+  setModal(`<div class="modal-head"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
     <div class="form-row">
-      <div class="form-group"><label>Campaign Name *</label><input id="ca-name" placeholder="e.g. AI Outreach Q2"></div>
+      <div class="form-group"><label>Campaign Name *</label><input id="ca-name" value="${esc(campaign?.name || '')}" placeholder="e.g. AI Outreach Q2"></div>
       <div class="form-group"><label>Contact List *</label><select id="ca-list"><option value="">- Select list -</option>${lOpts}</select></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label>From Name</label><input id="ca-from-name" value="Nick | 365Soft Labs" placeholder="Sender name"></div>
-      <div class="form-group"><label>From Email</label><input id="ca-from-email" value="nick@365softlabs.com" placeholder="sender@example.com"></div>
+      <div class="form-group"><label>From Name</label><input id="ca-from-name" value="${esc(campaign?.from_name || 'Nick | 365Soft Labs')}" placeholder="Sender name"></div>
+      <div class="form-group"><label>From Email</label><input id="ca-from-email" value="${esc(campaign?.from_email || 'nick@365softlabs.com')}" placeholder="sender@example.com"></div>
     </div>
     <div class="form-group"><label>Schedule Type *</label>
       <select id="ca-type" onchange="renderScheduleFields()">
-        <option value="immediate">Send Immediately (on demand)</option>
-        <option value="once">Send Once - at a specific time</option>
-        <option value="recurring">Recurring - daily or weekly</option>
-        <option value="drip">Drip Sequence - staggered multi-email</option>
+        <option value="immediate"${campaign?.schedule_type==='immediate'?' selected':''}>Send Immediately (on demand)</option>
+        <option value="once"${campaign?.schedule_type==='once'?' selected':''}>Send Once - at a specific time</option>
+        <option value="recurring"${campaign?.schedule_type==='recurring'?' selected':''}>Recurring - daily or weekly</option>
+        <option value="drip"${campaign?.schedule_type==='drip'?' selected':''}>Drip Sequence - staggered multi-email</option>
       </select>
     </div>
     <div id="schedule-fields"></div>
@@ -1062,7 +1074,7 @@ function renderCampaignModal() {
     <div class="alert alert-error" id="ca-err"></div>
     <div class="flex gap" style="justify-content:flex-end;margin-top:8px">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveCampaign()">Create Campaign</button>
+      <button class="btn btn-primary" onclick="saveCampaign()">${submitLabel}</button>
     </div>
   </div>`);
   renderScheduleFields();
@@ -1072,9 +1084,16 @@ function renderScheduleFields() {
   const type = document.getElementById('ca-type')?.value;
   const c = document.getElementById('schedule-fields');
   if (!c) return;
-  if (type === 'once') c.innerHTML = `<div class="form-group"><label>Send At</label><input type="datetime-local" id="sch-send-at"></div>`;
-  else if (type === 'recurring') c.innerHTML = `<div class="form-row"><div class="form-group"><label>First Send</label><input type="datetime-local" id="sch-send-at"></div><div class="form-group"><label>Repeat every (days)</label><input type="number" id="sch-interval" value="7" min="1"></div></div>`;
-  else c.innerHTML = '';
+  if (type === 'once') {
+    c.innerHTML = `<div class="form-group"><label>Send At</label><input type="datetime-local" id="sch-send-at"></div>`;
+    document.getElementById('sch-send-at').value = toDateTimeLocalValue(campaignScheduleDraft.send_at);
+  } else if (type === 'recurring') {
+    c.innerHTML = `<div class="form-row"><div class="form-group"><label>First Send</label><input type="datetime-local" id="sch-send-at"></div><div class="form-group"><label>Repeat every (days)</label><input type="number" id="sch-interval" value="7" min="1"></div></div>`;
+    document.getElementById('sch-send-at').value = toDateTimeLocalValue(campaignScheduleDraft.next_run);
+    document.getElementById('sch-interval').value = String(parseInt(campaignScheduleDraft.interval_days, 10) || 7);
+  } else {
+    c.innerHTML = '';
+  }
 }
 
 function renderSteps(tOpts) {
@@ -1118,8 +1137,12 @@ async function saveCampaign() {
     if (!sa) { showAlert('ca-err','Select a first send time'); return; }
     schedule_config = { next_run: new Date(sa).toISOString(), interval_days: interval };
   }
-  const r = await api('POST','/api/campaigns',{name,list_id,schedule_type,schedule_config,steps:campaignSteps,from_name,from_email});
+  const method = campaignEditingId ? 'PUT' : 'POST';
+  const path = campaignEditingId ? `/api/campaigns/${campaignEditingId}` : '/api/campaigns';
+  const r = await api(method, path, {name,list_id,schedule_type,schedule_config,steps:campaignSteps,from_name,from_email});
   if (r.error) { showAlert('ca-err',r.error); return; }
+  campaignEditingId = '';
+  campaignScheduleDraft = {};
   closeModal(); await loadCampaigns(); renderCampaigns();
 }
 
@@ -1216,6 +1239,13 @@ window.addEventListener('resize', () => {
 // ── Utils ─────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function fmtDate(s) { if(!s) return '-'; try { return new Date(s).toLocaleString('en-AU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return s; } }
+function toDateTimeLocalValue(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 function showAlert(id, msg, cls='alert-error') {
   const el = document.getElementById(id);
   if (!el) return;
