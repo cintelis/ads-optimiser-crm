@@ -457,7 +457,7 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
     <tr>
       <td align="center" style="padding:0 42px 12px;background:#ffffff;">
         <p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:27px;line-height:1.32;font-weight:400;color:#595959;">Luxury homes need more than a static gallery when buyers are screening properties online.</p>
-        <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Hi {{name}}, when {{company}} is marketing a prestige property, the photography is usually already excellent. Ads Optimiser turns that same image set into a polished walkthrough video so the listing feels more cinematic, more premium, and more memorable before the first inspection.</p>
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Hi {{first_name}}, when {{company}} is marketing a prestige property, the photography is usually already excellent. Ads Optimiser turns that same image set into a polished walkthrough video so the listing feels more cinematic, more premium, and more memorable before the first inspection.</p>
         <p style="margin:0 0 16px;font-size:16px;line-height:1.85;color:#4b5563;">Instead of organising a separate video production for every campaign, your agency can reuse the approved stills, layer in motion, sequencing, and branded framing, and send buyers or vendors a stronger presentation asset within the normal campaign cycle.</p>
         <p style="margin:0;font-size:16px;line-height:1.85;color:#4b5563;">That means one elegant creative can support launch emails, agent prospecting, social promotion, premium suburb campaigns, and vendor reporting while keeping the visual standard expected of high-value homes.</p>
       </td>
@@ -495,6 +495,11 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
           </tr>
         </table>
       </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:8px 42px 0;background:#ffffff;">
+        <p style="margin:0 0 18px;font-size:16px;line-height:1.85;color:#4b5563;">If you would like, reply with one current prestige listing and we can show you how that property could be presented as a polished walkthrough using the image set your team already has.</p>
+        <p style="margin:0;font-size:16px;line-height:1.85;color:#4b5563;">Best regards,</p>
       </td>
     </tr>
     <tr>
@@ -507,9 +512,24 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
             <td style="padding:24px 0 0;vertical-align:top;">
               <p style="margin:0 0 4px;font-size:18px;line-height:1.4;font-weight:700;color:#111827;">Nick Forshteyn</p>
               <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#4b5563;">Co-Founder at Ads Optimiser</p>
-              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">Phone: <a href="tel:1300786040" style="color:#2563eb;text-decoration:none;">1300 786 040</a></p>
-              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">Email: <a href="mailto:admin@adsoptimiser.com.au" style="color:#2563eb;text-decoration:none;">admin@adsoptimiser.com.au</a></p>
-              <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#4b5563;">Web: <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;">https://adsoptimiser.com.au/</a></p>
+              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">
+                <span style="display:inline-block;vertical-align:middle;margin-right:8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.6 15.6 0 0 0 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.3 1 .3 2.1.4 3.2.4.7 0 1.2.5 1.2 1.2V20c0 .7-.5 1.2-1.2 1.2C10 21.2 2.8 14 2.8 5.2 2.8 4.5 3.3 4 4 4h3.5c.7 0 1.2.5 1.2 1.2 0 1.1.1 2.2.4 3.2.1.4 0 .9-.3 1.2l-2.2 2.2z" fill="#2563eb"/></svg>
+                </span>
+                <a href="tel:1300786040" style="color:#2563eb;text-decoration:none;vertical-align:middle;">1300 786 040</a>
+              </p>
+              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">
+                <span style="display:inline-block;vertical-align:middle;margin-right:8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16a1 1 0 0 1 1 1v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5v-9a1 1 0 0 1 1-1zm0 1.8v.4l8 5.2 8-5.2v-.4H4zm16 2.5-7.5 4.8a1 1 0 0 1-1 0L4 10.8v5.7h16v-5.7z" fill="#2563eb"/></svg>
+                </span>
+                <a href="mailto:admin@adsoptimiser.com.au" style="color:#2563eb;text-decoration:none;vertical-align:middle;">admin@adsoptimiser.com.au</a>
+              </p>
+              <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#4b5563;">
+                <span style="display:inline-block;vertical-align:middle;margin-right:8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm6.8 8h-3a14.7 14.7 0 0 0-1.2-5A7.1 7.1 0 0 1 18.8 11zM12 4.8c.8 1 1.8 3 2.1 6.2H9.9C10.2 7.8 11.2 5.8 12 4.8zM9.4 6A14.7 14.7 0 0 0 8.2 11h-3A7.1 7.1 0 0 1 9.4 6zm-4.2 6.8h3a14.7 14.7 0 0 0 1.2 5 7.1 7.1 0 0 1-4.2-5zm6.8 6.4c-.8-1-1.8-3-2.1-6.2h4.2c-.3 3.2-1.3 5.2-2.1 6.2zm2.6-1.2a14.7 14.7 0 0 0 1.2-5h3a7.1 7.1 0 0 1-4.2 5z" fill="#2563eb"/></svg>
+                </span>
+                <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;vertical-align:middle;">adsoptimiser.com.au</a>
+              </p>
               <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">Transform your advertising campaigns with AI-powered optimisation</p>
             </td>
           </tr>
