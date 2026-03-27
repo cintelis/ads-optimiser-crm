@@ -1150,16 +1150,18 @@ async function deleteList(id) {
   await loadLists(); renderLists();
 }
 
-async function viewList(id, name) {
+async function viewList(id, name, options = {}) {
   if (!state.contacts.length) await loadContacts('', '');
   if (!state.lists.length) await loadLists();
   const rawMembers = await api('GET',`/api/lists/${id}/contacts`) || [];
   state.ui.listModalId = id;
   state.ui.listModalName = name;
   state.ui.listModalMembers = Array.isArray(rawMembers) ? rawMembers.map(normalizeContactRecord) : [];
-  state.ui.listModalSearch = '';
-  state.ui.listModalOnlyUnlisted = false;
-  state.ui.listModalOnlyUntagged = false;
+  if (!options.preserveFilters) {
+    state.ui.listModalSearch = '';
+    state.ui.listModalOnlyUnlisted = false;
+    state.ui.listModalOnlyUntagged = false;
+  }
   renderListManager();
 }
 
@@ -1253,7 +1255,7 @@ async function addContactToList(listId, cid = '') {
   await api('POST',`/api/lists/${listId}/contacts`,{contact_ids:[contactId]});
   await Promise.all([loadLists(), loadContacts(state.ui.contactsQuery, state.ui.contactsTitle)]);
   const list = state.lists.find(l=>l.id===listId);
-  await viewList(listId, list?.name||'');
+  await viewList(listId, list?.name||'', { preserveFilters: true });
   if (currentSection === 'lists') renderLists();
 }
 
@@ -1261,7 +1263,7 @@ async function removeFromList(listId, contactId, name) {
   await api('DELETE',`/api/lists/${listId}/contacts/${contactId}`);
   await Promise.all([loadLists(), loadContacts(state.ui.contactsQuery, state.ui.contactsTitle)]);
   const list = state.lists.find(l=>l.id===listId);
-  await viewList(listId, list?.name||name);
+  await viewList(listId, list?.name||name, { preserveFilters: true });
   if (currentSection === 'lists') renderLists();
 }
 
