@@ -351,7 +351,10 @@ async function loadContacts(q = state.ui.contactsQuery || '', title = state.ui.c
   const maxPage = Math.max(1, Math.ceil(state.contacts.length / state.ui.contactsPageSize));
   state.ui.contactsPage = Math.min(state.ui.contactsPage, maxPage);
 }
-async function loadLists() { state.lists = await api('GET','/api/lists') || []; }
+async function loadLists() {
+  const data = await api('GET','/api/lists');
+  state.lists = Array.isArray(data) ? data : [];
+}
 async function loadCampaigns() { state.campaigns = await api('GET','/api/campaigns') || []; }
 async function loadLogs() { state.logs = await api('GET','/api/logs?limit=200') || []; }
 async function loadUnsubs() { state.unsubs = await api('GET','/api/unsubscribes') || []; }
@@ -898,11 +901,14 @@ async function deleteContact(id) {
 }
 
 async function openImportModal() {
-  if (!state.lists.length) await loadLists();
+  if (!Array.isArray(state.lists) || !state.lists.length) {
+    try { await loadLists(); } catch { state.lists = []; }
+  }
+  const lists = Array.isArray(state.lists) ? state.lists : [];
   const stageList = STAGE_ORDER.map(stage => `<code>${stage}</code>`).join(', ');
   const defaultBatchTag = `import:${new Date().toISOString().slice(0, 10)}`;
-  const listOptions = state.lists.length
-    ? `<option value="">Do not add to a list</option>${state.lists.map(list => `<option value="${list.id}">${esc(list.name)} (${list.cnt || 0} contacts)</option>`).join('')}`
+  const listOptions = lists.length
+    ? `<option value="">Do not add to a list</option>${lists.map(list => `<option value="${list.id}">${esc(list.name)} (${list.cnt || 0} contacts)</option>`).join('')}`
     : '<option value="">No lists available yet</option>';
   setModal(`<div class="modal-head"><h3>Import Contacts (CSV)</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
