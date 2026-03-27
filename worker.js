@@ -510,27 +510,21 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
               <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);text-align:center;font-size:30px;line-height:64px;font-weight:800;color:#ffffff;">AO</div>
             </td>
             <td style="padding:24px 0 0;vertical-align:top;">
-              <p style="margin:0 0 4px;font-size:18px;line-height:1.4;font-weight:700;color:#111827;">Nick Forshteyn</p>
-              <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#4b5563;">Co-Founder at Ads Optimiser</p>
-              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">
-                <span style="display:inline-block;vertical-align:middle;margin-right:8px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.6 15.6 0 0 0 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.3 1 .3 2.1.4 3.2.4.7 0 1.2.5 1.2 1.2V20c0 .7-.5 1.2-1.2 1.2C10 21.2 2.8 14 2.8 5.2 2.8 4.5 3.3 4 4 4h3.5c.7 0 1.2.5 1.2 1.2 0 1.1.1 2.2.4 3.2.1.4 0 .9-.3 1.2l-2.2 2.2z" fill="#2563eb"/></svg>
-                </span>
-                <a href="tel:1300786040" style="color:#2563eb;text-decoration:none;vertical-align:middle;">1300 786 040</a>
-              </p>
-              <p style="margin:0 0 4px;font-size:14px;line-height:1.7;color:#4b5563;">
-                <span style="display:inline-block;vertical-align:middle;margin-right:8px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16a1 1 0 0 1 1 1v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5v-9a1 1 0 0 1 1-1zm0 1.8v.4l8 5.2 8-5.2v-.4H4zm16 2.5-7.5 4.8a1 1 0 0 1-1 0L4 10.8v5.7h16v-5.7z" fill="#2563eb"/></svg>
+              <p style="margin:0 0 4px;font-size:18px;line-height:1.4;font-weight:700;color:#111827;">Ads Optimiser Team</p>
+              <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#4b5563;">AI-Powered Ad Creatives Platform</p>
+              <p style="margin:0 0 6px;font-size:14px;line-height:1.7;color:#4b5563;">
+                <span style="display:inline-block;vertical-align:middle;margin-right:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16a1 1 0 0 1 1 1v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5v-9a1 1 0 0 1 1-1zm0 1.8v.4l8 5.2 8-5.2v-.4H4zm16 2.5-7.5 4.8a1 1 0 0 1-1 0L4 10.8v5.7h16v-5.7z" fill="#2563eb"/></svg>
                 </span>
                 <a href="mailto:admin@adsoptimiser.com.au" style="color:#2563eb;text-decoration:none;vertical-align:middle;">admin@adsoptimiser.com.au</a>
               </p>
               <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#4b5563;">
-                <span style="display:inline-block;vertical-align:middle;margin-right:8px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm6.8 8h-3a14.7 14.7 0 0 0-1.2-5A7.1 7.1 0 0 1 18.8 11zM12 4.8c.8 1 1.8 3 2.1 6.2H9.9C10.2 7.8 11.2 5.8 12 4.8zM9.4 6A14.7 14.7 0 0 0 8.2 11h-3A7.1 7.1 0 0 1 9.4 6zm-4.2 6.8h3a14.7 14.7 0 0 0 1.2 5 7.1 7.1 0 0 1-4.2-5zm6.8 6.4c-.8-1-1.8-3-2.1-6.2h4.2c-.3 3.2-1.3 5.2-2.1 6.2zm2.6-1.2a14.7 14.7 0 0 0 1.2-5h3a7.1 7.1 0 0 1-4.2 5z" fill="#2563eb"/></svg>
+                <span style="display:inline-block;vertical-align:middle;margin-right:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="#2563eb" stroke-width="1.8"/><path d="M4.8 12h14.4M12 4.8c2.1 2.3 3.3 4.8 3.3 7.2S14.1 16.9 12 19.2M12 4.8c-2.1 2.3-3.3 4.8-3.3 7.2s1.2 4.9 3.3 7.2" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
                 <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;vertical-align:middle;">adsoptimiser.com.au</a>
               </p>
-              <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">Transform your advertising campaigns with AI-powered optimisation</p>
+              <p style="margin:0;font-size:14px;line-height:1.7;color:#111827;">Polished walkthrough campaigns from premium property photography.</p>
             </td>
           </tr>
         </table>
