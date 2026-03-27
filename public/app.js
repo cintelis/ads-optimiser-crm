@@ -19,6 +19,7 @@ const CONTACT_COLUMNS_KEY = 'crm_contact_columns_v1';
 const CONTACT_PAGE_SIZE_KEY = 'crm_contact_page_size_v1';
 const TEMPLATE_DESKTOP_BREAKPOINT = 960;
 const CONTACT_PAGE_SIZE_DEFAULT = 25;
+const PIPELINE_GROUP_PAGE_SIZE = 12;
 const CONTACT_TABLE_COLUMNS = [
   { key: 'contact', label: 'Contact' },
   { key: 'email', label: 'Email' },
@@ -56,6 +57,15 @@ let state = {
   unsubs: [],
   ui: {
     pipelineStage: 'lead',
+    pipelineSearch: '',
+    pipelineExpandedGroups: {},
+    pipelineVisibleGroups: {},
+    listModalId: '',
+    listModalName: '',
+    listModalMembers: [],
+    listModalSearch: '',
+    listModalOnlyUnlisted: false,
+    listModalOnlyUntagged: false,
     contactsQuery: '',
     contactsTitle: '',
     contactTagsOpen: false,
@@ -402,12 +412,19 @@ function normalizeContactRecord(contact) {
   else {
     try { tags = JSON.parse(base.tags || '[]'); } catch { tags = []; }
   }
+  let listNames = [];
+  if (Array.isArray(base.list_names)) listNames = base.list_names;
+  else if (typeof base.list_names_json === 'string') {
+    try { listNames = JSON.parse(base.list_names_json || '[]'); } catch { listNames = []; }
+  }
   return {
     ...base,
     first_name: firstName,
     last_name: lastName,
     title: String(base.title || '').trim(),
     tags,
+    list_names: listNames.map(name => String(name || '').trim()).filter(Boolean),
+    list_count: Number(base.list_count || listNames.length || 0),
     image_url: String(base.image_url || '').trim(),
     name: composeContactName(firstName, lastName, base.name)
   };
@@ -690,7 +707,7 @@ function renderContacts(q = state.ui.contactsQuery || '') {
     <button class="btn btn-ghost" onclick="openImportModal()">Import CSV</button>
     <button class="btn btn-primary" onclick="openContactModal()">+ Add Contact</button>
   </div>
-  <div class="text-muted text-sm" style="margin:-8px 0 12px;line-height:1.6">Examples: <code>tag:luxury</code>, <code>company:lynx</code>, <code>title:&quot;sales agent&quot;</code>, or combine them with normal text.</div>
+  <div class="text-muted text-sm" style="margin:-8px 0 12px;line-height:1.6">Examples: <code>tag:luxury</code>, <code>company:lynx</code>, <code>title:&quot;sales agent&quot;</code>. Plain-text auto-search starts after 3 characters.</div>
   ${state.ui.contactTagsOpen ? `<div class="contact-column-panel">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
       <div class="text-muted text-sm" style="font-weight:600">Filter by tag</div>
@@ -743,6 +760,16 @@ function renderContactTableCell(contact, key) {
 function queueContactsSearch(q) {
   state.ui.contactsQuery = q;
   if (contactsSearchTimer) clearTimeout(contactsSearchTimer);
+  const trimmed = String(q || '').trim();
+  const hasOperator = /\b(tag|company|title):/i.test(trimmed);
+  if (!trimmed) {
+    contactsSearchTimer = setTimeout(() => {
+      contactsSearchTimer = null;
+      searchContacts('');
+    }, 80);
+    return;
+  }
+  if (!hasOperator && trimmed.length < 3) return;
   contactsSearchTimer = setTimeout(() => {
     contactsSearchTimer = null;
     searchContacts(q);
@@ -1125,36 +1152,106 @@ async function deleteList(id) {
 
 async function viewList(id, name) {
   if (!state.contacts.length) await loadContacts('', '');
-  const members = await api('GET',`/api/lists/${id}/contacts`) || [];
-  const all = state.contacts;
-  const memberIds = new Set(members.map(m=>m.id));
-  const available = all.filter(c=>!memberIds.has(c.id));
+  if (!state.lists.length) await loadLists();
+  const rawMembers = await api('GET',`/api/lists/${id}/contacts`) || [];
+  state.ui.listModalId = id;
+  state.ui.listModalName = name;
+  state.ui.listModalMembers = Array.isArray(rawMembers) ? rawMembers.map(normalizeContactRecord) : [];
+  state.ui.listModalSearch = '';
+  state.ui.listModalOnlyUnlisted = false;
+  state.ui.listModalOnlyUntagged = false;
+  renderListManager();
+}
+
+function getAvailableListContacts() {
+  const members = state.ui.listModalMembers || [];
+  const memberIds = new Set(members.map(m => m.id));
+  let available = (state.contacts || []).filter(c => !memberIds.has(c.id));
+  const q = String(state.ui.listModalSearch || '').trim().toLowerCase();
+  if (state.ui.listModalOnlyUnlisted) {
+    available = available.filter(contact => !(contact.list_names || []).length);
+  }
+  if (state.ui.listModalOnlyUntagged) {
+    available = available.filter(contact => !(contact.tags || []).length);
+  }
+  if (q) {
+    available = available.filter(contact => [
+      contact.name,
+      contact.email,
+      contact.company,
+      contact.title,
+      ...(contact.list_names || []),
+      ...(contact.tags || [])
+    ].map(value => String(value || '').toLowerCase()).join(' ').includes(q));
+  }
+  return available;
+}
+
+function renderListManager() {
+  const id = state.ui.listModalId;
+  const name = state.ui.listModalName;
+  const members = state.ui.listModalMembers || [];
+  const available = getAvailableListContacts();
+  const onlyUnlisted = !!state.ui.listModalOnlyUnlisted;
+  const onlyUntagged = !!state.ui.listModalOnlyUntagged;
   setModal(`<div class="modal-head"><h3>List: ${esc(name)}</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
     <div style="margin-bottom:16px">
-      <label style="font-size:12px;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px;display:block;margin-bottom:6px">Add contacts to list</label>
-      <div class="flex gap">
-        <select id="add-contact" style="flex:1;background:#0d0d15;border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px">
-          <option value="">- Select a contact -</option>
-          ${available.map(c=>`<option value="${c.id}">${esc(c.email)}${c.name?' ('+esc(c.name)+')':''}</option>`).join('')}
-        </select>
-        ${iconButton('plus', 'Add contact to list', `addContactToList('${id}')`, 'primary')}
+      <label style="font-size:12px;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px;display:block;margin-bottom:6px">Find contacts to add</label>
+      <div class="flex gap" style="align-items:center;flex-wrap:wrap">
+        <input class="search-box" style="max-width:none;flex:1;min-width:220px" placeholder="Search by contact, company, email, list, or tag..." value="${esc(state.ui.listModalSearch || '')}" oninput="setListModalSearch(this.value)">
+        <button class="btn btn-ghost ${onlyUnlisted ? 'btn-active' : ''}" type="button" onclick="toggleListModalFilter('unlisted')">No Lists</button>
+        <button class="btn btn-ghost ${onlyUntagged ? 'btn-active' : ''}" type="button" onclick="toggleListModalFilter('untagged')">No Tags</button>
       </div>
+      <div class="text-muted text-sm" style="margin-top:8px">${available.length} available contact${available.length !== 1 ? 's' : ''}</div>
     </div>
     <div class="table-wrap stack-on-mobile">
-      <table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th></th></tr></thead>
+      <table><thead><tr><th>Contact</th><th>Company</th><th>Lists</th><th>Tags</th><th></th></tr></thead>
       <tbody id="list-members">
+      ${available.length ? available.slice(0, 150).map(c=>`<tr>
+        <td data-label="Contact">
+          <div class="contact-cell">
+            ${renderContactAvatar(c)}
+            <div class="contact-copy">
+              <div class="contact-primary">${esc(getContactDisplayName(c))}</div>
+              <div class="contact-secondary">${esc(c.email || '-')}</div>
+            </div>
+          </div>
+        </td>
+        <td class="text-muted" data-label="Company">${esc(c.company || c.title || '-')}</td>
+        <td data-label="Lists">${(c.list_names || []).length ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${c.list_names.slice(0, 3).map(listName => `<span class="tag">${esc(listName)}</span>`).join('')}${c.list_names.length > 3 ? `<span class="tag">+${c.list_names.length - 3}</span>` : ''}</div>` : '<span class="text-muted text-sm">None</span>'}</td>
+        <td data-label="Tags">${(c.tags || []).length ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${c.tags.slice(0, 3).map(tag => `<span class="tag">${esc(tag)}</span>`).join('')}${c.tags.length > 3 ? `<span class="tag">+${c.tags.length - 3}</span>` : ''}</div>` : '<span class="text-muted text-sm">None</span>'}</td>
+        <td data-label="Actions"><div class="table-actions">${iconButton('plus', 'Add to list', `addContactToList('${id}','${c.id}')`, 'primary')}</div></td>
+      </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:24px">No matching contacts available.</td></tr>'}
+      </tbody></table>
+    </div>
+    ${available.length > 150 ? `<div class="text-muted text-sm" style="margin-top:10px">Showing first 150 matches. Narrow the search to refine the list.</div>` : ''}
+    <div style="margin:18px 0 8px;font-size:12px;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px">Current Members</div>
+    <div class="table-wrap stack-on-mobile">
+      <table><thead><tr><th>Email</th><th>Name</th><th>Company</th><th></th></tr></thead>
+      <tbody id="list-members-current">
       ${members.length ? members.map(m=>`<tr><td class="mono" data-label="Email" style="font-size:12px">${esc(m.email)}</td><td data-label="Name">${esc(m.name)||'-'}</td><td class="text-muted" data-label="Company">${esc(m.company)||'-'}</td><td data-label="Actions"><div class="table-actions">${iconButton('trash', 'Remove from list', `removeFromList('${id}','${m.id}','${esc(name)}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div></td></tr>`).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted2);padding:24px">No members yet.</td></tr>'}
       </tbody></table>
     </div>
   </div>`);
 }
 
-async function addContactToList(listId) {
-  const cid = document.getElementById('add-contact').value;
-  if (!cid) return;
-  await api('POST',`/api/lists/${listId}/contacts`,{contact_ids:[cid]});
-  await loadLists();
+function setListModalSearch(value) {
+  state.ui.listModalSearch = value;
+  renderListManager();
+}
+
+function toggleListModalFilter(kind) {
+  if (kind === 'unlisted') state.ui.listModalOnlyUnlisted = !state.ui.listModalOnlyUnlisted;
+  if (kind === 'untagged') state.ui.listModalOnlyUntagged = !state.ui.listModalOnlyUntagged;
+  renderListManager();
+}
+
+async function addContactToList(listId, cid = '') {
+  const contactId = cid || document.getElementById('add-contact')?.value;
+  if (!contactId) return;
+  await api('POST',`/api/lists/${listId}/contacts`,{contact_ids:[contactId]});
+  await Promise.all([loadLists(), loadContacts(state.ui.contactsQuery, state.ui.contactsTitle)]);
   const list = state.lists.find(l=>l.id===listId);
   await viewList(listId, list?.name||'');
   if (currentSection === 'lists') renderLists();
@@ -1162,7 +1259,7 @@ async function addContactToList(listId) {
 
 async function removeFromList(listId, contactId, name) {
   await api('DELETE',`/api/lists/${listId}/contacts/${contactId}`);
-  await loadLists();
+  await Promise.all([loadLists(), loadContacts(state.ui.contactsQuery, state.ui.contactsTitle)]);
   const list = state.lists.find(l=>l.id===listId);
   await viewList(listId, list?.name||name);
   if (currentSection === 'lists') renderLists();
@@ -1454,20 +1551,92 @@ async function loadFollowUps() {
 }
 
 // ── Pipeline Board ────────────────────────────────────────────
+function getPipelineGroupKey(stage, company) {
+  return `${stage}::${String(company || 'Independent').trim().toLowerCase()}`;
+}
+
+function getPipelineSearchMatches(contact, query) {
+  if (!query) return true;
+  const haystack = [
+    contact.name,
+    contact.email,
+    contact.company,
+    ...(Array.isArray(contact.tags) ? contact.tags : [])
+  ].map(value => String(value || '').toLowerCase()).join(' ');
+  return haystack.includes(query);
+}
+
+function groupPipelineCards(stage, cards, query = state.ui.pipelineSearch || '') {
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  const filteredCards = normalizedQuery
+    ? cards.filter(card => getPipelineSearchMatches(card, normalizedQuery))
+    : cards;
+  const groups = new Map();
+  for (const contact of filteredCards) {
+    const company = String(contact.company || '').trim() || 'Independent';
+    const key = getPipelineGroupKey(stage, company);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        company,
+        contacts: [],
+        count: 0,
+        value: 0,
+        overdue: 0,
+        lastActivity: contact.last_contacted_at || contact.created_at || ''
+      });
+    }
+    const group = groups.get(key);
+    group.contacts.push(contact);
+    group.count += 1;
+    group.value += Number(contact.deal_value || 0);
+    if (contact.follow_up_at && isOverdue(contact.follow_up_at)) group.overdue += 1;
+    if (String(contact.last_contacted_at || contact.created_at || '') > String(group.lastActivity || '')) {
+      group.lastActivity = contact.last_contacted_at || contact.created_at || '';
+    }
+  }
+  return Array.from(groups.values())
+    .sort((a, b) => (b.value - a.value) || (b.count - a.count) || String(a.company).localeCompare(String(b.company)));
+}
+
+function renderPipelineGroup(stage, group) {
+  const expanded = !!state.ui.pipelineExpandedGroups[group.key];
+  const toggleArg = JSON.stringify(group.key).replace(/"/g, '&quot;');
+  return `<div class="pipeline-group ${expanded ? 'open' : ''}">
+    <button class="pipeline-group-head" type="button" onclick="togglePipelineGroup(${toggleArg})">
+      <div class="pipeline-group-copy">
+        <div class="pipeline-group-title">${esc(group.company)}</div>
+        <div class="pipeline-group-meta">${group.count} contact${group.count !== 1 ? 's' : ''}${group.value > 0 ? ` | ${fmtCurrency(group.value)}` : ''}${group.overdue ? ` | ${group.overdue} overdue` : ''}</div>
+      </div>
+      <span class="pipeline-group-toggle">${expanded ? 'Hide' : 'Show'}</span>
+    </button>
+    ${expanded ? `<div class="pipeline-group-body">
+      ${group.contacts.map(c => `<div class="pipeline-contact-row" onclick="openDrawer('${c.id}')">
+        <div class="pipeline-contact-main">
+          <div class="pipeline-card-name">${esc(c.name || c.email)}</div>
+          <div class="pipeline-card-company">${esc(c.title || c.email)}</div>
+        </div>
+        <div class="pipeline-contact-side">
+          ${c.deal_value > 0 ? `<div class="pipeline-card-value">${fmtCurrency(c.deal_value)}</div>` : ''}
+          ${c.follow_up_at && isOverdue(c.follow_up_at) ? '<div class="pipeline-overdue">Follow-up overdue</div>' : ''}
+        </div>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
 function renderPipelineColumn(stage, cards, stageVal) {
+  const groups = groupPipelineCards(stage, cards);
+  const visibleCount = state.ui.pipelineVisibleGroups[stage] || PIPELINE_GROUP_PAGE_SIZE;
+  const visibleGroups = groups.slice(0, visibleCount);
   return `<div class="pipeline-col stage-${stage}">
     <div class="pipeline-head">
       <span class="pipeline-title">${STAGE_LABELS[stage]}</span>
       <span class="pipeline-meta">${cards.length}${stageVal>0?' | '+fmtCurrency(stageVal):''}</span>
     </div>
     <div class="pipeline-cards">
-      ${cards.length ? cards.map(c=>`<div class="pipeline-card" onclick="openDrawer('${c.id}')">
-        <div class="pipeline-card-name">${esc(c.name||c.email)}</div>
-        <div class="pipeline-card-company">${esc(c.company||c.email)}</div>
-        ${c.deal_value>0?`<div class="pipeline-card-value">${fmtCurrency(c.deal_value)}</div>`:''}
-        ${(c.tags||[]).length?`<div class="pipeline-card-tags">${c.tags.slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}
-        ${c.follow_up_at&&isOverdue(c.follow_up_at)?'<div class="pipeline-overdue">Follow-up overdue</div>':''}
-      </div>`).join('') : `<div class="pipeline-empty">No contacts in ${STAGE_LABELS[stage].toLowerCase()} yet.</div>`}
+      ${groups.length ? visibleGroups.map(group => renderPipelineGroup(stage, group)).join('') : `<div class="pipeline-empty">No contacts in ${STAGE_LABELS[stage].toLowerCase()} yet.</div>`}
+      ${groups.length > visibleCount ? `<button class="btn btn-ghost btn-sm pipeline-show-more" type="button" onclick="showMorePipelineGroups('${stage}')">Show ${Math.min(PIPELINE_GROUP_PAGE_SIZE, groups.length - visibleCount)} more groups</button>` : ''}
     </div>
   </div>`;
 }
@@ -1477,19 +1646,39 @@ function setPipelineStage(stage) {
   renderPipeline();
 }
 
+function setPipelineSearch(value) {
+  state.ui.pipelineSearch = String(value || '');
+  state.ui.pipelineVisibleGroups = {};
+  renderPipeline();
+}
+
+function togglePipelineGroup(groupKey) {
+  state.ui.pipelineExpandedGroups[groupKey] = !state.ui.pipelineExpandedGroups[groupKey];
+  renderPipeline();
+}
+
+function showMorePipelineGroups(stage) {
+  const current = state.ui.pipelineVisibleGroups[stage] || PIPELINE_GROUP_PAGE_SIZE;
+  state.ui.pipelineVisibleGroups[stage] = current + PIPELINE_GROUP_PAGE_SIZE;
+  renderPipeline();
+}
+
 function renderPipeline() {
   const p = state.pipeline || {};
   const cs = state.crmStats?.stages || {};
   const activeStage = state.ui.pipelineStage || STAGE_ORDER[0];
   const totalValue = STAGE_ORDER.filter(s=>s!=='lost').reduce((a,s)=>(a+(cs[s]?.value||0)),0);
+  const totalContacts = Object.values(p).reduce((sum, cards) => sum + cards.length, 0);
+  const matchingContacts = STAGE_ORDER.reduce((sum, stage) => sum + groupPipelineCards(stage, p[stage] || []).reduce((stageSum, group) => stageSum + group.count, 0), 0);
   document.getElementById('content').innerHTML = `
   <div class="pipeline-toolbar">
     <div class="pipeline-summary">
       <div class="pipeline-summary-label">Open Pipeline Value</div>
       <div class="pipeline-summary-value">${fmtCurrency(totalValue)}</div>
-      <div class="pipeline-summary-note">${Object.values(p).reduce((sum, cards) => sum + cards.length, 0)} tracked contacts across ${STAGE_ORDER.length} stages</div>
+      <div class="pipeline-summary-note">${matchingContacts} of ${totalContacts} tracked contacts across ${STAGE_ORDER.length} stages</div>
     </div>
     <div class="pipeline-actions">
+      <input class="search-box pipeline-search" placeholder="Filter pipeline by company, contact, email, tag..." value="${esc(state.ui.pipelineSearch || '')}" oninput="setPipelineSearch(this.value)">
       <button class="btn btn-ghost" onclick="openImportModal()">Import CSV</button>
       <button class="btn btn-primary" onclick="openContactModal()">+ Add Contact</button>
     </div>

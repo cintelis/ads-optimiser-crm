@@ -736,7 +736,12 @@ async function listContacts(env, url) {
     COALESCE(p.first_name,'') first_name,
     COALESCE(p.last_name,'') last_name,
     COALESCE(p.title,'') title,
-    COALESCE(p.image_url,'') image_url
+    COALESCE(p.image_url,'') image_url,
+    COALESCE((SELECT json_group_array(l.name)
+      FROM contact_list_members m
+      JOIN contact_lists l ON l.id=m.list_id
+      WHERE m.contact_id=c.id), '[]') list_names_json,
+    COALESCE((SELECT COUNT(*) FROM contact_list_members m WHERE m.contact_id=c.id), 0) list_count
     FROM contacts c
     LEFT JOIN contact_profiles p ON p.contact_id=c.id
     WHERE c.unsubscribed=0`;
