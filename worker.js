@@ -1,5 +1,5 @@
 // ============================================================
-// 365Soft Labs — Outreach Dashboard Worker
+// 365 Pulse — Outreach & CRM Worker
 // Cloudflare Worker: API backend + serves dashboard
 // Bindings required: DB (D1), KV (KV Namespace), UNSUBSCRIBES (KV — shared with email worker),
 //                   ADMIN_USER, ADMIN_PASS (secrets)
