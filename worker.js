@@ -731,6 +731,7 @@ async function listContacts(env, url) {
   const q = url.searchParams.get('q') || '';
   const stage = url.searchParams.get('stage') || '';
   const title = url.searchParams.get('title') || '';
+  const search = parseContactSearchQuery(q);
   let sql = `SELECT c.*,
     COALESCE(p.first_name,'') first_name,
     COALESCE(p.last_name,'') last_name,
@@ -740,9 +741,25 @@ async function listContacts(env, url) {
     LEFT JOIN contact_profiles p ON p.contact_id=c.id
     WHERE c.unsubscribed=0`;
   const params = [];
-  if (q) {
-    sql += ' AND (c.email LIKE ? OR c.name LIKE ? OR c.company LIKE ? OR c.phone LIKE ? OR p.title LIKE ?)';
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+  if (search.text) {
+    sql += ' AND (lower(c.email) LIKE ? OR lower(c.name) LIKE ? OR lower(c.company) LIKE ? OR lower(c.phone) LIKE ? OR lower(p.title) LIKE ?)';
+    params.push(`%${search.text}%`, `%${search.text}%`, `%${search.text}%`, `%${search.text}%`, `%${search.text}%`);
+  }
+  for (const tag of search.tags) {
+    sql += ` AND EXISTS (
+      SELECT 1
+      FROM json_each(CASE WHEN c.tags IS NULL OR c.tags='' THEN '[]' ELSE c.tags END) jt
+      WHERE lower(jt.value)=?
+    )`;
+    params.push(tag);
+  }
+  for (const companyFilter of search.companies) {
+    sql += ' AND lower(c.company) LIKE ?';
+    params.push(`%${companyFilter}%`);
+  }
+  for (const titleFilter of search.titles) {
+    sql += ' AND lower(p.title) LIKE ?';
+    params.push(`%${titleFilter}%`);
   }
   if (title) {
     sql += ' AND p.title = ?';
@@ -1023,31 +1040,68 @@ async function processDrip(env, campaign, ts) {
 
 // ── Email + Utils ─────────────────────────────────────────────
 async function sendEmail(env, { to, subject, html_body, from_email, from_name }) {
-  try {
-    const apiUrl = String(env.EMAIL_API_URL || env.EMAIL_WORKER_URL || EMAIL_WORKER).trim();
-    const clientId = String(env.CF_ACCESS_CLIENT_ID || '').trim();
-    const clientSecret = String(env.CF_ACCESS_CLIENT_SECRET || '').trim();
-    if (!apiUrl) return { ok: false, skipped: false, error: 'Email API URL is not configured.' };
-    if (!clientId || !clientSecret) {
-      return { ok: false, skipped: false, error: 'Cloudflare Access service token is not configured.' };
+  const apiUrl = String(env.EMAIL_API_URL || env.EMAIL_WORKER_URL || EMAIL_WORKER).trim();
+  const clientId = String(env.CF_ACCESS_CLIENT_ID || '').trim();
+  const clientSecret = String(env.CF_ACCESS_CLIENT_SECRET || '').trim();
+  if (!apiUrl) return { ok: false, skipped: false, error: 'Email API URL is not configured.' };
+  if (!clientId || !clientSecret) {
+    return { ok: false, skipped: false, error: 'Cloudflare Access service token is not configured.' };
+  }
+  const delays = [1500, 4000, 9000];
+  let lastError = 'Email send failed';
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      const r = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'CF-Access-Client-Id': clientId,
+          'CF-Access-Client-Secret': clientSecret
+        },
+        body: JSON.stringify({ to, subject, message: html_body, contentType: 'HTML', fromEmail: from_email, fromName: from_name })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 403 && d.code === 'RECIPIENT_UNSUBSCRIBED') {
+        return { ok: false, skipped: true, error: 'Unsubscribed' };
+      }
+      if (r.ok && d.success !== false) {
+        return { ok: true, skipped: false, error: null };
+      }
+      lastError = d.error || d.message || `Email API returned HTTP ${r.status}`;
+      if (!shouldRetryEmailSend(r.status, d) || attempt === delays.length) {
+        return { ok: false, skipped: false, error: lastError };
+      }
+      await sleep(getRetryDelayMs(r, attempt, delays));
+    } catch (e) {
+      lastError = e?.message || 'Network error';
+      if (attempt === delays.length) {
+        return { ok: false, skipped: false, error: lastError };
+      }
+      await sleep(delays[attempt]);
     }
-    const r = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'CF-Access-Client-Id': clientId,
-        'CF-Access-Client-Secret': clientSecret
-      },
-      body: JSON.stringify({ to, subject, message: html_body, contentType: 'HTML', fromEmail: from_email, fromName: from_name })
-    });
-    const d = await r.json().catch(() => ({}));
-    // 403 RECIPIENT_UNSUBSCRIBED = contact opted out via email worker's /unsubscribe endpoint
-    // Treat as "skipped" (not a failure), stop drip sequence for this contact
-    if (r.status === 403 && d.code === 'RECIPIENT_UNSUBSCRIBED') {
-      return { ok: false, skipped: true, error: 'Unsubscribed' };
-    }
-    return { ok: r.ok && d.success !== false, skipped: false, error: d.error };
-  } catch (e) { return { ok: false, skipped: false, error: e.message }; }
+  }
+  return { ok: false, skipped: false, error: lastError };
+}
+function shouldRetryEmailSend(status, body) {
+  if (status === 429 || status >= 500) return true;
+  const combined = [body?.code, body?.error, body?.message, body?.details].map(value => String(value || '')).join(' ').toLowerCase();
+  if (status === 400 && body?.code === 'MS_GRAPH_SEND_ERROR') {
+    return /429|thrott|too many requests|temporar|timeout|try again|server busy|service unavailable/.test(combined);
+  }
+  return false;
+}
+function getRetryDelayMs(response, attempt, defaults) {
+  const retryAfter = response.headers.get('Retry-After');
+  const fallback = defaults[Math.min(attempt, defaults.length - 1)];
+  if (!retryAfter) return fallback;
+  const seconds = parseInt(retryAfter, 10);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.max(fallback, seconds * 1000);
+  const retryAt = Date.parse(retryAfter);
+  if (Number.isFinite(retryAt)) return Math.max(fallback, Math.max(0, retryAt - Date.now()));
+  return fallback;
+}
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 async function addLog(env, d) {
   await env.DB.prepare('INSERT INTO sent_log (id,campaign_id,campaign_name,contact_id,contact_email,template_id,template_name,subject,status,error,sent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(uid(), d.campaign_id, d.campaign_name, d.contact_id, d.contact_email, d.template_id, d.template_name, d.subject, d.status, d.error || null, now()).run();
@@ -1161,6 +1215,29 @@ async function ensureContactProfileTable(env) {
 function formatContactName(firstName, lastName, fallbackName) {
   const fullName = [String(firstName || '').trim(), String(lastName || '').trim()].filter(Boolean).join(' ').trim();
   return fullName || String(fallbackName || '').trim();
+}
+
+function parseContactSearchQuery(rawQuery) {
+  const source = String(rawQuery || '');
+  const tags = [];
+  const companies = [];
+  const titles = [];
+  const tokenRegex = /\b(tag|company|title):("([^"]+)"|[^\s]+)/gi;
+  let plainText = source.replace(tokenRegex, (_, key, rawValue, quotedValue) => {
+    const value = String(quotedValue || rawValue || '').replace(/^"|"$/g, '').trim().toLowerCase();
+    if (!value) return ' ';
+    if (key.toLowerCase() === 'tag') tags.push(value);
+    else if (key.toLowerCase() === 'company') companies.push(value);
+    else if (key.toLowerCase() === 'title') titles.push(value);
+    return ' ';
+  });
+  plainText = plainText.replace(/\s+/g, ' ').trim().toLowerCase();
+  return {
+    text: plainText,
+    tags: uniqueTags(tags),
+    companies: uniqueTags(companies),
+    titles: uniqueTags(titles)
+  };
 }
 
 function parseTags(rawTags) {

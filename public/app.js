@@ -385,6 +385,13 @@ function composeContactName(firstName, lastName, fallbackName = '') {
   return fullName || String(fallbackName || '').trim();
 }
 
+function parseTagInput(value) {
+  return Array.from(new Set(String(value || '')
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean)));
+}
+
 function normalizeContactRecord(contact) {
   const base = contact || {};
   const split = splitFullName(base.name);
@@ -664,7 +671,7 @@ function renderContacts(q = state.ui.contactsQuery || '') {
     </tr>`).join('') : `<tr><td colspan="${columns.length + 1}" style="text-align:center;color:var(--muted2);padding:28px">No contacts yet.</td></tr>`;
   document.getElementById('content').innerHTML = `
   <div class="toolbar">
-    <input class="search-box" placeholder="Search email, name, title, company, phone..." value="${esc(q)}" oninput="queueContactsSearch(this.value)" style="max-width:340px">
+    <input class="search-box" placeholder="Search or use tag:, company:, title: ..." value="${esc(q)}" oninput="queueContactsSearch(this.value)" style="max-width:340px">
     <div class="toolbar-meta" style="flex:1">
       <span class="text-muted text-sm">${total} contact${total!==1?'s':''}</span>
       <span class="text-muted text-sm">${start ? `Showing ${start}-${end}` : 'Showing 0'}</span>
@@ -683,6 +690,7 @@ function renderContacts(q = state.ui.contactsQuery || '') {
     <button class="btn btn-ghost" onclick="openImportModal()">Import CSV</button>
     <button class="btn btn-primary" onclick="openContactModal()">+ Add Contact</button>
   </div>
+  <div class="text-muted text-sm" style="margin:-8px 0 12px;line-height:1.6">Examples: <code>tag:luxury</code>, <code>company:lynx</code>, <code>title:&quot;sales agent&quot;</code>, or combine them with normal text.</div>
   ${state.ui.contactTagsOpen ? `<div class="contact-column-panel">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
       <div class="text-muted text-sm" style="font-weight:600">Filter by tag</div>
@@ -834,6 +842,11 @@ function openContactModal(c, options = {}) {
       <div class="form-group"><label>Title</label><input id="c-title" value="${esc(ct.title || '')}" placeholder="Sales Agent"></div>
       <div class="form-group"><label>Company</label><input id="c-company" value="${esc(ct.company)}" placeholder="Company name"></div>
     </div>
+    <div class="form-group">
+      <label>Tags</label>
+      <input id="c-tags" value="${esc((ct.tags || []).join(', '))}" placeholder="luxury, qld, replied, source:csv">
+      <div class="text-muted text-sm" style="margin-top:6px">Separate multiple tags with commas.</div>
+    </div>
     <div class="form-group"><label>LinkedIn URL</label><input id="c-linkedin" value="${esc(ct.linkedin || '')}" placeholder="https://www.linkedin.com/in/..."></div>
     <div class="alert alert-error" id="c-err"></div>
     <div class="flex gap" style="justify-content:flex-end">
@@ -857,6 +870,7 @@ async function saveContact(id) {
   const name = composeContactName(first_name, last_name);
   const title = document.getElementById('c-title').value.trim();
   const company = document.getElementById('c-company').value.trim();
+  const tags = parseTagInput(document.getElementById('c-tags')?.value || '');
   const phone = document.getElementById('c-phone').value.trim();
   const linkedin = document.getElementById('c-linkedin').value.trim();
   const image_url = document.getElementById('c-image-url').value.trim();
@@ -871,7 +885,7 @@ async function saveContact(id) {
       company,
       stage: base.stage || 'lead',
       deal_value: base.deal_value || 0,
-      tags: base.tags || [],
+      tags,
       phone,
       linkedin,
       follow_up_at: base.follow_up_at || null,
@@ -879,7 +893,7 @@ async function saveContact(id) {
     });
   } else {
     if (!email) { showAlert('c-err','Email required'); return; }
-    r = await api('POST','/api/contacts',{ email, name, first_name, last_name, title, company, phone, linkedin, image_url });
+    r = await api('POST','/api/contacts',{ email, name, first_name, last_name, title, company, tags, phone, linkedin, image_url });
   }
   if (r.error) { showAlert('c-err', r.error); return; }
   const returnId = state.ui.contactModalReturnId;
