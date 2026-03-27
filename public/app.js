@@ -72,6 +72,7 @@ let state = {
 let currentSection = 'overview';
 let campaignEditingId = '';
 let campaignScheduleDraft = {};
+let listEditingId = '';
 
 // ── Auth ──────────────────────────────────────────────────────
 async function doLogin() {
@@ -923,27 +924,31 @@ function renderLists() {
     <button class="btn btn-primary" onclick="openListModal()">+ New List</button>
   </div>
   <div class="table-wrap stack-on-mobile">
-    <table><thead><tr><th>List Name</th><th>Description</th><th>Members</th><th>Created</th><th style="width:160px">Actions</th></tr></thead><tbody>
+    <table><thead><tr><th>List Name</th><th>Description</th><th>Members</th><th>Created</th><th style="width:220px">Actions</th></tr></thead><tbody>
     ${ls.length ? ls.map(l=>`<tr>
       <td data-label="List" style="font-weight:600">${esc(l.name)}</td>
       <td class="text-muted" data-label="Description">${esc(l.description)||'-'}</td>
       <td data-label="Members"><span class="badge badge-active">${l.cnt||0}</span></td>
       <td class="text-muted text-sm" data-label="Created">${fmtDate(l.created_at)}</td>
-      <td data-label="Actions"><div class="table-actions"><button class="btn btn-ghost btn-sm" onclick="viewList('${l.id}','${esc(l.name)}')">Manage</button><button class="btn btn-danger btn-sm" onclick="deleteList('${l.id}')">Delete</button></div></td>
+      <td data-label="Actions"><div class="table-actions"><button class="btn btn-ghost btn-sm" onclick="viewList('${l.id}','${esc(l.name)}')">Manage</button><button class="btn btn-ghost btn-sm" onclick="openListModal('${l.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteList('${l.id}')">Delete</button></div></td>
     </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:32px">No lists yet.</td></tr>'}
     </tbody></table>
   </div>`;
 }
 
-function openListModal() {
-  setModal(`<div class="modal-head"><h3>New Contact List</h3><button class="modal-close" onclick="closeModal()">x</button></div>
+function openListModal(id = '') {
+  const list = id ? state.lists.find(item => item.id === id) : null;
+  listEditingId = list?.id || '';
+  const title = list ? 'Edit Contact List' : 'New Contact List';
+  const submitLabel = list ? 'Save Changes' : 'Create List';
+  setModal(`<div class="modal-head"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
-    <div class="form-group"><label>List Name *</label><input id="l-name" placeholder="e.g. AI Startup Founders"></div>
-    <div class="form-group"><label>Description</label><input id="l-desc" placeholder="Optional description"></div>
+    <div class="form-group"><label>List Name *</label><input id="l-name" value="${esc(list?.name || '')}" placeholder="e.g. AI Startup Founders"></div>
+    <div class="form-group"><label>Description</label><input id="l-desc" value="${esc(list?.description || '')}" placeholder="Optional description"></div>
     <div class="alert alert-error" id="l-err"></div>
     <div class="flex gap" style="justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveList()">Create List</button>
+      <button class="btn btn-primary" onclick="saveList()">${submitLabel}</button>
     </div>
   </div>`);
 }
@@ -952,8 +957,11 @@ async function saveList() {
   const name = document.getElementById('l-name').value.trim();
   const description = document.getElementById('l-desc').value.trim();
   if (!name) { showAlert('l-err','Name required'); return; }
-  const r = await api('POST','/api/lists',{name,description});
+  const method = listEditingId ? 'PUT' : 'POST';
+  const path = listEditingId ? `/api/lists/${listEditingId}` : '/api/lists';
+  const r = await api(method, path, {name,description});
   if (r.error) { showAlert('l-err',r.error); return; }
+  listEditingId = '';
   closeModal(); await loadLists(); renderLists();
 }
 
@@ -994,13 +1002,18 @@ async function addContactToList(listId) {
   const cid = document.getElementById('add-contact').value;
   if (!cid) return;
   await api('POST',`/api/lists/${listId}/contacts`,{contact_ids:[cid]});
+  await loadLists();
   const list = state.lists.find(l=>l.id===listId);
   await viewList(listId, list?.name||'');
+  if (currentSection === 'lists') renderLists();
 }
 
 async function removeFromList(listId, contactId, name) {
   await api('DELETE',`/api/lists/${listId}/contacts/${contactId}`);
-  await viewList(listId, name);
+  await loadLists();
+  const list = state.lists.find(l=>l.id===listId);
+  await viewList(listId, list?.name||name);
+  if (currentSection === 'lists') renderLists();
 }
 
 // ── Campaigns ─────────────────────────────────────────────────

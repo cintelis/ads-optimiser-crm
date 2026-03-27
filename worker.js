@@ -89,11 +89,11 @@ function renderFooter(note) {
 function renderLuxuryHomesFooter(origin = CRM_PUBLIC_BASE_URL) {
   const iconWrapStyle = 'display:inline-block;width:34px;height:34px;border-radius:999px;background:#eff6ff;text-decoration:none;text-align:center;vertical-align:middle;';
   const iconStyle = 'display:block;width:18px;height:18px;margin:8px auto;border:0;outline:none;text-decoration:none;';
-  const instagramIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/instagram.png')}" width="18" height="18" alt="Instagram" style="${iconStyle}">`;
-  const youtubeIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/youtube.png')}" width="18" height="18" alt="YouTube" style="${iconStyle}">`;
-  const tiktokIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/tiktok.png')}" width="18" height="18" alt="TikTok" style="${iconStyle}">`;
-  const facebookIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/facebook.png')}" width="18" height="18" alt="Facebook" style="${iconStyle}">`;
-  const linkedinIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/linkedin.png')}" width="18" height="18" alt="LinkedIn" style="${iconStyle}">`;
+  const instagramIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/instagram.png?v=3')}" width="18" height="18" alt="Instagram" style="${iconStyle}">`;
+  const youtubeIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/youtube.png?v=3')}" width="18" height="18" alt="YouTube" style="${iconStyle}">`;
+  const tiktokIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/tiktok.png?v=3')}" width="18" height="18" alt="TikTok" style="${iconStyle}">`;
+  const facebookIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/facebook.png?v=3')}" width="18" height="18" alt="Facebook" style="${iconStyle}">`;
+  const linkedinIcon = `<img src="${absoluteAssetUrl(origin, 'email-assets/social/linkedin.png?v=3')}" width="18" height="18" alt="LinkedIn" style="${iconStyle}">`;
   return `<tr>
     <td style="padding:24px 28px 28px;border-top:1px solid #e5e7eb;background:#fafafa;">
       <p style="margin:0 0 14px;font-size:13px;line-height:1.7;color:#6b7280;text-align:center;">Ads Optimiser helps luxury real estate agencies turn premium listing photography into polished video walkthrough campaigns.</p>
@@ -422,6 +422,9 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
   const frame02ImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/video-frame-02.webp');
   const frame03ImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/video-frame-03.webp');
   const frame04ImageUrl = absoluteAssetUrl(origin, '/email-assets/luxury-homes/video-frame-04.webp');
+  const signatureLogoUrl = absoluteAssetUrl(origin, '/email-assets/social/ao-signature.png?v=4');
+  const signatureMailIconUrl = absoluteAssetUrl(origin, '/email-assets/social/mail.png?v=4');
+  const signatureWebIconUrl = absoluteAssetUrl(origin, '/email-assets/social/web.png?v=4');
   const heroVideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7lqd15_65664d7224303b4f68cd726721cf60b3.mp4';
   const frame01VideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7kmj0v_7731260bdfda87a874ecde241502f860.mp4';
   const frame02VideoUrl = 'https://tiktok-auth.adsoptimiser.com.au/api/media/videos%2Fvideo_mn7lhh07_aedff491cab6e9f26f4eb67a54285e92.mp4';
@@ -507,20 +510,20 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e5e7eb;">
           <tr>
             <td style="padding:24px 0 0;width:88px;vertical-align:top;">
-              <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#2563eb 0%,#06b6d4 100%);text-align:center;font-size:30px;line-height:64px;font-weight:800;color:#ffffff;">AO</div>
+              <img src="${signatureLogoUrl}" width="64" height="64" alt="Ads Optimiser" style="display:block;width:64px;height:64px;border:0;outline:none;text-decoration:none;">
             </td>
             <td style="padding:24px 0 0;vertical-align:top;">
               <p style="margin:0 0 4px;font-size:18px;line-height:1.4;font-weight:700;color:#111827;">Ads Optimiser Team</p>
               <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#4b5563;">AI-Powered Ad Creatives Platform</p>
               <p style="margin:0 0 6px;font-size:14px;line-height:1.7;color:#4b5563;">
                 <span style="display:inline-block;vertical-align:middle;margin-right:10px;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16a1 1 0 0 1 1 1v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5v-9a1 1 0 0 1 1-1zm0 1.8v.4l8 5.2 8-5.2v-.4H4zm16 2.5-7.5 4.8a1 1 0 0 1-1 0L4 10.8v5.7h16v-5.7z" fill="#2563eb"/></svg>
+                  <img src="${signatureMailIconUrl}" width="16" height="16" alt="" style="display:block;width:16px;height:16px;border:0;outline:none;text-decoration:none;">
                 </span>
                 <a href="mailto:admin@adsoptimiser.com.au" style="color:#2563eb;text-decoration:none;vertical-align:middle;">admin@adsoptimiser.com.au</a>
               </p>
               <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#4b5563;">
                 <span style="display:inline-block;vertical-align:middle;margin-right:10px;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="#2563eb" stroke-width="1.8"/><path d="M4.8 12h14.4M12 4.8c2.1 2.3 3.3 4.8 3.3 7.2S14.1 16.9 12 19.2M12 4.8c-2.1 2.3-3.3 4.8-3.3 7.2s1.2 4.9 3.3 7.2" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <img src="${signatureWebIconUrl}" width="16" height="16" alt="" style="display:block;width:16px;height:16px;border:0;outline:none;text-decoration:none;">
                 </span>
                 <a href="https://adsoptimiser.com.au/" style="color:#2563eb;text-decoration:none;vertical-align:middle;">adsoptimiser.com.au</a>
               </p>
@@ -602,6 +605,7 @@ async function route(req, env, url, path) {
   if (res === 'lists') {
     if (m === 'GET' && !id) return listLists(env);
     if (m === 'POST' && !id) return createList(req, env);
+    if (m === 'PUT' && id && !sub) return updateList(req, env, id);
     if (m === 'DELETE' && id && !sub) return deleteList(env, id);
     if (m === 'GET' && id && sub === 'contacts') return getListContacts(env, id);
     if (m === 'POST' && id && sub === 'contacts') return addToList(req, env, id);
@@ -815,6 +819,12 @@ async function createList(req, env) {
   const id = uid();
   await env.DB.prepare('INSERT INTO contact_lists (id,name,description,created_at) VALUES (?,?,?,?)').bind(id, name, description || '', now()).run();
   return jres({ id, name });
+}
+async function updateList(req, env, id) {
+  const { name, description } = await req.json();
+  if (!name) return jres({ error: 'Name required' }, 400);
+  await env.DB.prepare('UPDATE contact_lists SET name=?,description=? WHERE id=?').bind(name, description || '', id).run();
+  return jres({ ok: true });
 }
 async function deleteList(env, id) {
   await env.DB.prepare('DELETE FROM contact_list_members WHERE list_id=?').bind(id).run();
