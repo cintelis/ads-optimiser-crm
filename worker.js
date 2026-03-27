@@ -768,9 +768,30 @@ async function createContact(req, env) {
   } catch { return jres({ error: 'Email already exists' }, 409); }
 }
 async function importContacts(req, env) {
-  const { csv } = await req.json();
+  const { csv, batch_tag, extra_tags, list_id, new_list_name } = await req.json();
   if (!csv) return jres({ error: 'csv required' }, 400);
   await ensureContactProfileTable(env);
+  let targetListId = '';
+  let listName = '';
+  const requestedListName = (new_list_name || '').trim();
+  if (requestedListName) {
+    const existingList = await env.DB.prepare('SELECT id,name FROM contact_lists WHERE lower(name)=lower(?) LIMIT 1').bind(requestedListName).first();
+    if (existingList?.id) {
+      targetListId = existingList.id;
+      listName = existingList.name || requestedListName;
+    } else {
+      targetListId = uid();
+      listName = requestedListName;
+      await env.DB.prepare('INSERT INTO contact_lists (id,name,description,created_at) VALUES (?,?,?,?)')
+        .bind(targetListId, listName, '', now()).run();
+    }
+  } else if (list_id) {
+    const list = await env.DB.prepare('SELECT id,name FROM contact_lists WHERE id=? LIMIT 1').bind(list_id).first();
+    if (!list?.id) return jres({ error: 'Selected list was not found' }, 400);
+    targetListId = list.id;
+    listName = list.name || '';
+  }
+  const importTags = uniqueTags(['source:csv', batch_tag, ...(Array.isArray(extra_tags) ? extra_tags : [])]);
   const lines = csv.trim().split('\n');
   const hdr = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/["\r]/g, ''));
   const ei = hdr.indexOf('email');
@@ -784,7 +805,7 @@ async function importContacts(req, env) {
   const pi = hdr.indexOf('phone');
   const ii = hdr.indexOf('image_url') >= 0 ? hdr.indexOf('image_url') : hdr.indexOf('image');
   if (ei === -1) return jres({ error: 'CSV must have an "email" column header' }, 400);
-  let imported = 0, skipped = 0;
+  let imported = 0, skipped = 0, linked = 0;
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',').map(c => c.trim().replace(/["\r]/g, ''));
     const email = cols[ei]?.toLowerCase().trim();
@@ -796,14 +817,22 @@ async function importContacts(req, env) {
     const insertId = uid();
     try {
       const result = await env.DB.prepare('INSERT OR IGNORE INTO contacts (id,email,name,company,stage,deal_value,phone,tags,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
-        .bind(insertId, email, fullName, ci>=0?cols[ci]||'':'', si>=0?cols[si]||'lead':'lead', di>=0?parseFloat(cols[di])||0:0, pi>=0?cols[pi]||'':'', '[]', now()).run();
-      const row = await env.DB.prepare('SELECT id FROM contacts WHERE email=? LIMIT 1').bind(email).first();
+        .bind(insertId, email, fullName, ci>=0?cols[ci]||'':'', si>=0?cols[si]||'lead':'lead', di>=0?parseFloat(cols[di])||0:0, pi>=0?cols[pi]||'':'', JSON.stringify(importTags), now()).run();
+      const row = await env.DB.prepare('SELECT id,tags FROM contacts WHERE email=? LIMIT 1').bind(email).first();
       if (row?.id) await saveContactProfile(env, row.id, firstName, lastName, title, ii >= 0 ? cols[ii] || '' : '');
+      if (row?.id) {
+        const mergedTags = uniqueTags([...(parseTags(row.tags)), ...importTags]);
+        await env.DB.prepare('UPDATE contacts SET tags=? WHERE id=?').bind(JSON.stringify(mergedTags), row.id).run();
+        if (targetListId) {
+          const membership = await env.DB.prepare('INSERT OR IGNORE INTO contact_list_members (contact_id,list_id) VALUES (?,?)').bind(row.id, targetListId).run();
+          if (membership.meta?.changes) linked++;
+        }
+      }
       if (result.meta?.changes) imported++;
       else skipped++;
     } catch { skipped++; }
   }
-  return jres({ imported, skipped });
+  return jres({ imported, skipped, linked, list_name: listName });
 }
 async function updateContact(req, env, id) {
   await ensureContactProfileTable(env);
@@ -1132,6 +1161,15 @@ async function ensureContactProfileTable(env) {
 function formatContactName(firstName, lastName, fallbackName) {
   const fullName = [String(firstName || '').trim(), String(lastName || '').trim()].filter(Boolean).join(' ').trim();
   return fullName || String(fallbackName || '').trim();
+}
+
+function parseTags(rawTags) {
+  if (Array.isArray(rawTags)) return rawTags.map(tag => String(tag || '').trim()).filter(Boolean);
+  try { return JSON.parse(rawTags || '[]').map(tag => String(tag || '').trim()).filter(Boolean); } catch { return []; }
+}
+
+function uniqueTags(values) {
+  return Array.from(new Set((values || []).map(tag => String(tag || '').trim()).filter(Boolean)));
 }
 
 async function saveContactProfile(env, contactId, firstName, lastName, title, imageUrl) {

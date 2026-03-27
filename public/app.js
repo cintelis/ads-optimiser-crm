@@ -58,6 +58,8 @@ let state = {
     pipelineStage: 'lead',
     contactsQuery: '',
     contactsTitle: '',
+    contactTagsOpen: false,
+    contactTagFilter: [],
     contactsPage: 1,
     contactsPageSize: getStoredContactPageSize(),
     contactColumns: getStoredContactColumns(),
@@ -619,17 +621,25 @@ async function deleteTemplate(id) {
 function renderContacts(q = state.ui.contactsQuery || '') {
   const ct = state.contacts;
   const selectedTitle = state.ui.contactsTitle || '';
+  const selectedTags = state.ui.contactTagFilter || [];
   const titleOptions = Array.from(new Set((state.contacts || []).map(contact => String(contact.title || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   if (selectedTitle && !titleOptions.includes(selectedTitle)) titleOptions.unshift(selectedTitle);
+  const tagOptions = Array.from(new Set((state.contacts || []).flatMap(contact => Array.isArray(contact.tags) ? contact.tags : []).map(tag => String(tag || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  for (const tag of selectedTags) {
+    if (!tagOptions.includes(tag)) tagOptions.unshift(tag);
+  }
   const columns = getVisibleContactColumns();
-  const total = ct.length;
+  const filteredContacts = selectedTags.length
+    ? ct.filter(contact => selectedTags.every(tag => (contact.tags || []).includes(tag)))
+    : ct;
+  const total = filteredContacts.length;
   const pageSize = state.ui.contactsPageSize;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(state.ui.contactsPage, totalPages);
   state.ui.contactsPage = page;
   const start = total ? ((page - 1) * pageSize) + 1 : 0;
   const end = Math.min(total, page * pageSize);
-  const rows = ct.slice(start ? start - 1 : 0, end);
+  const rows = filteredContacts.slice(start ? start - 1 : 0, end);
   const columnMenu = CONTACT_TABLE_COLUMNS.map(col => `
     <label class="contact-column-option">
       <input type="checkbox" ${columns.includes(col.key) ? 'checked' : ''} onchange="toggleContactColumn('${col.key}', this.checked)">
@@ -665,10 +675,22 @@ function renderContacts(q = state.ui.contactsQuery || '') {
       <option value="">All Functions</option>
       ${titleOptions.map(title => `<option value="${esc(title)}"${selectedTitle===title?' selected':''}>${esc(title)}</option>`).join('')}
     </select>
+    <button class="btn btn-ghost" onclick="toggleContactTagsMenu()">${selectedTags.length ? `Tags (${selectedTags.length})` : 'Tags'}</button>
     <button class="btn btn-ghost" onclick="toggleContactColumnsMenu()">Columns</button>
     <button class="btn btn-ghost" onclick="openImportModal()">Import CSV</button>
     <button class="btn btn-primary" onclick="openContactModal()">+ Add Contact</button>
   </div>
+  ${state.ui.contactTagsOpen ? `<div class="contact-column-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+      <div class="text-muted text-sm" style="font-weight:600">Filter by tag</div>
+      ${selectedTags.length ? `<button class="btn btn-ghost btn-sm" onclick="clearContactTagFilter()">Clear</button>` : ''}
+    </div>
+    ${tagOptions.length ? tagOptions.map(tag => `
+      <label class="contact-column-option">
+        <input type="checkbox" ${selectedTags.includes(tag) ? 'checked' : ''} onchange="toggleContactTagFilter('${esc(tag)}', this.checked)">
+        <span>${esc(tag)}</span>
+      </label>`).join('') : '<div class="text-muted text-sm">No tags available.</div>'}
+  </div>` : ''}
   ${state.ui.contactColumnsOpen ? `<div class="contact-column-panel">${columnMenu}</div>` : ''}
   <div class="table-wrap stack-on-mobile contacts-table-wrap">
     <table class="contacts-table"><thead><tr>${headers}<th style="width:76px">Actions</th></tr></thead><tbody>
@@ -725,6 +747,26 @@ async function searchContacts(q) {
 async function setContactsTitleFilter(title) {
   state.ui.contactsPage = 1;
   await loadContacts(state.ui.contactsQuery, title);
+  renderContacts(state.ui.contactsQuery);
+}
+
+function toggleContactTagsMenu() {
+  state.ui.contactTagsOpen = !state.ui.contactTagsOpen;
+  renderContacts(state.ui.contactsQuery);
+}
+
+function toggleContactTagFilter(tag, checked) {
+  const next = checked
+    ? Array.from(new Set([...(state.ui.contactTagFilter || []), tag]))
+    : (state.ui.contactTagFilter || []).filter(item => item !== tag);
+  state.ui.contactTagFilter = next;
+  state.ui.contactsPage = 1;
+  renderContacts(state.ui.contactsQuery);
+}
+
+function clearContactTagFilter() {
+  state.ui.contactTagFilter = [];
+  state.ui.contactsPage = 1;
   renderContacts(state.ui.contactsQuery);
 }
 
@@ -855,8 +897,13 @@ async function deleteContact(id) {
   renderContacts(state.ui.contactsQuery);
 }
 
-function openImportModal() {
+async function openImportModal() {
+  if (!state.lists.length) await loadLists();
   const stageList = STAGE_ORDER.map(stage => `<code>${stage}</code>`).join(', ');
+  const defaultBatchTag = `import:${new Date().toISOString().slice(0, 10)}`;
+  const listOptions = state.lists.length
+    ? `<option value="">Do not add to a list</option>${state.lists.map(list => `<option value="${list.id}">${esc(list.name)} (${list.cnt || 0} contacts)</option>`).join('')}`
+    : '<option value="">No lists available yet</option>';
   setModal(`<div class="modal-head"><h3>Import Contacts (CSV)</h3><button class="modal-close" onclick="closeModal()">x</button></div>
   <div class="modal-body">
     <div style="margin-bottom:14px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface2)">
@@ -866,6 +913,7 @@ function openImportModal() {
         <div><strong>Optional:</strong> <code>first_name</code>, <code>last_name</code>, <code>name</code>, <code>title</code>, <code>company</code>, <code>phone</code>, <code>stage</code>, <code>deal_value</code>, <code>image_url</code></div>
         <div>If you provide <code>first_name</code> and <code>last_name</code>, the full <code>name</code> is built automatically during import.</div>
         <div>If you already have a single <code>name</code> column, that still works.</div>
+        <div>Imported contacts are automatically tagged with <code>source:csv</code> plus your batch/import tags.</div>
         <div>Valid stage values: ${stageList}</div>
       </div>
     </div>
@@ -876,6 +924,19 @@ function openImportModal() {
     <div class="flex gap" style="margin:-4px 0 14px">
       <button class="btn btn-ghost btn-sm" onclick="loadContactImportExample()">Load Example Into Import Box</button>
       <button class="btn btn-ghost btn-sm" onclick="downloadContactImportTemplate()">Download Example CSV</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Batch Tag</label><input id="csv-batch-tag" value="${esc(defaultBatchTag)}" placeholder="import:2026-03-27"></div>
+      <div class="form-group"><label>Extra Tags</label><input id="csv-extra-tags" placeholder="luxury, qld, scraped"></div>
+    </div>
+    <div class="form-group">
+      <label>Add Imported Contacts To Existing List</label>
+      <select id="csv-list-id">${listOptions}</select>
+    </div>
+    <div class="form-group">
+      <label>Or Create New List During Import</label>
+      <input id="csv-new-list-name" placeholder="e.g. Luxury Agencies March 2026">
+      <div class="text-muted text-sm" style="margin-top:6px;line-height:1.6">If you enter a new list name here, it will be created automatically and used instead of the selected list above.</div>
     </div>
     <div class="form-group"><label>Paste CSV or upload file</label>
       <textarea id="csv-data" placeholder="email,first_name,last_name,title,company,phone&#10;john@example.com,John,Smith,Sales Agent,Acme Corp,0400 000 000" style="min-height:180px"></textarea>
@@ -917,13 +978,25 @@ function downloadContactImportTemplate() {
 
 async function doImport() {
   const csv = document.getElementById('csv-data').value.trim();
+  const batch_tag = document.getElementById('csv-batch-tag')?.value.trim() || '';
+  const list_id = document.getElementById('csv-list-id')?.value || '';
+  const new_list_name = document.getElementById('csv-new-list-name')?.value.trim() || '';
+  const extra_tags = (document.getElementById('csv-extra-tags')?.value || '')
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean);
   if (!csv) { showAlert('imp-err','Paste CSV data first'); return; }
-  const r = await api('POST','/api/contacts/import',{csv});
+  const r = await api('POST','/api/contacts/import',{csv, batch_tag, extra_tags, list_id, new_list_name});
   if (r.error) { showAlert('imp-err',r.error); return; }
-  showAlert('imp-ok',`Imported ${r.imported} contacts, skipped ${r.skipped}`,'alert-success');
+  const listNote = r.list_name ? `, linked ${r.linked || 0} to ${r.list_name}` : '';
+  showAlert('imp-ok',`Imported ${r.imported} contacts, skipped ${r.skipped}${listNote}`,'alert-success');
   state.ui.contactsPage = 1;
-  await loadContacts(state.ui.contactsQuery);
+  await Promise.all([
+    loadContacts(state.ui.contactsQuery),
+    list_id ? loadLists() : Promise.resolve()
+  ]);
   if (currentSection === 'contacts') renderContacts(state.ui.contactsQuery);
+  if (currentSection === 'lists') renderLists();
 }
 
 function triggerContactImageUpload() {
