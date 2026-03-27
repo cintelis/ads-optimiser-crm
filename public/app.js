@@ -869,6 +869,15 @@ function openContactModal(c, options = {}) {
       <div class="form-group"><label>Title</label><input id="c-title" value="${esc(ct.title || '')}" placeholder="Sales Agent"></div>
       <div class="form-group"><label>Company</label><input id="c-company" value="${esc(ct.company)}" placeholder="Company name"></div>
     </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Stage</label>
+        <select id="c-stage">
+          ${STAGE_ORDER.map(stage => `<option value="${stage}" ${(ct.stage || 'lead') === stage ? 'selected' : ''}>${esc(STAGE_LABELS[stage] || stage)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Deal Value</label><input id="c-deal-value" type="number" min="0" step="1000" value="${esc(ct.deal_value || 0)}" placeholder="0"></div>
+    </div>
     <div class="form-group">
       <label>Tags</label>
       <input id="c-tags" value="${esc((ct.tags || []).join(', '))}" placeholder="luxury, qld, replied, source:csv">
@@ -897,6 +906,8 @@ async function saveContact(id) {
   const name = composeContactName(first_name, last_name);
   const title = document.getElementById('c-title').value.trim();
   const company = document.getElementById('c-company').value.trim();
+  const stage = document.getElementById('c-stage')?.value || 'lead';
+  const deal_value = parseFloat(document.getElementById('c-deal-value')?.value || '0') || 0;
   const tags = parseTagInput(document.getElementById('c-tags')?.value || '');
   const phone = document.getElementById('c-phone').value.trim();
   const linkedin = document.getElementById('c-linkedin').value.trim();
@@ -910,8 +921,8 @@ async function saveContact(id) {
       last_name,
       title,
       company,
-      stage: base.stage || 'lead',
-      deal_value: base.deal_value || 0,
+      stage,
+      deal_value,
       tags,
       phone,
       linkedin,
@@ -920,7 +931,7 @@ async function saveContact(id) {
     });
   } else {
     if (!email) { showAlert('c-err','Email required'); return; }
-    r = await api('POST','/api/contacts',{ email, name, first_name, last_name, title, company, tags, phone, linkedin, image_url });
+    r = await api('POST','/api/contacts',{ email, name, first_name, last_name, title, company, stage, deal_value, tags, phone, linkedin, image_url });
   }
   if (r.error) { showAlert('c-err', r.error); return; }
   const returnId = state.ui.contactModalReturnId;
