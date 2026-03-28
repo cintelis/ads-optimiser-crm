@@ -1363,7 +1363,8 @@ function renderLists() {
       <td class="text-muted" data-label="Description">${esc(l.description)||'-'}</td>
       <td data-label="Members"><span class="badge badge-active">${l.cnt||0}</span></td>
       <td class="text-muted text-sm" data-label="Created">${fmtDate(l.created_at)}</td>
-      <td data-label="Actions"><div class="table-actions">${iconButton('settings', 'Manage list', `viewList('${l.id}','${esc(l.name)}')`)}${iconButton('edit', 'Edit list', `openListModal('${l.id}')`)}${iconButton('trash', 'Delete list', `deleteList('${l.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div></td>
+      <td data-label="Actions"><div class="table-actions">${iconButton('settings', 'Manage list', `viewList('${l.id}','${l.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')`)}
+${iconButton('edit', 'Edit list', `openListModal('${l.id}')`)}${iconButton('trash', 'Delete list', `deleteList('${l.id}')`, 'ghost', { extraClass: 'icon-btn-danger' })}</div></td>
     </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted2);padding:32px">No lists yet.</td></tr>'}
     </tbody></table>
   </div>`;
