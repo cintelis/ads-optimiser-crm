@@ -514,6 +514,44 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .modal-title{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text)}
 .modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px 22px;border-top:1px solid var(--border);background:var(--surface2)}
 
+/* Default form-control styling for labels/inputs/selects/textareas placed
+ * directly inside .modal-body or .card-body. The Account page, Users admin,
+ * MFA setup and TOTP login modals all rely on these — without them the
+ * elements fall back to raw browser defaults and look unstyled. */
+.modal-body label,.card-body label{display:block;font-size:12px;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;font-weight:600}
+.modal-body > label:first-child,.card-body > label:first-child,.modal-body .form-row label,.card-body .form-row label{margin-top:0}
+.modal-body input[type=text],
+.modal-body input[type=email],
+.modal-body input[type=password],
+.modal-body input[type=tel],
+.modal-body input[type=number],
+.modal-body input[type=search],
+.modal-body select,
+.modal-body textarea,
+.card-body input[type=text],
+.card-body input[type=email],
+.card-body input[type=password],
+.card-body input[type=tel],
+.card-body input[type=number],
+.card-body input[type=search],
+.card-body select,
+.card-body textarea{
+  width:100%;
+  background:var(--input-bg);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-sm,4px);
+  padding:10px 14px;
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:14px;
+  outline:none;
+  transition:border-color .15s
+}
+.modal-body input:focus,.modal-body select:focus,.modal-body textarea:focus,
+.card-body input:focus,.card-body select:focus,.card-body textarea:focus{border-color:var(--cyan)}
+.modal-body input[disabled],.card-body input[disabled]{opacity:.6;cursor:not-allowed;background:var(--surface2)}
+.modal-body input[type=checkbox],.card-body input[type=checkbox]{width:auto;margin-right:8px;vertical-align:middle}
+
 .qr-frame{padding:14px;background:#fff;border-radius:var(--radius);display:inline-block}
 .qr-frame svg{display:block;width:200px;height:200px}
 .mono-block{font-family:var(--font-mono);font-size:13px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm,4px);padding:10px 12px;color:var(--text);user-select:all;word-break:break-all}
