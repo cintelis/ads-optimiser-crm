@@ -2,12 +2,30 @@
 // 365 Pulse — Outreach & CRM Worker
 // Cloudflare Worker: API backend + serves dashboard
 // Bindings required: DB (D1), KV (KV Namespace), UNSUBSCRIBES (KV — shared with email worker),
-//                   ADMIN_USER, ADMIN_PASS (secrets)
+//                   ADMIN_USER, ADMIN_PASS (secrets — break-glass after Sprint 1 bootstrap)
 //
 // Unsubscribe handling is fully delegated to the 365soft-email-worker.
 // Set MAIL_UNSUBSCRIBE_BASE_URL on that worker to enable signed token links.
 // Set MAIL_UNSUBSCRIBE_NOTIFY_EMAIL on that worker for admin notifications.
+//
+// Sprint 1 (auth foundation): multi-user auth lives in worker/auth.js +
+// worker/sessions.js. ADMIN_USER/ADMIN_PASS are bootstrapped into the users
+// table on first login and remain valid as a parallel break-glass credential
+// regardless of the DB password. Bearer tokens are now D1-backed session ids;
+// the legacy KV `sess:*` keys are no longer read or written.
 // ============================================================
+
+import {
+  hashPassword, verifyPassword,
+  generateTotpSecret, verifyTotp,
+  generateBackupCodes, findMatchingBackupCode,
+  generateUserId,
+} from './worker/auth.js';
+import {
+  createSession, getActiveSession, revokeSession,
+  promotePendingTwoFactor, touchSession,
+} from './worker/sessions.js';
+import { emit } from './worker/events.js';
 
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
@@ -545,16 +563,26 @@ function renderLuxuryHomesEditorialTemplate(origin = '') {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     const path = url.pathname;
-    if (req.method === 'OPTIONS') return addCors(new Response(null, { status: 204 }));
-    if (path === '/api/auth/login' && req.method === 'POST') return addCors(await apiLogin(req, env));
-    if (path === '/api/auth/logout' && req.method === 'POST') return addCors(await apiLogout(req, env));
-    if (path === '/api/auth/check') return addCors(await apiCheck(req, env));
+    const m = req.method;
+    if (m === 'OPTIONS') return addCors(new Response(null, { status: 204 }));
+
+    // Public (no session) auth endpoints
+    if (path === '/api/auth/login' && m === 'POST') return addCors(await apiLogin(req, env));
+    if (path === '/api/auth/totp/login' && m === 'POST') return addCors(await apiTotpLogin(req, env, false));
+    if (path === '/api/auth/totp/login-backup' && m === 'POST') return addCors(await apiTotpLogin(req, env, true));
+    if (path === '/api/auth/check' && m === 'GET') return addCors(await apiCheck(req, env));
+    if (path === '/api/auth/logout' && m === 'POST') return addCors(await apiLogout(req, env));
+
     if (path.startsWith('/api/')) {
-      if (!await isAuthed(req, env)) return addCors(jres({ error: 'Unauthorized' }, 401));
-      return addCors(await route(req, env, url, path));
+      const authCtx = await requireAuth(req, env);
+      if (authCtx instanceof Response) return addCors(authCtx);
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(touchSession(env, authCtx.session.id));
+      }
+      return addCors(await route(req, env, url, path, authCtx));
     }
     return new Response('Not found', { status: 404 });
   },
@@ -562,37 +590,394 @@ export default {
 };
 
 // ── Auth ─────────────────────────────────────────────────────
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 function getToken(req) {
   const h = req.headers.get('Authorization') || '';
   return h.replace('Bearer ', '').trim() || null;
 }
-async function isAuthed(req, env) {
-  const t = getToken(req);
-  if (!t) return false;
-  return !!(await env.KV.get(`sess:${t}`));
+
+// Returns { session, user } on success, or a 401 Response on failure.
+async function requireAuth(req, env) {
+  const token = getToken(req);
+  if (!token) return jres({ error: 'Unauthorized' }, 401);
+  const ctx = await getActiveSession(env, token);
+  if (!ctx) return jres({ error: 'Unauthorized' }, 401);
+  if (ctx.session.is_2fa_pending) return jres({ error: '2FA required' }, 401);
+  return ctx;
 }
+
+// Idempotently create the bootstrap admin from ADMIN_USER/ADMIN_PASS env secrets.
+// Runs on every login attempt — safe because of UNIQUE(email) and INSERT OR IGNORE.
+async function bootstrapAdminIfNeeded(env) {
+  if (!env.ADMIN_USER || !env.ADMIN_PASS) return;
+  const adminEmail = String(env.ADMIN_USER).trim().toLowerCase();
+  if (!adminEmail) return;
+  const existing = await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(adminEmail).first();
+  if (existing) return;
+  const userId = generateUserId();
+  const ts = now();
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO users (id, email, display_name, role, active, preferences, created_at)
+     VALUES (?, ?, ?, 'admin', 1, '{}', ?)`
+  ).bind(userId, adminEmail, 'Admin (bootstrap)', ts).run();
+  // Re-read in case of insert race; whichever id won, attach the credential.
+  const row = await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(adminEmail).first();
+  if (!row) return;
+  const { hash, salt, iterations, algorithm } = await hashPassword(env.ADMIN_PASS);
+  await env.DB.prepare(
+    `INSERT INTO user_credentials (user_id, password_hash, salt, algorithm, iterations, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       password_hash = excluded.password_hash,
+       salt = excluded.salt,
+       algorithm = excluded.algorithm,
+       iterations = excluded.iterations,
+       updated_at = excluded.updated_at`
+  ).bind(row.id, hash, salt, algorithm, iterations, ts, ts).run();
+}
+
+// Returns true if email+password matches the env-secret break-glass credential.
+function isBreakGlass(env, email, password) {
+  if (!env.ADMIN_USER || !env.ADMIN_PASS) return false;
+  return String(email).trim().toLowerCase() === String(env.ADMIN_USER).trim().toLowerCase()
+      && String(password) === String(env.ADMIN_PASS);
+}
+
 async function apiLogin(req, env) {
-  const { username, password } = await req.json().catch(() => ({}));
-  if (username !== env.ADMIN_USER || password !== env.ADMIN_PASS)
-    return jres({ error: 'Invalid credentials' }, 401);
-  const token = crypto.randomUUID().replace(/-/g, '');
-  await env.KV.put(`sess:${token}`, '1', { expirationTtl: 604800 });
-  return jres({ token });
+  const body = await req.json().catch(() => ({}));
+  const email = String(body.email ?? body.username ?? '').trim().toLowerCase();
+  const password = String(body.password ?? '');
+  if (!email || !password) return jres({ error: 'email and password required' }, 400);
+
+  // Bootstrap the env-secret admin into the users table on first login.
+  await bootstrapAdminIfNeeded(env);
+
+  const breakGlass = isBreakGlass(env, email, password);
+  const user = await env.DB.prepare(
+    'SELECT id, email, role, active FROM users WHERE email=? AND active=1'
+  ).bind(email).first();
+  if (!user) return jres({ error: 'Invalid credentials' }, 401);
+
+  let valid = breakGlass;
+  if (!valid) {
+    const cred = await env.DB.prepare(
+      'SELECT password_hash, salt, iterations FROM user_credentials WHERE user_id=?'
+    ).bind(user.id).first();
+    if (cred) {
+      valid = await verifyPassword(password, cred.password_hash, cred.salt, cred.iterations);
+    }
+  }
+  if (!valid) return jres({ error: 'Invalid credentials' }, 401);
+
+  // Break-glass intentionally bypasses MFA — that's the whole point of break-glass.
+  // Mitigation: rotate ADMIN_PASS to a long random string post-bootstrap.
+  const totpRow = !breakGlass
+    ? await env.DB.prepare('SELECT enabled FROM user_totp WHERE user_id=?').bind(user.id).first()
+    : null;
+  const mfaEnabled = totpRow && Number(totpRow.enabled) === 1;
+
+  if (mfaEnabled) {
+    const session = await createSession(env, user.id, { is2faPending: true });
+    return jres({ requires_totp: true, session_id: session.id });
+  }
+  const session = await createSession(env, user.id, {});
+  await env.DB.prepare('UPDATE users SET last_login_at=? WHERE id=?').bind(now(), user.id).run();
+  return jres({ token: session.id });
 }
+
+// Handles both /api/auth/totp/login (TOTP code) and /api/auth/totp/login-backup (backup code).
+async function apiTotpLogin(req, env, useBackupCode) {
+  const body = await req.json().catch(() => ({}));
+  const sessionId = String(body.session_id || '').trim();
+  const code = String(body.code || '').trim();
+  if (!sessionId || !code) return jres({ error: 'session_id and code required' }, 400);
+
+  const ctx = await getActiveSession(env, sessionId);
+  if (!ctx || !ctx.session.is_2fa_pending) return jres({ error: 'Invalid or expired session' }, 401);
+
+  let valid = false;
+  if (useBackupCode) {
+    const matchedId = await findMatchingBackupCode(env, ctx.user.id, code);
+    if (matchedId) {
+      await env.DB.prepare('UPDATE user_backup_codes SET used_at=? WHERE id=?').bind(now(), matchedId).run();
+      valid = true;
+    }
+  } else {
+    const totp = await env.DB.prepare(
+      'SELECT secret FROM user_totp WHERE user_id=? AND enabled=1'
+    ).bind(ctx.user.id).first();
+    if (totp) valid = await verifyTotp(totp.secret, code);
+  }
+  if (!valid) return jres({ error: 'Invalid code' }, 401);
+
+  const promoted = await promotePendingTwoFactor(env, sessionId);
+  if (!promoted) return jres({ error: 'Session promotion failed' }, 500);
+  await env.DB.prepare('UPDATE users SET last_login_at=? WHERE id=?').bind(now(), ctx.user.id).run();
+  return jres({ token: sessionId });
+}
+
 async function apiLogout(req, env) {
   const t = getToken(req);
-  if (t) await env.KV.delete(`sess:${t}`);
+  if (t) await revokeSession(env, t);
   return jres({ ok: true });
 }
+
+// Public — no 401 on missing session, just returns {ok:false}.
 async function apiCheck(req, env) {
-  return jres({ ok: await isAuthed(req, env) });
+  const t = getToken(req);
+  if (!t) return jres({ ok: false });
+  const ctx = await getActiveSession(env, t);
+  if (!ctx || ctx.session.is_2fa_pending) return jres({ ok: false });
+  return jres({ ok: true, user: publicUser(ctx.user) });
+}
+
+function publicUser(u) {
+  return {
+    id: u.id,
+    email: u.email,
+    display_name: u.display_name || '',
+    role: u.role || 'member',
+    preferences: u.preferences || {},
+  };
+}
+
+// ── Authenticated me/users/MFA endpoints ─────────────────────
+async function apiGetMe(env, authCtx) {
+  const totp = await env.DB.prepare(
+    'SELECT enabled FROM user_totp WHERE user_id=?'
+  ).bind(authCtx.user.id).first();
+  const backupRow = await env.DB.prepare(
+    'SELECT COUNT(*) AS n FROM user_backup_codes WHERE user_id=? AND used_at IS NULL'
+  ).bind(authCtx.user.id).first();
+  return jres({
+    user: publicUser(authCtx.user),
+    mfa_enabled: !!(totp && Number(totp.enabled) === 1),
+    backup_codes_remaining: Number(backupRow?.n ?? 0),
+  });
+}
+
+async function apiPatchMyPreferences(req, env, authCtx) {
+  const body = await req.json().catch(() => ({}));
+  const next = { ...(authCtx.user.preferences || {}) };
+  if ('theme' in body) {
+    const theme = String(body.theme || '').toLowerCase();
+    if (theme !== 'light' && theme !== 'dark') return jres({ error: 'theme must be light or dark' }, 400);
+    next.theme = theme;
+  }
+  await env.DB.prepare('UPDATE users SET preferences=? WHERE id=?')
+    .bind(JSON.stringify(next), authCtx.user.id).run();
+  return jres({ ok: true, preferences: next });
+}
+
+async function apiChangePassword(req, env, authCtx) {
+  const body = await req.json().catch(() => ({}));
+  const current = String(body.current || '');
+  const next = String(body.next || '');
+  if (!next || next.length < 8) return jres({ error: 'New password must be at least 8 characters' }, 400);
+  const cred = await env.DB.prepare(
+    'SELECT password_hash, salt, iterations FROM user_credentials WHERE user_id=?'
+  ).bind(authCtx.user.id).first();
+  if (!cred) return jres({ error: 'No credential on file' }, 400);
+  const ok = await verifyPassword(current, cred.password_hash, cred.salt, cred.iterations);
+  if (!ok) return jres({ error: 'Current password is incorrect' }, 401);
+  const hashed = await hashPassword(next);
+  const ts = now();
+  await env.DB.prepare(
+    `UPDATE user_credentials SET password_hash=?, salt=?, algorithm=?, iterations=?, updated_at=? WHERE user_id=?`
+  ).bind(hashed.hash, hashed.salt, hashed.algorithm, hashed.iterations, ts, authCtx.user.id).run();
+  return jres({ ok: true });
+}
+
+async function apiTotpSetup(req, env, authCtx) {
+  const { secret, otpauthUri } = generateTotpSecret(authCtx.user.email);
+  const ts = now();
+  await env.DB.prepare(
+    `INSERT INTO user_totp (user_id, secret, enabled, verified_at, created_at)
+     VALUES (?, ?, 0, NULL, ?)
+     ON CONFLICT(user_id) DO UPDATE SET secret=excluded.secret, enabled=0, verified_at=NULL`
+  ).bind(authCtx.user.id, secret, ts).run();
+  return jres({ secret, otpauth_uri: otpauthUri });
+}
+
+async function apiTotpVerify(req, env, authCtx) {
+  const body = await req.json().catch(() => ({}));
+  const code = String(body.code || '').trim();
+  const row = await env.DB.prepare(
+    'SELECT secret FROM user_totp WHERE user_id=?'
+  ).bind(authCtx.user.id).first();
+  if (!row) return jres({ error: 'TOTP not initialised — call /setup first' }, 400);
+  const ok = await verifyTotp(row.secret, code);
+  if (!ok) return jres({ error: 'Invalid code' }, 401);
+  await env.DB.prepare(
+    'UPDATE user_totp SET enabled=1, verified_at=? WHERE user_id=?'
+  ).bind(now(), authCtx.user.id).run();
+  // Issue initial backup codes on first MFA enable.
+  const codes = await issueBackupCodes(env, authCtx.user.id);
+  return jres({ ok: true, backup_codes: codes });
+}
+
+async function apiTotpDisable(req, env, authCtx) {
+  const body = await req.json().catch(() => ({}));
+  const code = String(body.code || '').trim();
+  const row = await env.DB.prepare(
+    'SELECT secret, enabled FROM user_totp WHERE user_id=?'
+  ).bind(authCtx.user.id).first();
+  if (!row || Number(row.enabled) !== 1) return jres({ error: 'MFA not enabled' }, 400);
+  const ok = await verifyTotp(row.secret, code);
+  if (!ok) return jres({ error: 'Invalid code' }, 401);
+  await env.DB.prepare('DELETE FROM user_totp WHERE user_id=?').bind(authCtx.user.id).run();
+  await env.DB.prepare('DELETE FROM user_backup_codes WHERE user_id=?').bind(authCtx.user.id).run();
+  return jres({ ok: true });
+}
+
+async function apiRegenerateBackupCodes(env, authCtx) {
+  const codes = await issueBackupCodes(env, authCtx.user.id);
+  return jres({ ok: true, backup_codes: codes });
+}
+
+// Generates fresh backup codes, deletes any prior set, returns plain values.
+async function issueBackupCodes(env, userId) {
+  const generated = await generateBackupCodes();
+  await env.DB.prepare('DELETE FROM user_backup_codes WHERE user_id=?').bind(userId).run();
+  const ts = now();
+  for (const c of generated) {
+    await env.DB.prepare(
+      `INSERT INTO user_backup_codes (id, user_id, code_hash, salt, used_at, created_at)
+       VALUES (?, ?, ?, ?, NULL, ?)`
+    ).bind(uid(), userId, c.hash, c.salt, ts).run();
+  }
+  return generated.map(c => c.plain);
+}
+
+// ── User administration (admin role only) ───────────────────
+async function apiListUsers(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT u.id, u.email, u.display_name, u.role, u.active, u.created_at, u.last_login_at,
+            CASE WHEN t.enabled=1 THEN 1 ELSE 0 END AS mfa_enabled
+     FROM users u LEFT JOIN user_totp t ON t.user_id = u.id
+     ORDER BY u.created_at ASC`
+  ).all();
+  return jres({ users: results || [] });
+}
+
+async function apiCreateUser(req, env) {
+  const body = await req.json().catch(() => ({}));
+  const email = String(body.email || '').trim().toLowerCase();
+  const display_name = String(body.display_name || '').trim();
+  const role = ['admin', 'member', 'viewer'].includes(body.role) ? body.role : 'member';
+  const password = String(body.password || '');
+  if (!email) return jres({ error: 'email required' }, 400);
+  if (!password || password.length < 8) return jres({ error: 'password must be at least 8 characters' }, 400);
+  const exists = await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first();
+  if (exists) return jres({ error: 'A user with that email already exists' }, 409);
+  const id = generateUserId();
+  const ts = now();
+  await env.DB.prepare(
+    `INSERT INTO users (id, email, display_name, role, active, preferences, created_at)
+     VALUES (?, ?, ?, ?, 1, '{}', ?)`
+  ).bind(id, email, display_name, role, ts).run();
+  const { hash, salt, iterations, algorithm } = await hashPassword(password);
+  await env.DB.prepare(
+    `INSERT INTO user_credentials (user_id, password_hash, salt, algorithm, iterations, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, hash, salt, algorithm, iterations, ts, ts).run();
+  return jres({ id, email, display_name, role });
+}
+
+async function apiUpdateUser(req, env, id) {
+  const body = await req.json().catch(() => ({}));
+  const fields = [];
+  const vals = [];
+  if ('display_name' in body) { fields.push('display_name=?'); vals.push(String(body.display_name || '')); }
+  if ('role' in body && ['admin', 'member', 'viewer'].includes(body.role)) {
+    fields.push('role=?'); vals.push(body.role);
+  }
+  if ('active' in body) { fields.push('active=?'); vals.push(body.active ? 1 : 0); }
+  if (!fields.length) return jres({ error: 'No fields to update' }, 400);
+  vals.push(id);
+  await env.DB.prepare(`UPDATE users SET ${fields.join(',')} WHERE id=?`).bind(...vals).run();
+  return jres({ ok: true });
+}
+
+async function apiAdminResetPassword(req, env, id) {
+  const body = await req.json().catch(() => ({}));
+  const password = String(body.password || '');
+  if (!password || password.length < 8) return jres({ error: 'password must be at least 8 characters' }, 400);
+  const user = await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+  if (!user) return jres({ error: 'User not found' }, 404);
+  const { hash, salt, iterations, algorithm } = await hashPassword(password);
+  const ts = now();
+  await env.DB.prepare(
+    `INSERT INTO user_credentials (user_id, password_hash, salt, algorithm, iterations, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       password_hash=excluded.password_hash, salt=excluded.salt,
+       algorithm=excluded.algorithm, iterations=excluded.iterations, updated_at=excluded.updated_at`
+  ).bind(id, hash, salt, algorithm, iterations, ts, ts).run();
+  return jres({ ok: true });
+}
+
+async function apiAdminResetMfa(env, id) {
+  await env.DB.prepare('DELETE FROM user_totp WHERE user_id=?').bind(id).run();
+  await env.DB.prepare('DELETE FROM user_backup_codes WHERE user_id=?').bind(id).run();
+  return jres({ ok: true });
+}
+
+async function apiDeleteUser(env, id) {
+  // Soft delete — preserve audit trail.
+  await env.DB.prepare('UPDATE users SET active=0 WHERE id=?').bind(id).run();
+  // Revoke all live sessions for the deactivated user.
+  await env.DB.prepare(
+    'UPDATE app_sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL'
+  ).bind(now(), id).run();
+  return jres({ ok: true });
 }
 
 // ── Router ───────────────────────────────────────────────────
-async function route(req, env, url, path) {
+async function route(req, env, url, path, authCtx) {
+  const m = req.method;
+
+  // Role gating: viewers are read-only across the entire API surface.
+  // Admin/member roles fall through to the per-endpoint logic below.
+  if (WRITE_METHODS.has(m) && authCtx.user.role === 'viewer') {
+    return jres({ error: 'Forbidden: read-only role' }, 403);
+  }
+
+  // ── Account / self-service auth endpoints ─────────────────
+  if (path === '/api/me' && m === 'GET') return apiGetMe(env, authCtx);
+  if (path === '/api/me/preferences' && m === 'PATCH') return apiPatchMyPreferences(req, env, authCtx);
+  if (path === '/api/auth/password/change' && m === 'POST') return apiChangePassword(req, env, authCtx);
+  if (path === '/api/auth/totp/setup' && m === 'POST') return apiTotpSetup(req, env, authCtx);
+  if (path === '/api/auth/totp/verify' && m === 'POST') return apiTotpVerify(req, env, authCtx);
+  if (path === '/api/auth/totp/disable' && m === 'POST') return apiTotpDisable(req, env, authCtx);
+  if (path === '/api/auth/backup-codes/regenerate' && m === 'POST') return apiRegenerateBackupCodes(env, authCtx);
+
+  // ── User administration (admin role only) ────────────────
+  if (path === '/api/users' && m === 'GET') {
+    if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+    return apiListUsers(env);
+  }
+  if (path === '/api/users' && m === 'POST') {
+    if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+    return apiCreateUser(req, env);
+  }
+  {
+    const userMatch = path.match(/^\/api\/users\/([^/]+)(?:\/(reset-password|reset-mfa))?$/);
+    if (userMatch) {
+      if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+      const userId = userMatch[1];
+      const action = userMatch[2];
+      if (!action && m === 'PATCH') return apiUpdateUser(req, env, userId);
+      if (!action && m === 'DELETE') return apiDeleteUser(env, userId);
+      if (action === 'reset-password' && m === 'POST') return apiAdminResetPassword(req, env, userId);
+      if (action === 'reset-mfa' && m === 'POST') return apiAdminResetMfa(env, userId);
+    }
+  }
+
+  // ── Existing CRM / outreach segment-based routing ─────────
   const parts = path.replace('/api/', '').split('/');
   const [res, id, sub, sub2] = parts;
-  const m = req.method;
   if ((res === 'stats' || res === 'overview') && m === 'GET') return getOverview(env, url);
   if (res === 'templates') {
     if (m === 'POST' && id === 'seed' && sub === 'real-estate') return seedAdsOptimiserRealEstateTemplates(env);

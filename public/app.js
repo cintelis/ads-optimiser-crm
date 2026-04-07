@@ -114,17 +114,26 @@ function iconButton(icon, title, onclick, variant = 'ghost', options = {}) {
 }
 
 // ── Auth ──────────────────────────────────────────────────────
+// Sprint 1 (auth foundation): /api/auth/login now expects {email, password}
+// and may return either {token} or {requires_totp, session_id}. The MFA prompt
+// UI lands in landing 2 — for now, accounts without MFA enabled get a token
+// directly, which covers the bootstrap admin path.
 async function doLogin() {
   const u = document.getElementById('l-user').value;
   const p = document.getElementById('l-pass').value;
-  const r = await api('POST','/api/auth/login',{username:u,password:p},false);
-  if (r.token) {
+  const r = await api('POST','/api/auth/login',{email:u,password:p},false);
+  if (r && r.token) {
     token = r.token;
     localStorage.setItem('token', token);
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     nav('overview');
+  } else if (r && r.requires_totp) {
+    // MFA prompt lands in landing 2; surface a clear message until then.
+    document.getElementById('l-err').textContent = 'MFA is enabled — multi-factor login UI ships in the next update.';
+    document.getElementById('l-err').style.display = 'block';
   } else {
+    document.getElementById('l-err').textContent = 'Invalid credentials. Try again.';
     document.getElementById('l-err').style.display = 'block';
   }
 }
