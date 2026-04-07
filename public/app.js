@@ -9,7 +9,9 @@ const SECTION_TITLES = {
   logs: 'Sent Log',
   unsubs: 'Unsubscribes',
   pipeline: 'Pipeline',
-  followups: 'Follow-ups'
+  followups: 'Follow-ups',
+  account: 'My Account',
+  users: 'Users'
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
@@ -48,6 +50,8 @@ const TEMPLATE_PREVIEW_DEFAULTS = {
 
 let token = localStorage.getItem('token');
 let state = {
+  me: null,
+  users: [],
   templates: [],
   contacts: [],
   lists: [],
@@ -114,29 +118,93 @@ function iconButton(icon, title, onclick, variant = 'ghost', options = {}) {
 }
 
 // ── Auth ──────────────────────────────────────────────────────
-// Sprint 1 (auth foundation): /api/auth/login now expects {email, password}
-// and may return either {token} or {requires_totp, session_id}. The MFA prompt
-// UI lands in landing 2 — for now, accounts without MFA enabled get a token
-// directly, which covers the bootstrap admin path.
+// /api/auth/login returns either {token} or {requires_totp, session_id}.
+// On requires_totp we show the TOTP prompt and call /api/auth/totp/login
+// (or /totp/login-backup) to promote the pending session into a real one.
+let pendingTotpSessionId = null;
+
 async function doLogin() {
   const u = document.getElementById('l-user').value;
   const p = document.getElementById('l-pass').value;
+  const errEl = document.getElementById('l-err');
+  errEl.style.display = 'none';
   const r = await api('POST','/api/auth/login',{email:u,password:p},false);
   if (r && r.token) {
-    token = r.token;
-    localStorage.setItem('token', token);
-    document.getElementById('login').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    nav('overview');
-  } else if (r && r.requires_totp) {
-    // MFA prompt lands in landing 2; surface a clear message until then.
-    document.getElementById('l-err').textContent = 'MFA is enabled — multi-factor login UI ships in the next update.';
-    document.getElementById('l-err').style.display = 'block';
+    await onLoginSuccess(r.token);
+  } else if (r && r.requires_totp && r.session_id) {
+    pendingTotpSessionId = r.session_id;
+    showTotpPrompt(false);
   } else {
-    document.getElementById('l-err').textContent = 'Invalid credentials. Try again.';
-    document.getElementById('l-err').style.display = 'block';
+    errEl.textContent = (r && r.error) || 'Invalid credentials. Try again.';
+    errEl.style.display = 'block';
   }
 }
+
+async function submitTotpCode(useBackup) {
+  const codeEl = document.getElementById('totp-code');
+  const errEl = document.getElementById('totp-err');
+  const code = codeEl ? codeEl.value : '';
+  if (!code) { if (errEl) { errEl.textContent = 'Enter a code'; errEl.style.display='block'; } return; }
+  if (errEl) errEl.style.display = 'none';
+  const path = useBackup ? '/api/auth/totp/login-backup' : '/api/auth/totp/login';
+  const r = await api('POST', path, { session_id: pendingTotpSessionId, code }, false);
+  if (r && r.token) {
+    pendingTotpSessionId = null;
+    await onLoginSuccess(r.token);
+  } else if (errEl) {
+    errEl.textContent = (r && r.error) || 'Invalid code';
+    errEl.style.display = 'block';
+  }
+}
+
+function showTotpPrompt(useBackup) {
+  const label = useBackup ? 'Backup recovery code' : 'Authenticator code';
+  const placeholder = useBackup ? 'xxxxx-xxxxx' : '123456';
+  const inputType = useBackup ? 'text' : 'tel';
+  const switchHtml = useBackup
+    ? '<a href="javascript:void(0)" onclick="showTotpPrompt(false)">Use authenticator code instead</a>'
+    : '<a href="javascript:void(0)" onclick="showTotpPrompt(true)">Use a backup code instead</a>';
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Two-factor verification</div>
+      <button class="modal-close" type="button" onclick="cancelTotpPrompt()">x</button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;color:var(--muted2);font-size:14px">Enter the ${esc(label.toLowerCase())} from your authenticator app to finish signing in.</p>
+      <label>${esc(label)}</label>
+      <input id="totp-code" type="${inputType}" inputmode="${useBackup?'text':'numeric'}" autocomplete="one-time-code" placeholder="${placeholder}" autofocus>
+      <div class="login-err" id="totp-err" style="display:none;margin-top:10px"></div>
+      <div style="margin-top:14px;font-size:13px">${switchHtml}</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="cancelTotpPrompt()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitTotpCode(${useBackup?'true':'false'})">Verify</button>
+    </div>
+  `);
+  setTimeout(() => {
+    const el = document.getElementById('totp-code');
+    if (el) {
+      el.focus();
+      el.addEventListener('keydown', ev => { if (ev.key === 'Enter') submitTotpCode(useBackup); });
+    }
+  }, 30);
+}
+
+function cancelTotpPrompt() {
+  pendingTotpSessionId = null;
+  closeModal();
+}
+
+async function onLoginSuccess(newToken) {
+  token = newToken;
+  localStorage.setItem('token', token);
+  closeModal();
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await refreshMe();
+  api('GET','/api/crm/stats').then(s => updateFollowUpBadges(s?.followups_due || 0));
+  await seedRealEstateTemplate().catch(() => {});
+  nav('overview');
+}
+
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('login').style.display !== 'none') doLogin(); });
 async function doLogout() {
   await api('POST','/api/auth/logout');
@@ -149,9 +217,27 @@ async function init() {
   if (!r.ok) { localStorage.removeItem('token'); return; }
   document.getElementById('login').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  await refreshMe();
   api('GET','/api/crm/stats').then(s => updateFollowUpBadges(s?.followups_due || 0));
   await seedRealEstateTemplate().catch(() => {});
   nav('overview');
+}
+
+// ── Current user (loaded on every login / init) ───────────────
+async function refreshMe() {
+  const r = await api('GET','/api/me');
+  if (r && r.user) {
+    state.me = r.user;
+    state.me.mfa_enabled = !!r.mfa_enabled;
+    state.me.backup_codes_remaining = Number(r.backup_codes_remaining || 0);
+    applyRoleVisibility();
+  }
+}
+function isAdmin() { return state.me && state.me.role === 'admin'; }
+function applyRoleVisibility() {
+  const show = isAdmin() ? '' : 'none';
+  const u1 = document.getElementById('nav-users'); if (u1) u1.style.display = show;
+  const u2 = document.getElementById('more-users'); if (u2) u2.style.display = show;
 }
 
 // ── API helper ────────────────────────────────────────────────
@@ -356,6 +442,11 @@ async function renderSection(s) {
   else if (s === 'unsubs') { await loadUnsubs(); renderUnsubs(); }
   else if (s === 'pipeline') { await Promise.all([loadPipeline(), loadCrmStats()]); renderPipeline(); }
   else if (s === 'followups') { await loadFollowUps(); renderFollowUps(); }
+  else if (s === 'account') { await loadAccount(); renderAccount(); }
+  else if (s === 'users') {
+    if (!isAdmin()) { c.innerHTML = '<div class="empty"><p>Admin access required.</p></div>'; return; }
+    await loadUsers(); renderUsers();
+  }
 }
 
 // ── Loaders ───────────────────────────────────────────────────
@@ -2164,6 +2255,385 @@ function fmtCurrency(v) {
   if (!v) return '$0';
   if (v >= 1000) return '$' + (v/1000).toFixed(v%1000===0?0:1) + 'k';
   return '$' + v.toLocaleString();
+}
+
+// ── Account section ───────────────────────────────────────────
+async function loadAccount() {
+  await refreshMe();
+}
+
+function renderAccount() {
+  const c = document.getElementById('content');
+  const u = state.me || {};
+  const mfa = !!u.mfa_enabled;
+  const remaining = Number(u.backup_codes_remaining || 0);
+  c.innerHTML = `
+    <div class="page-section">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Profile</div></div>
+        <div class="card-body">
+          <div class="kv-grid">
+            <div class="kv-row"><div class="kv-k">Email</div><div class="kv-v">${esc(u.email || '')}</div></div>
+            <div class="kv-row"><div class="kv-k">Display name</div><div class="kv-v">${esc(u.display_name || '(not set)')}</div></div>
+            <div class="kv-row"><div class="kv-k">Role</div><div class="kv-v"><span class="role-badge role-${esc(u.role || 'member')}">${esc(u.role || 'member')}</span></div></div>
+            <div class="kv-row"><div class="kv-k">MFA</div><div class="kv-v">${mfa ? 'Enabled' : 'Not enabled'}${mfa && remaining ? ` &middot; ${remaining} backup codes remaining` : ''}</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">Change password</div></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div><label>Current password</label><input id="acc-pw-current" type="password" autocomplete="current-password"></div>
+            <div><label>New password (min 8 chars)</label><input id="acc-pw-next" type="password" autocomplete="new-password"></div>
+          </div>
+          <div class="form-msg" id="acc-pw-msg"></div>
+          <div style="margin-top:14px"><button class="btn btn-primary" type="button" onclick="submitChangePassword()">Update password</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">Two-factor authentication</div></div>
+        <div class="card-body">
+          ${mfa
+            ? `<p style="margin:0 0 14px;color:var(--muted2);font-size:14px">Multi-factor authentication is currently <strong>enabled</strong>. You'll be prompted for a code from your authenticator app on every sign-in.</p>
+               <div style="display:flex;gap:10px;flex-wrap:wrap">
+                 <button class="btn btn-ghost" type="button" onclick="openRegenerateBackupCodes()">Regenerate backup codes</button>
+                 <button class="btn btn-ghost" type="button" onclick="openDisableMfa()">Disable MFA</button>
+               </div>`
+            : `<p style="margin:0 0 14px;color:var(--muted2);font-size:14px">Add an extra layer of protection by requiring a one-time code from your authenticator app (Google Authenticator, Authy, 1Password, etc.) on each sign-in.</p>
+               <button class="btn btn-primary" type="button" onclick="startMfaSetup()">Enable MFA</button>`}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function submitChangePassword() {
+  const cur = document.getElementById('acc-pw-current').value;
+  const next = document.getElementById('acc-pw-next').value;
+  const msg = document.getElementById('acc-pw-msg');
+  msg.className = 'form-msg';
+  if (!cur || !next) { msg.textContent = 'Both fields are required'; msg.classList.add('form-msg-err'); return; }
+  if (next.length < 8) { msg.textContent = 'New password must be at least 8 characters'; msg.classList.add('form-msg-err'); return; }
+  const r = await api('POST','/api/auth/password/change',{current:cur,next});
+  if (r && r.ok) {
+    msg.textContent = 'Password updated.';
+    msg.classList.add('form-msg-ok');
+    document.getElementById('acc-pw-current').value = '';
+    document.getElementById('acc-pw-next').value = '';
+  } else {
+    msg.textContent = (r && r.error) || 'Failed to update password';
+    msg.classList.add('form-msg-err');
+  }
+}
+
+// ── MFA enrolment flow ────────────────────────────────────────
+async function startMfaSetup() {
+  const r = await api('POST','/api/auth/totp/setup');
+  if (!r || !r.secret) { alert((r && r.error) || 'Failed to start MFA setup'); return; }
+  const qrSvg = renderQrSvg(r.otpauth_uri);
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Enable two-factor authentication</div>
+      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
+    <div class="modal-body">
+      <ol style="margin:0 0 16px 18px;padding:0;color:var(--muted);font-size:14px;line-height:1.7">
+        <li>Open your authenticator app (Google Authenticator, Authy, 1Password, etc.)</li>
+        <li>Scan the QR code below, or enter the secret key manually</li>
+        <li>Enter the 6-digit code from the app to confirm</li>
+      </ol>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <div class="qr-frame">${qrSvg}</div>
+        <div style="flex:1;min-width:220px">
+          <label style="font-size:12px;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em">Secret key</label>
+          <div class="mono-block" style="margin-bottom:14px">${esc(r.secret)}</div>
+          <label>Code from app</label>
+          <input id="mfa-verify-code" type="tel" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="6">
+          <div class="form-msg" id="mfa-verify-msg" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitMfaVerify()">Verify &amp; enable</button>
+    </div>
+  `);
+  setTimeout(() => { const el = document.getElementById('mfa-verify-code'); if (el) el.focus(); }, 30);
+}
+
+async function submitMfaVerify() {
+  const code = document.getElementById('mfa-verify-code').value;
+  const msg = document.getElementById('mfa-verify-msg');
+  msg.className = 'form-msg';
+  if (!code) { msg.textContent = 'Enter the code'; msg.classList.add('form-msg-err'); return; }
+  const r = await api('POST','/api/auth/totp/verify',{code});
+  if (r && r.ok && Array.isArray(r.backup_codes)) {
+    showBackupCodesModal(r.backup_codes, true);
+    await refreshMe();
+  } else {
+    msg.textContent = (r && r.error) || 'Invalid code';
+    msg.classList.add('form-msg-err');
+  }
+}
+
+function showBackupCodesModal(codes, fresh) {
+  const heading = fresh ? 'MFA enabled — save your backup codes' : 'New backup codes generated';
+  setModal(`
+    <div class="modal-head"><div class="modal-title">${esc(heading)}</div>
+      <button class="modal-close" type="button" onclick="closeBackupCodesModal()">x</button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;color:var(--amber);font-size:14px"><strong>Store these codes somewhere safe now.</strong> Each code can be used once if you lose access to your authenticator. They will not be shown again.</p>
+      <div class="backup-grid">
+        ${codes.map(c => `<div class="mono-block" style="text-align:center">${esc(c)}</div>`).join('')}
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <button class="btn btn-ghost" type="button" onclick="copyBackupCodes(${JSON.stringify(JSON.stringify(codes))})">Copy all</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" type="button" onclick="closeBackupCodesModal()">I've saved them</button>
+    </div>
+  `);
+}
+
+function copyBackupCodes(serialized) {
+  try {
+    const codes = JSON.parse(serialized);
+    navigator.clipboard.writeText(codes.join('\n'));
+  } catch {}
+}
+
+function closeBackupCodesModal() {
+  closeModal();
+  if (currentSection === 'account') renderAccount();
+}
+
+function openDisableMfa() {
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Disable two-factor authentication</div>
+      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;color:var(--muted2);font-size:14px">Enter a current authenticator code to disable MFA. All backup codes will also be removed.</p>
+      <label>Current code</label>
+      <input id="mfa-disable-code" type="tel" inputmode="numeric" placeholder="123456" maxlength="6" autofocus>
+      <div class="form-msg" id="mfa-disable-msg" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitDisableMfa()">Disable MFA</button>
+    </div>
+  `);
+}
+
+async function submitDisableMfa() {
+  const code = document.getElementById('mfa-disable-code').value;
+  const msg = document.getElementById('mfa-disable-msg');
+  msg.className = 'form-msg';
+  const r = await api('POST','/api/auth/totp/disable',{code});
+  if (r && r.ok) {
+    closeModal();
+    await refreshMe();
+    if (currentSection === 'account') renderAccount();
+  } else {
+    msg.textContent = (r && r.error) || 'Failed to disable';
+    msg.classList.add('form-msg-err');
+  }
+}
+
+async function openRegenerateBackupCodes() {
+  if (!confirm('Regenerate backup codes? Any previous codes will stop working.')) return;
+  const r = await api('POST','/api/auth/backup-codes/regenerate');
+  if (r && r.ok && Array.isArray(r.backup_codes)) {
+    showBackupCodesModal(r.backup_codes, false);
+    await refreshMe();
+  } else {
+    alert((r && r.error) || 'Failed to regenerate backup codes');
+  }
+}
+
+// QR rendering — relies on the qrcode-generator library loaded in index.html.
+function renderQrSvg(text) {
+  if (typeof qrcode !== 'function') return '<div class="form-msg form-msg-err">QR library failed to load</div>';
+  try {
+    const q = qrcode(0, 'M');
+    q.addData(text);
+    q.make();
+    return q.createSvgTag({ scalable: true, cellSize: 5, margin: 2 });
+  } catch (e) {
+    return `<div class="form-msg form-msg-err">${esc(String(e && e.message || e))}</div>`;
+  }
+}
+
+// ── Users administration (admin only) ─────────────────────────
+async function loadUsers() {
+  const r = await api('GET','/api/users');
+  state.users = (r && Array.isArray(r.users)) ? r.users : [];
+}
+
+function renderUsers() {
+  const c = document.getElementById('content');
+  const rows = state.users.map(u => `
+    <tr>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.display_name || '')}</td>
+      <td><span class="role-badge role-${esc(u.role)}">${esc(u.role)}</span></td>
+      <td>${Number(u.active) === 1 ? 'Active' : '<span style="color:var(--muted2)">Disabled</span>'}</td>
+      <td>${Number(u.mfa_enabled) === 1 ? 'On' : '<span style="color:var(--muted2)">Off</span>'}</td>
+      <td style="color:var(--muted2);font-size:12px">${esc(u.last_login_at || 'never')}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" type="button" onclick="openEditUser('${esc(u.id)}')">Edit</button>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="openResetUserPassword('${esc(u.id)}','${esc(u.email)}')">Reset PW</button>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="resetUserMfa('${esc(u.id)}','${esc(u.email)}')">Reset MFA</button>
+        ${Number(u.active) === 1 ? `<button class="btn btn-ghost btn-sm" type="button" onclick="deactivateUser('${esc(u.id)}','${esc(u.email)}')">Deactivate</button>` : ''}
+      </td>
+    </tr>
+  `).join('');
+  c.innerHTML = `
+    <div class="page-section">
+      <div class="page-actions">
+        <button class="btn btn-primary" type="button" onclick="openCreateUser()">+ Add user</button>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr>
+              <th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>MFA</th><th>Last login</th><th></th>
+            </tr></thead>
+            <tbody>${rows || '<tr><td colspan="7" class="empty"><p>No users yet.</p></td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openCreateUser() {
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Add user</div>
+      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
+    <div class="modal-body">
+      <label>Email</label>
+      <input id="nu-email" type="email" placeholder="person@example.com" autofocus>
+      <label style="margin-top:10px">Display name</label>
+      <input id="nu-name" type="text" placeholder="Jane Doe">
+      <label style="margin-top:10px">Role</label>
+      <select id="nu-role">
+        <option value="member" selected>Member — read &amp; write</option>
+        <option value="admin">Admin — full access incl. user management</option>
+        <option value="viewer">Viewer — read only</option>
+      </select>
+      <label style="margin-top:10px">Initial password (min 8 chars)</label>
+      <input id="nu-password" type="password" autocomplete="new-password">
+      <div class="form-msg" id="nu-msg" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitCreateUser()">Create user</button>
+    </div>
+  `);
+}
+
+async function submitCreateUser() {
+  const email = document.getElementById('nu-email').value.trim();
+  const display_name = document.getElementById('nu-name').value.trim();
+  const role = document.getElementById('nu-role').value;
+  const password = document.getElementById('nu-password').value;
+  const msg = document.getElementById('nu-msg');
+  msg.className = 'form-msg';
+  if (!email) { msg.textContent = 'Email is required'; msg.classList.add('form-msg-err'); return; }
+  if (!password || password.length < 8) { msg.textContent = 'Password must be at least 8 characters'; msg.classList.add('form-msg-err'); return; }
+  const r = await api('POST','/api/users',{email,display_name,role,password});
+  if (r && r.id) {
+    closeModal();
+    await loadUsers(); renderUsers();
+  } else {
+    msg.textContent = (r && r.error) || 'Failed to create user';
+    msg.classList.add('form-msg-err');
+  }
+}
+
+function openEditUser(id) {
+  const u = state.users.find(x => x.id === id);
+  if (!u) return;
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Edit user</div>
+      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
+    <div class="modal-body">
+      <label>Email</label>
+      <input type="text" value="${esc(u.email)}" disabled>
+      <label style="margin-top:10px">Display name</label>
+      <input id="eu-name" type="text" value="${esc(u.display_name || '')}">
+      <label style="margin-top:10px">Role</label>
+      <select id="eu-role">
+        <option value="member" ${u.role==='member'?'selected':''}>Member</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        <option value="viewer" ${u.role==='viewer'?'selected':''}>Viewer</option>
+      </select>
+      <label style="margin-top:10px"><input id="eu-active" type="checkbox" ${Number(u.active)===1?'checked':''}> Account active</label>
+      <div class="form-msg" id="eu-msg" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitEditUser('${esc(id)}')">Save</button>
+    </div>
+  `);
+}
+
+async function submitEditUser(id) {
+  const display_name = document.getElementById('eu-name').value.trim();
+  const role = document.getElementById('eu-role').value;
+  const active = document.getElementById('eu-active').checked ? 1 : 0;
+  const r = await api('PATCH',`/api/users/${encodeURIComponent(id)}`,{display_name,role,active});
+  if (r && r.ok) {
+    closeModal();
+    await loadUsers(); renderUsers();
+  } else {
+    const msg = document.getElementById('eu-msg');
+    msg.className = 'form-msg form-msg-err';
+    msg.textContent = (r && r.error) || 'Failed to update';
+  }
+}
+
+function openResetUserPassword(id, email) {
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Reset password — ${esc(email)}</div>
+      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 12px;color:var(--muted2);font-size:14px">Set a new password for this user. They should change it after their next login.</p>
+      <label>New password (min 8 chars)</label>
+      <input id="rp-password" type="password" autofocus autocomplete="new-password">
+      <div class="form-msg" id="rp-msg" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitResetUserPassword('${esc(id)}')">Reset password</button>
+    </div>
+  `);
+}
+
+async function submitResetUserPassword(id) {
+  const password = document.getElementById('rp-password').value;
+  const msg = document.getElementById('rp-msg');
+  msg.className = 'form-msg';
+  if (!password || password.length < 8) { msg.textContent = 'Password must be at least 8 characters'; msg.classList.add('form-msg-err'); return; }
+  const r = await api('POST',`/api/users/${encodeURIComponent(id)}/reset-password`,{password});
+  if (r && r.ok) { closeModal(); }
+  else { msg.textContent = (r && r.error) || 'Failed to reset'; msg.classList.add('form-msg-err'); }
+}
+
+async function resetUserMfa(id, email) {
+  if (!confirm(`Reset MFA for ${email}? They will need to enrol again on their next login.`)) return;
+  const r = await api('POST',`/api/users/${encodeURIComponent(id)}/reset-mfa`);
+  if (r && r.ok) { await loadUsers(); renderUsers(); }
+  else { alert((r && r.error) || 'Failed to reset MFA'); }
+}
+
+async function deactivateUser(id, email) {
+  if (!confirm(`Deactivate ${email}? Their existing sessions will be revoked immediately.`)) return;
+  const r = await api('DELETE',`/api/users/${encodeURIComponent(id)}`);
+  if (r && r.ok) { await loadUsers(); renderUsers(); }
+  else { alert((r && r.error) || 'Failed to deactivate'); }
 }
 
 init();

@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/dashboard.css">
+<!-- QR generator (used by Account → Enable MFA). Pure client-side, ~5KB. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 </head>
 <body>
 <div id="login">
@@ -44,6 +46,10 @@
           Follow-ups
           <span id="fu-badge" class="nav-badge" style="display:none"></span>
         </button>
+        <div class="nav-divider"></div>
+        <div class="nav-group-label">Settings</div>
+        <button class="nav-item" id="nav-account" type="button" onclick="nav('account')">My Account</button>
+        <button class="nav-item" id="nav-users" type="button" onclick="nav('users')" style="display:none">Users</button>
       </nav>
       <div class="s-footer">
         <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="doLogout()">Sign Out</button>
@@ -88,6 +94,8 @@
     <button class="mobile-sheet-item" id="more-campaigns" type="button" onclick="closeMobileMenu();nav('campaigns')">Campaigns</button>
     <button class="mobile-sheet-item" id="more-logs" type="button" onclick="closeMobileMenu();nav('logs')">Sent Log</button>
     <button class="mobile-sheet-item" id="more-unsubs" type="button" onclick="closeMobileMenu();nav('unsubs')">Unsubscribes</button>
+    <button class="mobile-sheet-item" id="more-account" type="button" onclick="closeMobileMenu();nav('account')">My Account</button>
+    <button class="mobile-sheet-item" id="more-users" type="button" onclick="closeMobileMenu();nav('users')" style="display:none">Users</button>
     <button class="mobile-sheet-item" type="button" onclick="closeMobileMenu();refreshCurrent()">Refresh Current Page</button>
     <button class="mobile-sheet-item mobile-sheet-item-danger" type="button" onclick="doLogout()">Sign Out</button>
   </div>
