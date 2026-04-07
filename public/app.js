@@ -48,6 +48,38 @@ const TEMPLATE_PREVIEW_DEFAULTS = {
   physical_address: 'Ads Optimiser, Brisbane QLD'
 };
 
+// ── Theme bootstrap (must run before any rendering) ──────────
+// Source of truth precedence: per-user preference from /api/me (set after
+// login) > localStorage > prefers-color-scheme media query > 'dark' default.
+// We apply the cached value immediately on script load to avoid a flash.
+const THEME_KEY = 'theme';
+function getInitialTheme() {
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+  return 'dark';
+}
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  localStorage.setItem(THEME_KEY, t);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) {
+    btn.innerHTML = t === 'light'
+      ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8 8 0 0 1-3.37.73 8.15 8.15 0 0 1-8.05-8 8.59 8.59 0 0 1 .25-2 1 1 0 0 0-1.34-1.16A10.14 10.14 0 0 0 12 22a10.21 10.21 0 0 0 9.79-7.69 1 1 0 0 0-.15-1.31z" fill="currentColor"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 16a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zm10-6a1 1 0 0 1-1 1h-2a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1zM5 12a1 1 0 0 1-1 1H2a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1zm14.07-7.07a1 1 0 0 1 0 1.41l-1.42 1.42a1 1 0 1 1-1.41-1.41l1.41-1.42a1 1 0 0 1 1.42 0zM7.76 16.24a1 1 0 0 1 0 1.41l-1.41 1.42A1 1 0 1 1 4.93 17.66l1.42-1.42a1 1 0 0 1 1.41 0zm11.31 1.41a1 1 0 0 1-1.41 1.42l-1.42-1.42a1 1 0 1 1 1.41-1.41zM7.76 7.76A1 1 0 0 1 6.35 6.35l-1.42-1.42a1 1 0 1 1 1.42-1.41l1.41 1.41a1 1 0 0 1 0 1.41z" fill="currentColor"/></svg>';
+    btn.title = t === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+  }
+}
+applyTheme(getInitialTheme());
+async function toggleTheme() {
+  const next = (document.documentElement.dataset.theme === 'light') ? 'dark' : 'light';
+  applyTheme(next);
+  // Persist to user preferences if logged in. Fire-and-forget — local storage
+  // already gives us the immediate change; the server is just for cross-device.
+  if (token) api('PATCH','/api/me/preferences',{theme:next}).catch(() => {});
+}
+
 let token = localStorage.getItem('token');
 let state = {
   me: null,
@@ -231,6 +263,10 @@ async function refreshMe() {
     state.me.mfa_enabled = !!r.mfa_enabled;
     state.me.backup_codes_remaining = Number(r.backup_codes_remaining || 0);
     applyRoleVisibility();
+    // Sync theme from server preference if set — overrides localStorage
+    // bootstrap so the user gets the same theme across devices.
+    const prefTheme = state.me.preferences && state.me.preferences.theme;
+    if (prefTheme === 'light' || prefTheme === 'dark') applyTheme(prefTheme);
   }
 }
 function isAdmin() { return state.me && state.me.role === 'admin'; }
@@ -2490,7 +2526,7 @@ function renderUsers() {
     </tr>
   `).join('');
   c.innerHTML = `
-    <div class="page-section">
+    <div class="page-section page-section-wide">
       <div class="page-actions">
         <button class="btn btn-primary" type="button" onclick="openCreateUser()">+ Add user</button>
       </div>
