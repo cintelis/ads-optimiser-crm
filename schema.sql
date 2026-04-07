@@ -192,3 +192,45 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 CREATE INDEX IF NOT EXISTS idx_activity_entity ON activity(entity_type, entity_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_user ON activity(user_id, created_at DESC);
+
+-- ── Sprint 2: Tasks (projects + issues) ──────────────────────
+
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  key TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description_md TEXT NOT NULL DEFAULT '',
+  lead_user_id TEXT,
+  issue_seq INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_projects_key ON projects(key);
+CREATE INDEX IF NOT EXISTS idx_projects_active ON projects(active);
+
+CREATE TABLE IF NOT EXISTS issues (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  issue_key TEXT NOT NULL,
+  issue_number INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  description_md TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL DEFAULT 'task',
+  status TEXT NOT NULL DEFAULT 'todo',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  assignee_id TEXT,
+  reporter_id TEXT NOT NULL,
+  parent_id TEXT,
+  due_at TEXT,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(project_id, issue_number)
+);
+CREATE INDEX IF NOT EXISTS idx_issues_project ON issues(project_id, active, status);
+CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee_id, active);
+CREATE INDEX IF NOT EXISTS idx_issues_key ON issues(issue_key);
+CREATE INDEX IF NOT EXISTS idx_issues_parent ON issues(parent_id);
+CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated_at DESC);

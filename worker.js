@@ -26,6 +26,13 @@ import {
   promotePendingTwoFactor, touchSession,
 } from './worker/sessions.js';
 import { emit } from './worker/events.js';
+import {
+  listProjects as tasksListProjects, createProject as tasksCreateProject,
+  getProject as tasksGetProject, patchProject as tasksPatchProject, deleteProject as tasksDeleteProject,
+  listIssues as tasksListIssues, createIssue as tasksCreateIssue,
+  getIssue as tasksGetIssue, patchIssue as tasksPatchIssue, deleteIssue as tasksDeleteIssue,
+  addIssueComment as tasksAddIssueComment, deleteActivity as tasksDeleteActivity,
+} from './worker/tasks.js';
 
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
@@ -973,6 +980,46 @@ async function route(req, env, url, path, authCtx) {
       if (action === 'reset-password' && m === 'POST') return apiAdminResetPassword(req, env, userId);
       if (action === 'reset-mfa' && m === 'POST') return apiAdminResetMfa(env, userId);
     }
+  }
+
+  // ── Tasks (Sprint 2) ─────────────────────────────────────
+  if (path === '/api/projects' && m === 'GET')  return tasksListProjects(env);
+  if (path === '/api/projects' && m === 'POST') return tasksCreateProject(req, env, authCtx);
+  {
+    const pm = path.match(/^\/api\/projects\/([^/]+)(?:\/(issues))?$/);
+    if (pm) {
+      const projId = pm[1];
+      const sub = pm[2];
+      if (!sub) {
+        if (m === 'GET')    return tasksGetProject(env, projId);
+        if (m === 'PATCH')  return tasksPatchProject(req, env, projId);
+        if (m === 'DELETE') {
+          if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+          return tasksDeleteProject(env, projId);
+        }
+      }
+      if (sub === 'issues') {
+        if (m === 'GET')  return tasksListIssues(req, env, projId);
+        if (m === 'POST') return tasksCreateIssue(req, env, authCtx, projId);
+      }
+    }
+  }
+  {
+    const im = path.match(/^\/api\/issues\/([^/]+)(?:\/(comments))?$/);
+    if (im) {
+      const isId = im[1];
+      const sub = im[2];
+      if (!sub) {
+        if (m === 'GET')    return tasksGetIssue(env, isId);
+        if (m === 'PATCH')  return tasksPatchIssue(req, env, authCtx, isId);
+        if (m === 'DELETE') return tasksDeleteIssue(env, isId);
+      }
+      if (sub === 'comments' && m === 'POST') return tasksAddIssueComment(req, env, authCtx, isId);
+    }
+  }
+  {
+    const am = path.match(/^\/api\/activity\/([^/]+)$/);
+    if (am && m === 'DELETE') return tasksDeleteActivity(env, authCtx, am[1]);
   }
 
   // ── Existing CRM / outreach segment-based routing ─────────

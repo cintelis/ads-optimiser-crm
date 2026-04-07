@@ -11,7 +11,8 @@ const SECTION_TITLES = {
   pipeline: 'Pipeline',
   followups: 'Follow-ups',
   account: 'My Account',
-  users: 'Users'
+  users: 'Users',
+  projects: 'Projects'
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
@@ -482,6 +483,13 @@ async function renderSection(s) {
   else if (s === 'users') {
     if (!isAdmin()) { c.innerHTML = '<div class="empty"><p>Admin access required.</p></div>'; return; }
     await loadUsers(); renderUsers();
+  }
+  else if (s === 'projects') {
+    if (typeof renderTasksSection === 'function') {
+      await renderTasksSection();
+    } else {
+      c.innerHTML = '<div class="empty"><p>Tasks module failed to load.</p></div>';
+    }
   }
 }
 

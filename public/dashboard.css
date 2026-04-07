@@ -564,3 +564,114 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .data-table td{padding:12px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface2)}
+
+/* ── Sprint 2: Tasks module ──────────────────────────────────── */
+.lozenge{display:inline-block;padding:2px 8px;border-radius:var(--radius-sm,4px);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;line-height:1.4;white-space:nowrap}
+.lozenge-status-backlog{color:var(--muted);background:color-mix(in srgb,var(--muted) 18%,transparent)}
+.lozenge-status-todo{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 16%,transparent)}
+.lozenge-status-in_progress{color:var(--amber);background:color-mix(in srgb,var(--amber) 18%,transparent)}
+.lozenge-status-in_review{color:var(--purple);background:color-mix(in srgb,var(--purple) 18%,transparent)}
+.lozenge-status-done{color:var(--green);background:color-mix(in srgb,var(--green) 18%,transparent)}
+.lozenge-priority-lowest{color:var(--muted2);background:color-mix(in srgb,var(--muted2) 14%,transparent)}
+.lozenge-priority-low{color:var(--muted2);background:color-mix(in srgb,var(--muted2) 14%,transparent)}
+.lozenge-priority-medium{color:var(--cyan);background:color-mix(in srgb,var(--cyan) 14%,transparent)}
+.lozenge-priority-high{color:var(--amber);background:color-mix(in srgb,var(--amber) 16%,transparent)}
+.lozenge-priority-highest{color:var(--red);background:color-mix(in srgb,var(--red) 18%,transparent);font-weight:800}
+.issue-type-icon{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:6px;color:var(--muted)}
+
+/* Project list */
+.project-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.project-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s}
+.project-card:hover{border-color:color-mix(in srgb,var(--cyan) 28%,transparent);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.project-key{font-family:var(--font-head);font-size:22px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.project-card .project-name{font-size:15px;font-weight:600;color:var(--text);margin-top:6px}
+.project-card .project-meta{font-size:12px;color:var(--muted2);margin-top:8px}
+.proj-bar{display:flex;height:6px;border-radius:999px;overflow:hidden;margin-top:12px;background:var(--surface2)}
+.proj-bar-empty{align-items:center;justify-content:center;height:auto;padding:4px 0;background:transparent}
+.proj-bar-empty-label{font-size:11px;color:var(--muted2)}
+.proj-bar-seg{height:100%;font-size:0;min-width:2px}
+.proj-bar-seg.seg-backlog,.proj-bar-seg.lozenge-status-backlog{background:color-mix(in srgb,var(--muted) 50%,transparent)}
+.proj-bar-seg.seg-todo,.proj-bar-seg.lozenge-status-todo{background:var(--cyan)}
+.proj-bar-seg.seg-in_progress,.proj-bar-seg.lozenge-status-in_progress{background:var(--amber)}
+.proj-bar-seg.seg-in_review,.proj-bar-seg.lozenge-status-in_review{background:var(--purple)}
+.proj-bar-seg.seg-done,.proj-bar-seg.lozenge-status-done{background:var(--green)}
+
+/* Project detail header + filters */
+.tasks-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:14px;flex-wrap:wrap}
+.tasks-back-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--radius-sm,4px);background:transparent;border:1px solid var(--border2);color:var(--muted2);font-size:12px;font-weight:500;cursor:pointer;text-decoration:none;transition:border-color .15s,color .15s,background .15s}
+.tasks-back-btn:hover{border-color:var(--cyan);color:var(--text);background:var(--hover)}
+.tasks-filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);align-items:center}
+.tasks-filter-bar select,.tasks-filter-bar input{background:var(--input-bg);border:1px solid var(--border2);border-radius:var(--radius-sm,4px);padding:6px 10px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none;transition:border-color .15s;min-height:32px}
+.tasks-filter-bar select:focus,.tasks-filter-bar input:focus{border-color:var(--cyan)}
+
+/* Issues table */
+.tasks-table{width:100%;border-collapse:collapse;font-size:14px}
+.tasks-table th{text-align:left;padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);border-bottom:1px solid var(--border);background:var(--surface2)}
+.tasks-table td{padding:12px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.tasks-table tr:last-child td{border-bottom:none}
+.tasks-table tbody tr{cursor:pointer}
+.tasks-table tbody tr:hover td{background:var(--hover)}
+.tasks-table td.col-key{font-family:var(--font-mono);font-size:12px;color:var(--cyan);white-space:nowrap}
+.tasks-table td.col-title{color:var(--text);font-weight:500;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tasks-table td.col-updated{font-size:12px;color:var(--muted2);white-space:nowrap}
+
+/* Issue detail modal layout */
+.issue-detail-body{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px}
+@media (max-width:760px){ .issue-detail-body{grid-template-columns:1fr} }
+.issue-detail-main{min-width:0;display:flex;flex-direction:column;gap:18px}
+.issue-detail-side{display:flex;flex-direction:column;gap:14px;font-size:13px;min-width:0}
+.issue-section-label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)}
+.issue-title{font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--text);cursor:pointer;line-height:1.3;margin:0;transition:background .15s}
+.issue-title:hover{background:var(--hover);border-radius:var(--radius-sm,4px);padding:2px 6px;margin:-2px -6px}
+.issue-title input{width:100%;font-size:22px;font-family:inherit;font-weight:700;background:var(--input-bg);border:1px solid var(--border2);border-radius:var(--radius-sm,4px);padding:6px 10px;color:var(--text);outline:none}
+.issue-title input:focus{border-color:var(--cyan)}
+.issue-desc{padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm,4px);cursor:pointer;min-height:80px;transition:border-color .15s}
+.issue-desc:hover{border-color:color-mix(in srgb,var(--cyan) 28%,transparent)}
+.issue-desc.empty{color:var(--muted2);font-style:italic}
+
+/* Markdown body */
+.md-body{color:var(--text);font-size:14px;line-height:1.55}
+.md-body p,.md-body ul,.md-body ol{margin:0 0 8px}
+.md-body ul,.md-body ol{padding-left:22px}
+.md-body code{font-family:var(--font-mono);font-size:12px;background:var(--surface2);padding:1px 5px;border-radius:3px}
+.md-body pre{background:var(--surface2);padding:12px 14px;border-radius:var(--radius-sm,4px);overflow-x:auto;font-size:12px;margin:0 0 8px}
+.md-body pre code{background:transparent;padding:0;font-size:12px}
+.md-body a{color:var(--cyan);text-decoration:none}
+.md-body a:hover{text-decoration:underline}
+.md-body blockquote{border-left:3px solid var(--border2);padding-left:12px;color:var(--muted);margin:8px 0}
+.md-body h1,.md-body h2,.md-body h3,.md-body h4{font-family:var(--font-head);font-weight:700;margin:14px 0 6px;color:var(--text);line-height:1.2}
+.md-body h1{font-size:20px}
+.md-body h2{font-size:17px}
+.md-body h3{font-size:15px}
+.md-body h4{font-size:14px}
+.md-body img{max-width:100%;border-radius:var(--radius-sm,4px)}
+
+/* Activity feed */
+.activity-feed{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.activity-row{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm,4px);position:relative}
+.activity-comment{background:var(--surface);border:1px solid var(--border)}
+.activity-system{background:transparent;border:none;padding:4px 0;color:var(--muted2);font-style:italic;font-size:13px}
+.activity-row .activity-body{flex:1;min-width:0}
+.activity-row .activity-meta{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.activity-row .activity-author{font-weight:700;color:var(--text);font-size:13px}
+.activity-row .activity-time{color:var(--muted2)}
+.activity-del{position:absolute;top:6px;right:6px;background:transparent;border:1px solid transparent;color:var(--muted2);width:22px;height:22px;border-radius:var(--radius-sm,4px);cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,border-color .15s,color .15s}
+.activity-row:hover .activity-del{opacity:1}
+.activity-del:hover{border-color:var(--border2);color:var(--red)}
+.avatar-sm{width:28px;height:28px;border-radius:999px;background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)}
+
+/* Comment composer */
+.issue-comment-composer{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.issue-comment-composer textarea{width:100%;min-height:80px;padding:10px 12px;background:var(--input-bg);border:1px solid var(--border2);border-radius:var(--radius-sm,4px);color:var(--text);font-family:var(--font-body);font-size:14px;resize:vertical;outline:none;transition:border-color .15s;box-sizing:border-box}
+.issue-comment-composer textarea:focus{border-color:var(--cyan)}
+.issue-comment-composer .composer-actions{display:flex;justify-content:flex-end;gap:8px}
+
+/* Side panel kv editable */
+.kv-v.editable{cursor:pointer;padding:4px 6px;border-radius:var(--radius-sm,4px);margin:-4px -6px;transition:background .15s}
+.kv-v.editable:hover{background:var(--hover)}
+.kv-v.editing{padding:0;margin:0}
+.kv-v.editing input,.kv-v.editing select{width:100%;background:var(--input-bg);border:1px solid var(--cyan);border-radius:var(--radius-sm,4px);padding:6px 8px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none}
+
+/* Misc helpers */
+.mono{font-family:var(--font-mono);font-size:12px}
+.md-fallback{background:var(--surface2);padding:10px;border-radius:var(--radius-sm,4px);font-size:13px;white-space:pre-wrap;color:var(--text);font-family:var(--font-mono);margin:0}
