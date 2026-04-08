@@ -59,6 +59,7 @@
         <div class="nav-group-label">Settings</div>
         <button class="nav-item" id="nav-account" type="button" onclick="nav('account')">My Account</button>
         <button class="nav-item" id="nav-users" type="button" onclick="nav('users')" style="display:none">Users</button>
+        <button class="nav-item" id="nav-integrations" type="button" onclick="nav('integrations')" style="display:none">Integrations</button>
       </nav>
       <div class="s-footer">
         <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="doLogout()">Sign Out</button>
@@ -69,6 +70,10 @@
         <div class="page-title" id="page-title">Overview</div>
         <div class="topbar-actions">
           <button class="btn btn-ghost btn-sm mobile-only" type="button" onclick="openMobileMenu()">More</button>
+          <button class="topbar-bell" id="inbox-bell" type="button" onclick="toggleInbox(event)" title="Notifications" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a6 6 0 0 0-6 6v3.5l-1.7 3.4A1 1 0 0 0 5.2 16h13.6a1 1 0 0 0 .9-1.1L18 11.5V8a6 6 0 0 0-6-6zm-2 16a2 2 0 1 0 4 0h-4z" fill="currentColor"/></svg>
+            <span class="topbar-bell-badge" id="inbox-badge" style="display:none">0</span>
+          </button>
           <button class="icon-btn icon-btn-ghost" id="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle theme"></button>
           <button class="btn btn-ghost btn-sm" type="button" onclick="refreshCurrent()">Refresh</button>
         </div>
@@ -108,6 +113,7 @@
     <button class="mobile-sheet-item" id="more-docs" type="button" onclick="closeMobileMenu();nav('docs')">Docs</button>
     <button class="mobile-sheet-item" id="more-account" type="button" onclick="closeMobileMenu();nav('account')">My Account</button>
     <button class="mobile-sheet-item" id="more-users" type="button" onclick="closeMobileMenu();nav('users')" style="display:none">Users</button>
+    <button class="mobile-sheet-item" id="more-integrations" type="button" onclick="closeMobileMenu();nav('integrations')" style="display:none">Integrations</button>
     <button class="mobile-sheet-item" type="button" onclick="closeMobileMenu();refreshCurrent()">Refresh Current Page</button>
     <button class="mobile-sheet-item mobile-sheet-item-danger" type="button" onclick="doLogout()">Sign Out</button>
   </div>
@@ -131,5 +137,7 @@
 <script src="/tasks-ui.js" defer></script>
 <script src="/sprints-ui.js" defer></script>
 <script src="/docs-ui.js" defer></script>
+<script src="/notifications-ui.js" defer></script>
+<script src="/integrations-ui.js" defer></script>
 </body>
 </html>

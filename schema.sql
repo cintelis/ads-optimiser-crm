@@ -107,15 +107,9 @@ CREATE TABLE IF NOT EXISTS contact_profiles (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS contact_notes (
-  id TEXT PRIMARY KEY,
-  contact_id TEXT NOT NULL,
-  content TEXT NOT NULL,
-  type TEXT DEFAULT 'note',
-  created_at TEXT NOT NULL
-);
+-- contact_notes was dropped in Sprint 5; contact notes now live in the
+-- polymorphic `activity` table (entity_type='contact').
 
-CREATE INDEX IF NOT EXISTS idx_notes_contact ON contact_notes(contact_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_contacts_stage ON contacts(stage);
 CREATE INDEX IF NOT EXISTS idx_contacts_followup ON contacts(follow_up_at);
 CREATE INDEX IF NOT EXISTS idx_contact_profiles_name ON contact_profiles(last_name, first_name);
@@ -234,6 +228,60 @@ CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee_id, active);
 CREATE INDEX IF NOT EXISTS idx_issues_key ON issues(issue_key);
 CREATE INDEX IF NOT EXISTS idx_issues_parent ON issues(parent_id);
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated_at DESC);
+
+-- ── Sprint 5: integrations + per-user notifications ─────────
+
+CREATE TABLE IF NOT EXISTS integrations (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  config TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_integrations_kind_active ON integrations(kind, active);
+
+CREATE TABLE IF NOT EXISTS notification_rules (
+  id TEXT PRIMARY KEY,
+  integration_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  filter TEXT NOT NULL DEFAULT '{}',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notification_rules_event ON notification_rules(event_type, active);
+CREATE INDEX IF NOT EXISTS idx_notification_rules_integration ON notification_rules(integration_id);
+
+CREATE TABLE IF NOT EXISTS notification_log (
+  id TEXT PRIMARY KEY,
+  integration_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id TEXT,
+  status TEXT NOT NULL,
+  error TEXT,
+  sent_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notification_log_sent ON notification_log(sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notification_log_integration ON notification_log(integration_id, sent_at DESC);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  link TEXT,
+  actor_id TEXT,
+  read_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read_at, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_recent ON notifications(user_id, created_at DESC);
 
 -- ── Sprint 4: Docs (spaces + pages + version history) ───────
 

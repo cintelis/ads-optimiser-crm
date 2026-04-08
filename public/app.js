@@ -13,7 +13,8 @@ const SECTION_TITLES = {
   account: 'My Account',
   users: 'Users',
   projects: 'Projects',
-  docs: 'Docs'
+  docs: 'Docs',
+  integrations: 'Integrations'
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
@@ -254,6 +255,8 @@ async function init() {
   await refreshMe();
   api('GET','/api/crm/stats').then(s => updateFollowUpBadges(s?.followups_due || 0));
   await seedRealEstateTemplate().catch(() => {});
+  // Sprint 5: kick off the bell badge poll
+  if (typeof refreshUnreadCount === 'function') refreshUnreadCount();
   nav('overview');
 }
 
@@ -276,6 +279,8 @@ function applyRoleVisibility() {
   const show = isAdmin() ? '' : 'none';
   const u1 = document.getElementById('nav-users'); if (u1) u1.style.display = show;
   const u2 = document.getElementById('more-users'); if (u2) u2.style.display = show;
+  const i1 = document.getElementById('nav-integrations'); if (i1) i1.style.display = show;
+  const i2 = document.getElementById('more-integrations'); if (i2) i2.style.display = show;
 }
 
 // ── API helper ────────────────────────────────────────────────
@@ -499,6 +504,16 @@ async function renderSection(s) {
       c.innerHTML = '<div class="empty"><p>Docs module failed to load.</p></div>';
     }
   }
+  else if (s === 'integrations') {
+    if (!isAdmin()) { c.innerHTML = '<div class="empty"><p>Admin access required.</p></div>'; return; }
+    if (typeof renderIntegrationsSection === 'function') {
+      await renderIntegrationsSection();
+    } else {
+      c.innerHTML = '<div class="empty"><p>Integrations module failed to load.</p></div>';
+    }
+  }
+  // Refresh unread count on every section change so the bell stays current
+  if (typeof refreshUnreadCount === 'function') refreshUnreadCount();
 }
 
 // ── Loaders ───────────────────────────────────────────────────

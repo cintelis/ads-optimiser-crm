@@ -45,6 +45,14 @@ import {
   listSpacePages, createPage, getPage, patchPage, deletePage,
   listPageVersions, getPageVersion, restorePageVersion,
 } from './worker/docs.js';
+import {
+  listNotifications, getUnreadCount, markRead, markAllRead, mentionSearch,
+} from './worker/notifications.js';
+import {
+  listIntegrations, createIntegration, patchIntegration, deleteIntegration,
+  listIntegrationRules, createIntegrationRule, deleteIntegrationRule,
+  testIntegration, listIntegrationLog,
+} from './worker/integrations.js';
 
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
@@ -994,6 +1002,53 @@ async function route(req, env, url, path, authCtx) {
     }
   }
 
+  // ── Notifications + Integrations (Sprint 5) ──────────────
+  if (path === '/api/me/notifications' && m === 'GET') return listNotifications(req, env, authCtx);
+  if (path === '/api/me/notifications/unread-count' && m === 'GET') return getUnreadCount(env, authCtx);
+  if (path === '/api/me/notifications/read-all' && m === 'POST') return markAllRead(env, authCtx);
+  {
+    const nm = path.match(/^\/api\/me\/notifications\/([^/]+)\/read$/);
+    if (nm && m === 'POST') return markRead(env, authCtx, nm[1]);
+  }
+  if (path === '/api/users/mention-search' && m === 'GET') return mentionSearch(req, env);
+
+  if (path === '/api/integrations' && m === 'GET') {
+    if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+    return listIntegrations(env);
+  }
+  if (path === '/api/integrations' && m === 'POST') {
+    if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+    return createIntegration(req, env, authCtx);
+  }
+  {
+    const im = path.match(/^\/api\/integrations\/([^/]+)(?:\/(rules|test))?$/);
+    if (im) {
+      if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+      const intId = im[1];
+      const sub = im[2];
+      if (!sub) {
+        if (m === 'PATCH')  return patchIntegration(req, env, intId);
+        if (m === 'DELETE') return deleteIntegration(env, intId);
+      }
+      if (sub === 'rules') {
+        if (m === 'GET')  return listIntegrationRules(env, intId);
+        if (m === 'POST') return createIntegrationRule(req, env, intId);
+      }
+      if (sub === 'test' && m === 'POST') return testIntegration(env, intId);
+    }
+  }
+  {
+    const irm = path.match(/^\/api\/integration-rules\/([^/]+)$/);
+    if (irm && m === 'DELETE') {
+      if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+      return deleteIntegrationRule(env, irm[1]);
+    }
+  }
+  if (path === '/api/integration-log' && m === 'GET') {
+    if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+    return listIntegrationLog(env);
+  }
+
   // ── Docs (Sprint 4) ──────────────────────────────────────
   if (path === '/api/doc-spaces' && m === 'GET')  return listSpaces(env);
   if (path === '/api/doc-spaces' && m === 'POST') return createSpace(req, env, authCtx);
@@ -1252,20 +1307,20 @@ async function getOverview(env, url) {
       FROM (
         SELECT
           n.id,
-          n.contact_id,
+          n.entity_id contact_id,
           COALESCE(
             NULLIF(TRIM(COALESCE(cp.first_name,'') || ' ' || COALESCE(cp.last_name,'')), ''),
             NULLIF(c.name, ''),
             c.email
           ) contact_name,
           c.email contact_email,
-          LOWER(COALESCE(n.type, 'note')) type,
-          n.content body,
+          LOWER(COALESCE(n.kind, 'note')) type,
+          n.body_md body,
           n.created_at
-        FROM contact_notes n
-        JOIN contacts c ON c.id = n.contact_id
-        LEFT JOIN contact_profiles cp ON cp.contact_id = n.contact_id
-        WHERE 1=1${noteActivityFilter}
+        FROM activity n
+        JOIN contacts c ON c.id = n.entity_id
+        LEFT JOIN contact_profiles cp ON cp.contact_id = n.entity_id
+        WHERE n.entity_type = 'contact'${noteActivityFilter}
 
         UNION ALL
 
@@ -1541,7 +1596,7 @@ async function updateContact(req, env, id) {
 }
 async function deleteContact(env, id) {
   await env.DB.prepare('DELETE FROM contact_list_members WHERE contact_id=?').bind(id).run();
-  await env.DB.prepare('DELETE FROM contact_notes WHERE contact_id=?').bind(id).run();
+  await env.DB.prepare("DELETE FROM activity WHERE entity_type='contact' AND entity_id=?").bind(id).run();
   await ensureContactProfileTable(env);
   await env.DB.prepare('DELETE FROM contact_profiles WHERE contact_id=?').bind(id).run();
   await env.DB.prepare('DELETE FROM contacts WHERE id=?').bind(id).run();
@@ -1833,9 +1888,21 @@ async function logStageChangeActivity(env, contactId, fromStage, toStage) {
   if (previous === next) return;
   const id = uid();
   const content = `${formatStageActivityValue(previous)} -> ${formatStageActivityValue(next)}`;
-  await env.DB.prepare('INSERT INTO contact_notes (id,contact_id,content,type,created_at) VALUES (?,?,?,?,?)')
-    .bind(id, contactId, content, 'stage', now()).run();
+  await env.DB.prepare(
+    `INSERT INTO activity (id, entity_type, entity_id, user_id, kind, body_md, created_at)
+     VALUES (?, 'contact', ?, NULL, 'stage', ?, ?)`
+  ).bind(id, contactId, content, now()).run();
   await env.DB.prepare('UPDATE contacts SET notes_count=notes_count+1 WHERE id=?').bind(contactId).run();
+
+  // Fire emit() for the stage change so Sprint 5 Discord rules can route it.
+  try {
+    const contact = await env.DB.prepare('SELECT id, name, email FROM contacts WHERE id=?').bind(contactId).first();
+    if (contact) {
+      await emit(env, EVENT_TYPES.CONTACT_STAGE_CHANGED, {
+        contact, old_stage: previous, new_stage: next,
+      });
+    }
+  } catch {}
 }
 
 async function getCrmPipeline(env) {
@@ -1885,7 +1952,13 @@ async function getContactDetail(env, id) {
     WHERE c.id=?`).bind(id).first();
   if (!contact) return jres({ error: 'Not found' }, 404);
   try { contact.tags = JSON.parse(contact.tags||'[]'); } catch { contact.tags = []; }
-  const { results: notes } = await env.DB.prepare('SELECT * FROM contact_notes WHERE contact_id=? ORDER BY created_at DESC').bind(id).all();
+  const { results: notesRaw } = await env.DB.prepare(
+    `SELECT id, entity_id, body_md, kind, created_at
+     FROM activity
+     WHERE entity_type='contact' AND entity_id=?
+     ORDER BY created_at DESC`
+  ).bind(id).all();
+  const notes = (notesRaw || []).map(reshapeActivityAsNote);
   const { results: emails } = await env.DB.prepare('SELECT * FROM sent_log WHERE contact_id=? ORDER BY sent_at DESC LIMIT 50').bind(id).all();
   const { results: lists } = await env.DB.prepare('SELECT l.name FROM contact_lists l JOIN contact_list_members m ON l.id=m.list_id WHERE m.contact_id=?').bind(id).all();
   return jres({ contact, notes, emails, lists: lists.map(l=>l.name) });
@@ -1979,24 +2052,49 @@ async function patchContact(req, env, id) {
   return jres({ ok: true });
 }
 
+// Sprint 5: contact notes now live in the polymorphic `activity` table.
+// Reshape rows to the legacy {id, contact_id, content, type, created_at}
+// shape so the existing frontend keeps working without changes.
+function reshapeActivityAsNote(r) {
+  return {
+    id: r.id,
+    contact_id: r.entity_id,
+    content: r.body_md,
+    type: r.kind,
+    created_at: r.created_at,
+  };
+}
+
 async function getNotes(env, contactId) {
-  const { results } = await env.DB.prepare('SELECT * FROM contact_notes WHERE contact_id=? ORDER BY created_at DESC').bind(contactId).all();
-  return jres(results);
+  const { results } = await env.DB.prepare(
+    `SELECT id, entity_id, body_md, kind, created_at
+     FROM activity
+     WHERE entity_type='contact' AND entity_id=?
+     ORDER BY created_at DESC`
+  ).bind(contactId).all();
+  return jres((results || []).map(reshapeActivityAsNote));
 }
 
 async function addNote(req, env, contactId) {
   const { content, type } = await req.json();
   if (!content) return jres({ error: 'content required' }, 400);
   const id = uid();
-  await env.DB.prepare('INSERT INTO contact_notes (id,contact_id,content,type,created_at) VALUES (?,?,?,?,?)').bind(id, contactId, content, type||'note', now()).run();
+  const ts = now();
+  const kind = type || 'note';
+  await env.DB.prepare(
+    `INSERT INTO activity (id, entity_type, entity_id, user_id, kind, body_md, created_at)
+     VALUES (?, 'contact', ?, NULL, ?, ?, ?)`
+  ).bind(id, contactId, kind, content, ts).run();
   await env.DB.prepare('UPDATE contacts SET notes_count=notes_count+1 WHERE id=?').bind(contactId).run();
-  return jres({ id, content, type: type||'note', created_at: now() });
+  return jres({ id, content, type: kind, created_at: ts });
 }
 
 async function deleteNote(env, noteId) {
-  const note = await env.DB.prepare('SELECT contact_id FROM contact_notes WHERE id=?').bind(noteId).first();
-  await env.DB.prepare('DELETE FROM contact_notes WHERE id=?').bind(noteId).run();
-  if (note) await env.DB.prepare('UPDATE contacts SET notes_count=MAX(0,notes_count-1) WHERE id=?').bind(note.contact_id).run();
+  const note = await env.DB.prepare(
+    "SELECT entity_id FROM activity WHERE id=? AND entity_type='contact'"
+  ).bind(noteId).first();
+  await env.DB.prepare("DELETE FROM activity WHERE id=? AND entity_type='contact'").bind(noteId).run();
+  if (note) await env.DB.prepare('UPDATE contacts SET notes_count=MAX(0,notes_count-1) WHERE id=?').bind(note.entity_id).run();
   return jres({ ok: true });
 }
 

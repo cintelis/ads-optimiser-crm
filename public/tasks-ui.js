@@ -532,6 +532,13 @@ function renderIssueDetailModal() {
       <button class="btn btn-ghost" type="button" onclick="closeIssueDetail()">Close</button>
     </div>
   `);
+  // Wire @mention autocomplete on the comment composer (if present).
+  // notifications-ui.js owns this helper; guard in case it hasn't loaded.
+  setTimeout(() => {
+    if (typeof attachMentionAutocomplete !== 'function') return;
+    const ct = document.getElementById('issue-comment-text');
+    if (ct) attachMentionAutocomplete(ct);
+  }, 0);
 }
 
 function closeIssueDetail() {
@@ -609,7 +616,11 @@ function editIssueDesc() {
       <button class="btn btn-ghost btn-sm" type="button" onclick="cancelIssueDescEdit()">Cancel</button>
     </div>
   `;
-  setTimeout(() => { const el = document.getElementById('issue-desc-input'); if (el) el.focus(); }, 10);
+  setTimeout(() => {
+    const el = document.getElementById('issue-desc-input');
+    if (el) el.focus();
+    if (el && typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(el);
+  }, 10);
 }
 window.editIssueDesc = editIssueDesc;
 

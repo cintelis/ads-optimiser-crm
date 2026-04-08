@@ -7,6 +7,7 @@
 // ============================================================
 
 import { emit, EVENT_TYPES } from './events.js';
+import { parseMentionsAndNotify } from './notifications.js';
 
 // ── Local helpers (mirror worker.js) ─────────────────────────
 function jres(data, status = 200) {
@@ -286,6 +287,17 @@ export async function createPage(req, env, ctx, sId) {
     page_id: id, space_id: sId, title, actor: ctx.user,
   });
 
+  if (content_md && content_md.trim()) {
+    await parseMentionsAndNotify(env, {
+      body_md: content_md,
+      entity_type: 'doc_page',
+      entity_id: id,
+      actor: ctx.user,
+      link: `/?nav=docs&space=${sId}&page=${id}`,
+      title: `${ctx.user.display_name || ctx.user.email} mentioned you in a doc page`,
+    });
+  }
+
   return jres({
     id, space_id: sId, parent_id: parentId, title, slug, content_md, position,
     active: 1, created_by: ctx.user.id, updated_by: ctx.user.id,
@@ -461,6 +473,17 @@ export async function patchPage(req, env, ctx, pgId) {
     changed_fields: Object.keys(updates),
     actor: ctx.user,
   });
+
+  if ('content_md' in updates) {
+    await parseMentionsAndNotify(env, {
+      body_md: updates.content_md,
+      entity_type: 'doc_page',
+      entity_id: pgId,
+      actor: ctx.user,
+      link: `/?nav=docs&space=${existing.space_id}&page=${pgId}`,
+      title: `${ctx.user.display_name || ctx.user.email} mentioned you in a doc page`,
+    });
+  }
 
   return getPage(env, pgId);
 }

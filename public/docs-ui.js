@@ -446,6 +446,8 @@ function renderPage() {
     const ta = document.getElementById('docs-editor-textarea');
     if (ta) {
       try { ta.focus(); } catch (e) { /* ignore */ }
+      // Wire @mention autocomplete (notifications-ui.js owns the helper).
+      if (typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ta);
     }
   }
 }

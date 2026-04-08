@@ -1,16 +1,20 @@
 // ============================================================
-// 365 Pulse — Event bus (stub)
-// Sprint 1 lands this as a no-op so later sprints can sprinkle emit() calls
-// into mutation handlers cheaply. Sprint 5 plugs in real dispatch:
-//   - in-app activity feed
+// 365 Pulse — Event bus
+// Sprint 1 landed this as a no-op so later sprints could sprinkle emit()
+// calls into mutation handlers cheaply. Sprint 5 plugs in real dispatch:
 //   - Discord channel notifications (matched against notification_rules)
+// The in-app activity feed rows are still written directly by the handlers
+// themselves; emit() is specifically the "fan-out to external systems" hook.
 //
 // Usage from a route handler:
-//   await emit(env, 'issue.assigned', { issue, assignee }, ctx);
+//   await emit(env, EVENT_TYPES.ISSUE_ASSIGNED, { issue, assignee }, ctx);
 //
 // `ctx` is the Cloudflare execution context (the second arg of fetch handler).
-// We use ctx.waitUntil() so emits never block the user-facing response.
+// We use ctx.waitUntil() inside dispatchEvent so emits never block the
+// user-facing response.
 // ============================================================
+
+import { dispatchEvent } from './discord.js';
 
 // Known event types — keep this list as the canonical reference.
 // Sprints 2-4 will add to it; Sprint 5 wires them up to Discord rules.
@@ -36,7 +40,10 @@ export const EVENT_TYPES = Object.freeze({
 });
 
 /**
- * Emit an event. No-op stub for Sprint 1.
+ * Emit an event. Sprint 5 wires Discord dispatch on top of what was a
+ * no-op stub. Mention parsing is invoked DIRECTLY from handlers via
+ * parseMentionsAndNotify() because not every event has a markdown body
+ * — emit() doesn't handle that.
  *
  * @param {object} env       Cloudflare worker env bindings
  * @param {string} eventType One of EVENT_TYPES values
@@ -44,11 +51,10 @@ export const EVENT_TYPES = Object.freeze({
  * @param {object} [ctx]     Worker execution context (for waitUntil); optional
  */
 export async function emit(env, eventType, payload, ctx) {
-  // Sprint 5 will:
-  //   1. Insert a row into `activity` (entity_type/entity_id derived from payload)
-  //   2. Look up matching `notification_rules` and dispatch via ctx.waitUntil()
-  // For now we noop so calling sites can be wired up safely.
   if (!eventType) return;
-  // Avoid unused-arg lint noise without doing real work:
-  void env; void payload; void ctx;
+  try {
+    await dispatchEvent(env, eventType, payload, ctx);
+  } catch (e) {
+    console.error('emit dispatch failed', eventType, e?.message || e);
+  }
 }

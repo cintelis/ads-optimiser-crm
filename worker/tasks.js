@@ -6,6 +6,7 @@
 // ============================================================
 
 import { emit, EVENT_TYPES } from './events.js';
+import { parseMentionsAndNotify } from './notifications.js';
 
 // ── Local helpers (mirror worker.js) ─────────────────────────
 function jres(data, status = 200) {
@@ -321,6 +322,16 @@ export async function createIssue(req, env, ctx, projIdParam) {
 
   await insertActivity(env, { entityType: 'issue', entityId: id, userId: ctx.user.id, kind: 'system', body: 'Issue created' });
   await emit(env, EVENT_TYPES.ISSUE_CREATED, { issue, actor: ctx.user });
+  if (issue.description_md) {
+    await parseMentionsAndNotify(env, {
+      body_md: issue.description_md,
+      entity_type: 'issue',
+      entity_id: id,
+      actor: ctx.user,
+      link: `/?nav=projects&issue=${id}`,
+      title: `${ctx.user.display_name || ctx.user.email} mentioned you in ${issue.issue_key}`,
+    });
+  }
   return jres(issue);
 }
 
@@ -506,6 +517,17 @@ export async function patchIssue(req, env, ctx, isId) {
     });
   }
 
+  if ('description_md' in updates) {
+    await parseMentionsAndNotify(env, {
+      body_md: updates.description_md,
+      entity_type: 'issue',
+      entity_id: isId,
+      actor: ctx.user,
+      link: `/?nav=projects&issue=${isId}`,
+      title: `${ctx.user.display_name || ctx.user.email} mentioned you in an issue update`,
+    });
+  }
+
   return getIssue(env, isId);
 }
 
@@ -529,6 +551,14 @@ export async function addIssueComment(req, env, ctx, isId) {
     entityType: 'issue', entityId: isId, userId: ctx.user.id, kind: 'comment', body: text,
   });
   await emit(env, EVENT_TYPES.ISSUE_COMMENTED, { issue_id: isId, actor: ctx.user, body_md: text });
+  await parseMentionsAndNotify(env, {
+    body_md: text,
+    entity_type: 'issue',
+    entity_id: isId,
+    actor: ctx.user,
+    link: `/?nav=projects&issue=${isId}`,
+    title: `${ctx.user.display_name || ctx.user.email} commented on an issue`,
+  });
   return jres({
     ...row,
     user: { id: ctx.user.id, email: ctx.user.email, display_name: ctx.user.display_name || '' },
