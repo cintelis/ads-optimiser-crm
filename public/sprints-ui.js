@@ -13,6 +13,7 @@
 (function () {
   if (!state.ui.tasksTab) state.ui.tasksTab = 'issues';
   if (!('tasksBoardSprintId' in state.ui)) state.ui.tasksBoardSprintId = '';
+  if (!('tasksBoardMode' in state.ui)) state.ui.tasksBoardMode = 'sprint';   // 'sprint' | 'kanban'
   if (!('tasksDragIssueId' in state.ui)) state.ui.tasksDragIssueId = '';
   if (!('tasksBacklogSelected' in state.ui)) state.ui.tasksBacklogSelected = [];
   state.tasks = state.tasks || {};
@@ -90,6 +91,15 @@ async function loadBoardTab(projectId) {
   const sr = await api('GET', `/api/projects/${encodeURIComponent(projectId)}/sprints`);
   state.tasks.sprints = (sr && Array.isArray(sr.sprints)) ? sr.sprints : [];
 
+  // Kanban mode: ignore sprints, show all active issues for the project.
+  if (state.ui.tasksBoardMode === 'kanban') {
+    state.tasks.boardSprint = null;
+    const ir = await api('GET', `/api/projects/${encodeURIComponent(projectId)}/issues?limit=500`);
+    state.tasks.boardIssues = (ir && Array.isArray(ir.issues)) ? ir.issues : [];
+    return;
+  }
+
+  // Sprint mode (default): scope to one sprint.
   let chosenId = state.ui.tasksBoardSprintId || '';
   let chosen = null;
   if (chosenId) {
@@ -115,6 +125,23 @@ async function loadBoardTab(projectId) {
 }
 window.loadBoardTab = loadBoardTab;
 
+async function setBoardMode(mode) {
+  state.ui.tasksBoardMode = (mode === 'kanban') ? 'kanban' : 'sprint';
+  await loadBoardTab(state.ui.tasksProjectId);
+  renderBoardTab();
+}
+window.setBoardMode = setBoardMode;
+
+function boardModeToggleHtml() {
+  const m = state.ui.tasksBoardMode || 'sprint';
+  return `
+    <div class="board-mode-toggle">
+      <button type="button" class="board-mode-btn ${m === 'sprint' ? 'active' : ''}" onclick="setBoardMode('sprint')" title="Show only the active or selected sprint">Sprint</button>
+      <button type="button" class="board-mode-btn ${m === 'kanban' ? 'active' : ''}" onclick="setBoardMode('kanban')" title="Show all active issues regardless of sprint">Kanban</button>
+    </div>
+  `;
+}
+
 function sprintSelectorOptions(currentId) {
   const opts = state.tasks.sprints.map(s => {
     const label = `${s.name} — ${SPRINT_STATE_LABELS[s.state] || s.state}`;
@@ -128,8 +155,11 @@ function renderBoardTab() {
   if (!body) return;
   const canWrite = tasksCanWrite();
   const sprint = state.tasks.boardSprint;
+  const mode = state.ui.tasksBoardMode || 'sprint';
 
-  if (!sprint) {
+  // Sprint mode with no sprint to show: empty state with option to create one
+  // OR switch to Kanban mode (which works without any sprints).
+  if (mode === 'sprint' && !sprint) {
     const hasAny = state.tasks.sprints.length > 0;
     const selector = hasAny ? `
       <div style="margin-top:16px;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">
@@ -140,10 +170,15 @@ function renderBoardTab() {
         </select>
       </div>` : '';
     body.innerHTML = `
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-body" style="padding:12px 14px;display:flex;justify-content:flex-end">
+          ${boardModeToggleHtml()}
+        </div>
+      </div>
       <div class="card">
         <div class="card-body empty-state-large" style="text-align:center;padding:40px 20px">
           <h3 style="margin:0 0 8px;font-size:18px">There's no active sprint.</h3>
-          <p class="text-muted">Create a sprint to get started with the board.</p>
+          <p class="text-muted">Create a sprint to get started — or switch to Kanban mode to see all active issues at once.</p>
           ${canWrite ? '<button class="btn btn-primary" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
           ${selector}
         </div>
@@ -180,22 +215,42 @@ function renderBoardTab() {
     `;
   }).join('');
 
-  body.innerHTML = `
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-body" style="padding:12px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <span class="sprint-state-badge sprint-state-${esc(sprint.state)}">${esc(SPRINT_STATE_LABELS[sprint.state] || sprint.state)}</span>
-          <strong>${esc(sprint.name)}</strong>
-          ${daysTxt}
-          <span class="text-muted text-sm">${Number(sprint.done_count || 0)} / ${Number(sprint.issue_count || 0)} done</span>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <select onchange="onBoardSprintChange(this.value)">${sprintSelectorOptions(sprint.id)}</select>
-          ${sprint.state === 'active' && canWrite ? `<button class="btn btn-ghost btn-sm" type="button" onclick="openCompleteSprint('${esc(sprint.id)}')">Complete sprint</button>` : ''}
-          <button class="btn btn-ghost btn-sm" type="button" onclick="openBurndown('${esc(sprint.id)}')">Burndown</button>
+  // Kanban mode header — no sprint metadata, just the toggle + a count.
+  const totalShown = (state.tasks.boardIssues || []).length;
+  const headerHtml = (mode === 'kanban')
+    ? `
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-body" style="padding:12px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <strong>Kanban mode</strong>
+            <span class="text-muted text-sm">All active issues in this project — sprint boundaries ignored</span>
+            <span class="text-muted text-sm">(${totalShown} total)</span>
+          </div>
+          ${boardModeToggleHtml()}
         </div>
       </div>
-    </div>
+    `
+    : `
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-body" style="padding:12px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <span class="sprint-state-badge sprint-state-${esc(sprint.state)}">${esc(SPRINT_STATE_LABELS[sprint.state] || sprint.state)}</span>
+            <strong>${esc(sprint.name)}</strong>
+            ${daysTxt}
+            <span class="text-muted text-sm">${Number(sprint.done_count || 0)} / ${Number(sprint.issue_count || 0)} done</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select onchange="onBoardSprintChange(this.value)">${sprintSelectorOptions(sprint.id)}</select>
+            ${sprint.state === 'active' && canWrite ? `<button class="btn btn-ghost btn-sm" type="button" onclick="openCompleteSprint('${esc(sprint.id)}')">Complete sprint</button>` : ''}
+            <button class="btn btn-ghost btn-sm" type="button" onclick="openBurndown('${esc(sprint.id)}')">Burndown</button>
+            ${boardModeToggleHtml()}
+          </div>
+        </div>
+      </div>
+    `;
+
+  body.innerHTML = `
+    ${headerHtml}
     <div class="kanban-board">
       ${columns}
     </div>

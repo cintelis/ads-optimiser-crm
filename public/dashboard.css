@@ -676,6 +676,13 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .mono{font-family:var(--font-mono);font-size:12px}
 .md-fallback{background:var(--surface2);padding:10px;border-radius:var(--radius-sm,4px);font-size:13px;white-space:pre-wrap;color:var(--text);font-family:var(--font-mono);margin:0}
 
+/* ── Sprint 3.1: Board mode toggle (Sprint vs Kanban) ────────── */
+.board-mode-toggle{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--surface2)}
+.board-mode-btn{background:transparent;border:none;padding:6px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--font-body);transition:background-color .15s,color .15s}
+.board-mode-btn:hover{color:var(--text)}
+.board-mode-btn.active{background:var(--cyan);color:#fff}
+.board-mode-btn + .board-mode-btn{border-left:1px solid var(--border)}
+
 /* ── Sprint 3: Tasks board / sprints / burndown ──────────────── */
 
 /* Tab strip */
