@@ -450,6 +450,15 @@ function renderPage() {
       if (typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ta);
     }
   }
+  // Sprint 6: render the linked items panel below the page (view mode only).
+  if (!editing && page && page.id) {
+    setTimeout(() => {
+      const lnEl = document.getElementById('page-links-panel');
+      if (lnEl && typeof renderLinksPanel === 'function') {
+        renderLinksPanel(lnEl, 'doc_page', page.id);
+      }
+    }, 0);
+  }
 }
 window.renderPage = renderPage;
 
@@ -481,6 +490,7 @@ function renderPageViewHTML(page, canWrite) {
         ${childrenHTML}
       </div>
     ` : ''}
+    <div id="page-links-panel" style="margin-top:28px"></div>
   `;
 }
 

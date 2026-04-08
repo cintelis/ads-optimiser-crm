@@ -23,6 +23,11 @@ id = "b1769737310e42f08a8cf4a8a86bce33"
 binding = "UNSUBSCRIBES"
 id = "9d9f54e3bbf74d918f73b45224cf0ab1"
 
+# R2 bucket for issue + page attachments (Sprint 6)
+[[r2_buckets]]
+binding = "ATTACHMENTS"
+bucket_name = "pulse-attachments"
+
 # Cron Trigger runs scheduler every 5 minutes
 [triggers]
 crons = ["*/5 * * * *"]

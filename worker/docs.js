@@ -8,6 +8,8 @@
 
 import { emit, EVENT_TYPES } from './events.js';
 import { parseMentionsAndNotify } from './notifications.js';
+import { deleteAttachmentsForEntity } from './attachments.js';
+import { deleteLinksForEntity } from './entity-links.js';
 
 // ── Local helpers (mirror worker.js) ─────────────────────────
 function jres(data, status = 200) {
@@ -494,6 +496,8 @@ export async function deletePage(env, pgId) {
   ).bind(pgId).first();
   if (!existing) return jres({ error: 'Page not found' }, 404);
   const ids = await cascadeSoftDeletePage(env, pgId);
+  await deleteAttachmentsForEntity(env, 'doc_page', pgId);
+  await deleteLinksForEntity(env, 'doc_page', pgId);
   await emit(env, EVENT_TYPES.DOC_PAGE_DELETED, {
     page_id: pgId, space_id: existing.space_id, deleted_ids: ids,
   });

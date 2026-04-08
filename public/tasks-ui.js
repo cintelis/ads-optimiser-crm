@@ -527,6 +527,10 @@ function renderIssueDetailModal() {
         </div>
       </aside>
     </div>
+    <div class="issue-detail-extras" style="padding:0 24px 16px">
+      <div id="issue-attachments-panel" style="margin-top:18px"></div>
+      <div id="issue-links-panel" style="margin-top:18px"></div>
+    </div>
     <div class="modal-foot" style="justify-content:space-between">
       <div>${canWrite ? `<button class="btn btn-ghost btn-sm" type="button" style="color:var(--red)" onclick="submitDeleteIssue()">Delete issue</button>` : ''}</div>
       <button class="btn btn-ghost" type="button" onclick="closeIssueDetail()">Close</button>
@@ -539,9 +543,26 @@ function renderIssueDetailModal() {
     const ct = document.getElementById('issue-comment-text');
     if (ct) attachMentionAutocomplete(ct);
   }, 0);
+  // Sprint 6: render attachments + linked items panels into the modal extras.
+  setTimeout(() => {
+    const attEl = document.getElementById('issue-attachments-panel');
+    if (attEl && typeof renderAttachmentsPanel === 'function' && currentIssue) {
+      renderAttachmentsPanel(attEl, 'issue', currentIssue.id);
+    }
+    const lnEl = document.getElementById('issue-links-panel');
+    if (lnEl && typeof renderLinksPanel === 'function' && currentIssue) {
+      renderLinksPanel(lnEl, 'issue', currentIssue.id);
+    }
+  }, 0);
 }
 
 function closeIssueDetail() {
+  // Sprint 6: drop attachment + link caches so a re-open re-fetches.
+  if (currentIssue && currentIssue.id) {
+    const k = 'issue:' + currentIssue.id;
+    if (state.attachments) delete state.attachments[k];
+    if (state.entityLinks) delete state.entityLinks[k];
+  }
   state.ui.tasksOpenIssueId = '';
   currentIssue = null;
   currentIssueParent = null;

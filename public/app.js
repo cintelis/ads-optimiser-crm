@@ -14,7 +14,8 @@ const SECTION_TITLES = {
   users: 'Users',
   projects: 'Projects',
   docs: 'Docs',
-  integrations: 'Integrations'
+  integrations: 'Integrations',
+  feature_settings: 'Feature visibility'
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
@@ -267,6 +268,11 @@ async function refreshMe() {
     state.me = r.user;
     state.me.mfa_enabled = !!r.mfa_enabled;
     state.me.backup_codes_remaining = Number(r.backup_codes_remaining || 0);
+    // Sprint 6: load feature visibility flags so the nav can be filtered
+    try {
+      const ff = await api('GET','/api/app-settings/feature-visibility');
+      if (ff && typeof ff === 'object' && !ff.error) state.featureFlags = ff;
+    } catch (e) { /* keep defaults */ }
     applyRoleVisibility();
     // Sync theme from server preference if set — overrides localStorage
     // bootstrap so the user gets the same theme across devices.
@@ -281,6 +287,31 @@ function applyRoleVisibility() {
   const u2 = document.getElementById('more-users'); if (u2) u2.style.display = show;
   const i1 = document.getElementById('nav-integrations'); if (i1) i1.style.display = show;
   const i2 = document.getElementById('more-integrations'); if (i2) i2.style.display = show;
+  const f1 = document.getElementById('nav-feature-settings'); if (f1) f1.style.display = show;
+  const f2 = document.getElementById('more-feature-settings'); if (f2) f2.style.display = show;
+  applyFeatureVisibility();
+}
+
+// Sprint 6: hide top-level nav items based on per-role feature visibility.
+// Admin always sees everything; only members and viewers can be restricted.
+function applyFeatureVisibility() {
+  if (!state.featureFlags || isAdmin()) return;
+  const role = state.me && state.me.role;
+  if (!role) return;
+  const flags = state.featureFlags;
+  const sectionMap = {
+    outreach: ['nav-templates','nav-contacts','nav-lists','nav-campaigns','nav-logs','nav-unsubs','more-templates','more-lists','more-campaigns','more-logs','more-unsubs','tab-contacts'],
+    crm:      ['nav-pipeline','nav-followups','tab-pipeline','tab-followups'],
+    tasks:    ['nav-projects','more-projects'],
+    docs:     ['nav-docs','more-docs'],
+  };
+  for (const [feature, ids] of Object.entries(sectionMap)) {
+    const allowed = flags[feature]?.[role] !== false;
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = allowed ? '' : 'none';
+    }
+  }
 }
 
 // ── API helper ────────────────────────────────────────────────
@@ -510,6 +541,14 @@ async function renderSection(s) {
       await renderIntegrationsSection();
     } else {
       c.innerHTML = '<div class="empty"><p>Integrations module failed to load.</p></div>';
+    }
+  }
+  else if (s === 'feature_settings') {
+    if (!isAdmin()) { c.innerHTML = '<div class="empty"><p>Admin access required.</p></div>'; return; }
+    if (typeof renderFeatureSettingsSection === 'function') {
+      await renderFeatureSettingsSection();
+    } else {
+      c.innerHTML = '<div class="empty"><p>Feature settings module failed to load.</p></div>';
     }
   }
   // Refresh unread count on every section change so the bell stays current
@@ -809,6 +848,8 @@ function renderOverview() {
       <button class="btn btn-ghost" type="button" onclick="openOverviewNewTemplate()">+ New Template</button>
     </div>
 
+    <div id="my-issues-widget"></div>
+
     <div class="overview-range-row">
       <div class="overview-range-label">Date Range</div>
       <div class="overview-range-pills">
@@ -895,6 +936,8 @@ function renderOverview() {
       </div>
     </div>
   </div>`;
+  // Sprint 6: render the "My open issues" widget into the placeholder
+  if (typeof renderMyIssuesWidget === 'function') renderMyIssuesWidget();
 }
 
 // ── Templates ─────────────────────────────────────────────────

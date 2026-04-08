@@ -7,6 +7,8 @@
 
 import { emit, EVENT_TYPES } from './events.js';
 import { parseMentionsAndNotify } from './notifications.js';
+import { deleteAttachmentsForEntity } from './attachments.js';
+import { deleteLinksForEntity } from './entity-links.js';
 
 // ── Local helpers (mirror worker.js) ─────────────────────────
 function jres(data, status = 200) {
@@ -537,6 +539,8 @@ export async function deleteIssue(env, isId) {
   if (!existing) return jres({ error: 'Issue not found' }, 404);
   await env.DB.prepare("DELETE FROM activity WHERE entity_type='issue' AND entity_id=?").bind(isId).run();
   await env.DB.prepare('DELETE FROM issues WHERE id=?').bind(isId).run();
+  await deleteAttachmentsForEntity(env, 'issue', isId);
+  await deleteLinksForEntity(env, 'issue', isId);
   return jres({ ok: true });
 }
 

@@ -53,6 +53,16 @@ import {
   listIntegrationRules, createIntegrationRule, deleteIntegrationRule,
   testIntegration, listIntegrationLog,
 } from './worker/integrations.js';
+import {
+  listAttachments, uploadAttachment, downloadAttachment, deleteAttachment,
+  deleteAttachmentsForEntity,
+} from './worker/attachments.js';
+import {
+  listLinks, createLink, deleteLink, deleteLinksForEntity, entitySearch,
+} from './worker/entity-links.js';
+import {
+  getFeatureVisibility, patchFeatureVisibility, isFeatureAllowed,
+} from './worker/app-settings.js';
 
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
@@ -769,6 +779,55 @@ function publicUser(u) {
   };
 }
 
+// ── Sprint 6: /api/me helpers (saved filters + my open issues) ──
+async function getMySavedFilters(env, authCtx) {
+  const prefs = authCtx.user.preferences || {};
+  const saved = prefs.saved_filters || {};
+  return jres({ saved_filters: saved });
+}
+
+async function setMySavedFilters(req, env, authCtx) {
+  const body = await req.json().catch(() => ({}));
+  // Body shape: {section: 'tasks'|'docs', filters: [...]} OR {saved_filters: {...}}
+  const next = { ...(authCtx.user.preferences || {}) };
+  next.saved_filters = next.saved_filters || {};
+  if (body && body.section && Array.isArray(body.filters)) {
+    next.saved_filters[body.section] = body.filters;
+  } else if (body && typeof body.saved_filters === 'object') {
+    next.saved_filters = body.saved_filters;
+  } else {
+    return jres({ error: 'Provide either {section, filters} or {saved_filters: {...}}' }, 400);
+  }
+  await env.DB.prepare('UPDATE users SET preferences=? WHERE id=?')
+    .bind(JSON.stringify(next), authCtx.user.id).run();
+  return jres({ ok: true, saved_filters: next.saved_filters });
+}
+
+async function getMyIssues(env, authCtx) {
+  // Return up to 10 of the current user's open issues across all projects.
+  // Order: priority desc (highest first), due_at asc (soonest first), updated_at desc.
+  const PRIORITY_RANK = `CASE i.priority
+    WHEN 'highest' THEN 5
+    WHEN 'high'    THEN 4
+    WHEN 'medium'  THEN 3
+    WHEN 'low'     THEN 2
+    WHEN 'lowest'  THEN 1
+    ELSE 0 END`;
+  const { results } = await env.DB.prepare(
+    `SELECT i.id, i.issue_key, i.title, i.status, i.priority, i.type, i.due_at, i.updated_at, i.project_id
+     FROM issues i
+     WHERE i.active = 1
+       AND i.assignee_id = ?
+       AND i.status NOT IN ('done')
+     ORDER BY ${PRIORITY_RANK} DESC,
+              CASE WHEN i.due_at IS NULL THEN 1 ELSE 0 END,
+              i.due_at ASC,
+              i.updated_at DESC
+     LIMIT 10`
+  ).bind(authCtx.user.id).all();
+  return jres({ issues: results || [] });
+}
+
 // ── Authenticated me/users/MFA endpoints ─────────────────────
 async function apiGetMe(env, authCtx) {
   const totp = await env.DB.prepare(
@@ -961,6 +1020,25 @@ async function apiDeleteUser(env, id) {
   return jres({ ok: true });
 }
 
+// Sprint 6: feature-visibility URL prefix → feature key map.
+// Admins always see everything; non-admins are blocked at the router on
+// any path matching a disabled feature. Order matters slightly: longest
+// prefix wins if there's overlap (none today, but be defensive).
+const FEATURE_GATES = [
+  { prefix: '/api/templates',    feature: 'outreach' },
+  { prefix: '/api/contacts',     feature: 'outreach' },
+  { prefix: '/api/lists',        feature: 'outreach' },
+  { prefix: '/api/campaigns',    feature: 'outreach' },
+  { prefix: '/api/logs',         feature: 'outreach' },
+  { prefix: '/api/unsubscribes', feature: 'outreach' },
+  { prefix: '/api/crm',          feature: 'crm' },
+  { prefix: '/api/projects',     feature: 'tasks' },
+  { prefix: '/api/issues',       feature: 'tasks' },
+  { prefix: '/api/sprints',      feature: 'tasks' },
+  { prefix: '/api/doc-spaces',   feature: 'docs' },
+  { prefix: '/api/doc-pages',    feature: 'docs' },
+];
+
 // ── Router ───────────────────────────────────────────────────
 async function route(req, env, url, path, authCtx) {
   const m = req.method;
@@ -969,6 +1047,18 @@ async function route(req, env, url, path, authCtx) {
   // Admin/member roles fall through to the per-endpoint logic below.
   if (WRITE_METHODS.has(m) && authCtx.user.role === 'viewer') {
     return jres({ error: 'Forbidden: read-only role' }, 403);
+  }
+
+  // Sprint 6: feature visibility gate. Admin bypasses; others get 403 on
+  // any URL matching a feature their role can't see.
+  if (authCtx.user.role !== 'admin') {
+    for (const gate of FEATURE_GATES) {
+      if (path.startsWith(gate.prefix)) {
+        const allowed = await isFeatureAllowed(env, gate.feature, authCtx.user.role);
+        if (!allowed) return jres({ error: `The ${gate.feature} feature is disabled for your role` }, 403);
+        break;
+      }
+    }
   }
 
   // ── Account / self-service auth endpoints ─────────────────
@@ -1000,6 +1090,38 @@ async function route(req, env, url, path, authCtx) {
       if (action === 'reset-password' && m === 'POST') return apiAdminResetPassword(req, env, userId);
       if (action === 'reset-mfa' && m === 'POST') return apiAdminResetMfa(env, userId);
     }
+  }
+
+  // ── Sprint 6: attachments + entity links + saved filters + app settings ──
+  if (path === '/api/attachments' && m === 'GET')  return listAttachments(req, env);
+  if (path === '/api/attachments' && m === 'POST') return uploadAttachment(req, env, authCtx);
+  {
+    const am = path.match(/^\/api\/attachments\/([^/]+)\/(download|preview)$/);
+    if (am && m === 'GET') return downloadAttachment(env, am[1], am[2] === 'preview');
+  }
+  {
+    const am = path.match(/^\/api\/attachments\/([^/]+)$/);
+    if (am && m === 'DELETE') return deleteAttachment(env, authCtx, am[1]);
+  }
+
+  if (path === '/api/entity-links' && m === 'GET')  return listLinks(req, env);
+  if (path === '/api/entity-links' && m === 'POST') return createLink(req, env, authCtx);
+  {
+    const lm = path.match(/^\/api\/entity-links\/([^/]+)$/);
+    if (lm && m === 'DELETE') return deleteLink(env, authCtx, lm[1]);
+  }
+  if (path === '/api/entity-search' && m === 'GET') return entitySearch(req, env);
+
+  if (path === '/api/me/saved-filters' && m === 'GET') return getMySavedFilters(env, authCtx);
+  if (path === '/api/me/saved-filters' && m === 'PUT') return setMySavedFilters(req, env, authCtx);
+  if (path === '/api/me/my-issues' && m === 'GET') return getMyIssues(env, authCtx);
+
+  if (path === '/api/app-settings/feature-visibility' && m === 'GET') {
+    return getFeatureVisibility(env).then(v => jres(v));
+  }
+  if (path === '/api/app-settings/feature-visibility' && m === 'PATCH') {
+    if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+    return patchFeatureVisibility(req, env, authCtx);
   }
 
   // ── Notifications + Integrations (Sprint 5) ──────────────
@@ -1597,6 +1719,9 @@ async function updateContact(req, env, id) {
 async function deleteContact(env, id) {
   await env.DB.prepare('DELETE FROM contact_list_members WHERE contact_id=?').bind(id).run();
   await env.DB.prepare("DELETE FROM activity WHERE entity_type='contact' AND entity_id=?").bind(id).run();
+  // Sprint 6: cascade attachments + entity links
+  await deleteAttachmentsForEntity(env, 'contact', id);
+  await deleteLinksForEntity(env, 'contact', id);
   await ensureContactProfileTable(env);
   await env.DB.prepare('DELETE FROM contact_profiles WHERE contact_id=?').bind(id).run();
   await env.DB.prepare('DELETE FROM contacts WHERE id=?').bind(id).run();

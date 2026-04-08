@@ -229,6 +229,46 @@ CREATE INDEX IF NOT EXISTS idx_issues_key ON issues(issue_key);
 CREATE INDEX IF NOT EXISTS idx_issues_parent ON issues(parent_id);
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated_at DESC);
 
+-- ── Sprint 6: attachments (R2-backed) ───────────────────────
+
+CREATE TABLE IF NOT EXISTS attachments (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size_bytes INTEGER NOT NULL,
+  r2_key TEXT NOT NULL UNIQUE,
+  uploaded_by TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_attachments_uploader ON attachments(uploaded_by);
+
+-- ── Sprint 6: cross-entity links ────────────────────────────
+
+CREATE TABLE IF NOT EXISTS entity_links (
+  id TEXT PRIMARY KEY,
+  from_type TEXT NOT NULL,
+  from_id TEXT NOT NULL,
+  to_type TEXT NOT NULL,
+  to_id TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(from_type, from_id, to_type, to_id)
+);
+CREATE INDEX IF NOT EXISTS idx_entity_links_from ON entity_links(from_type, from_id);
+CREATE INDEX IF NOT EXISTS idx_entity_links_to ON entity_links(to_type, to_id);
+
+-- ── Sprint 6: app-wide settings ─────────────────────────────
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT
+);
+
 -- ── Sprint 5: integrations + per-user notifications ─────────
 
 CREATE TABLE IF NOT EXISTS integrations (
