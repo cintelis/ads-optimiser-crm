@@ -40,6 +40,11 @@ import {
   addIssuesToSprint, removeIssueFromSprint,
   getBurndown,
 } from './worker/sprints.js';
+import {
+  listSpaces, createSpace, getSpace, patchSpace, deleteSpace,
+  listSpacePages, createPage, getPage, patchPage, deletePage,
+  listPageVersions, getPageVersion, restorePageVersion,
+} from './worker/docs.js';
 
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
@@ -986,6 +991,49 @@ async function route(req, env, url, path, authCtx) {
       if (!action && m === 'DELETE') return apiDeleteUser(env, userId);
       if (action === 'reset-password' && m === 'POST') return apiAdminResetPassword(req, env, userId);
       if (action === 'reset-mfa' && m === 'POST') return apiAdminResetMfa(env, userId);
+    }
+  }
+
+  // ── Docs (Sprint 4) ──────────────────────────────────────
+  if (path === '/api/doc-spaces' && m === 'GET')  return listSpaces(env);
+  if (path === '/api/doc-spaces' && m === 'POST') return createSpace(req, env, authCtx);
+  {
+    const spm = path.match(/^\/api\/doc-spaces\/([^/]+)(?:\/(pages))?$/);
+    if (spm) {
+      const spId = spm[1];
+      const sub = spm[2];
+      if (!sub) {
+        if (m === 'GET')    return getSpace(env, spId);
+        if (m === 'PATCH')  return patchSpace(req, env, spId);
+        if (m === 'DELETE') {
+          if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
+          return deleteSpace(env, spId);
+        }
+      }
+      if (sub === 'pages') {
+        if (m === 'GET')  return listSpacePages(env, spId);
+        if (m === 'POST') return createPage(req, env, authCtx, spId);
+      }
+    }
+  }
+  {
+    const dpm = path.match(/^\/api\/doc-pages\/([^/]+)(?:\/versions(?:\/([^/]+)(?:\/(restore))?)?)?$/);
+    if (dpm) {
+      const pgId = dpm[1];
+      const verId = dpm[2];
+      const restore = dpm[3];
+      // /api/doc-pages/:id  (no /versions sub)
+      if (!verId && !path.includes('/versions')) {
+        if (m === 'GET')    return getPage(env, pgId);
+        if (m === 'PATCH')  return patchPage(req, env, authCtx, pgId);
+        if (m === 'DELETE') return deletePage(env, pgId);
+      }
+      // /api/doc-pages/:id/versions
+      if (path.endsWith('/versions') && m === 'GET') return listPageVersions(env, pgId);
+      // /api/doc-pages/:id/versions/:versionId
+      if (verId && !restore && m === 'GET') return getPageVersion(env, pgId, verId);
+      // /api/doc-pages/:id/versions/:versionId/restore
+      if (verId && restore === 'restore' && m === 'POST') return restorePageVersion(req, env, authCtx, pgId, verId);
     }
   }
 

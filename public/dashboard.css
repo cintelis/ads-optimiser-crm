@@ -750,3 +750,83 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 @media (max-width:760px){
   .kanban-board{grid-template-columns:1fr}
 }
+
+
+/* ── Sprint 4: Docs (spaces / pages / editor / versions) ────── */
+
+/* Spaces grid (top-level docs landing) */
+.docs-spaces-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.docs-space-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s}
+.docs-space-card:hover{border-color:color-mix(in srgb,var(--cyan) 28%,transparent);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.docs-space-icon{width:44px;height:44px;border-radius:var(--radius);background:color-mix(in srgb,var(--cyan) 14%,transparent);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;font-family:var(--font-head);margin-bottom:12px}
+
+/* Two-column docs layout */
+.docs-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
+.docs-sidebar{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.docs-sidebar-header{padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.docs-main{min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px}
+
+/* Page tree (sidebar) */
+.docs-tree{list-style:none;margin:0;padding:0}
+.docs-tree-children{list-style:none;margin:0;padding:0}
+.docs-tree-item{display:block;margin:0}
+.docs-tree-row{display:flex;align-items:center;gap:4px;padding:4px 6px;border-radius:var(--radius-sm);font-size:13px;color:var(--text);cursor:pointer;transition:background-color .12s}
+.docs-tree-row:hover{background:var(--hover)}
+.docs-tree-item.active > .docs-tree-row{background:var(--selected);color:var(--cyan);font-weight:600}
+.docs-tree-link{flex:1;color:inherit;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:2px 0;cursor:pointer}
+.chevron{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);background:transparent;border:none;cursor:pointer;padding:0;flex-shrink:0}
+.chevron:hover{color:var(--text)}
+.chevron-empty{width:16px;height:16px;flex-shrink:0}
+.docs-tree-add{width:18px;height:18px;font-size:14px;line-height:1;color:var(--muted2);background:transparent;border:none;cursor:pointer;padding:0;opacity:0;transition:opacity .12s;flex-shrink:0}
+.docs-tree-row:hover .docs-tree-add{opacity:1}
+.docs-tree-add:hover{color:var(--cyan)}
+.docs-tree-empty{padding:12px 6px;color:var(--muted2);font-size:12px;font-style:italic}
+
+/* Page header + body */
+.docs-page-header{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.docs-breadcrumb{font-size:12px;color:var(--muted2);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.docs-breadcrumb a{color:var(--muted);text-decoration:none;cursor:pointer}
+.docs-breadcrumb a:hover{color:var(--cyan)}
+.docs-breadcrumb-sep{color:var(--muted2)}
+.docs-page-title{font-family:var(--font-head);font-size:28px;font-weight:800;color:var(--text);margin:0 0 12px;line-height:1.2}
+.docs-page-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.docs-page-body{line-height:1.7;color:var(--text);font-size:15px}
+
+/* Child pages footer on a page view */
+.docs-children-list{margin-top:32px;padding-top:20px;border-top:1px solid var(--border)}
+.docs-children-list h3{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px}
+.docs-children-links{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.docs-children-links li a{color:var(--cyan);text-decoration:none;font-size:14px;padding:6px 10px;border-radius:var(--radius-sm);display:block;transition:background-color .12s}
+.docs-children-links li a:hover{background:var(--hover)}
+
+/* Page editor (split-pane) */
+.docs-editor{display:flex;flex-direction:column;gap:14px}
+.docs-editor-title{width:100%;font-family:var(--font-head);font-size:24px;font-weight:700;color:var(--text);background:var(--input-bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;outline:none}
+.docs-editor-title:focus{border-color:var(--cyan)}
+.docs-editor-pane{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-height:60vh}
+.docs-editor-textarea-pane,.docs-editor-preview-pane{display:flex;flex-direction:column;min-width:0}
+.docs-editor-label{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:6px}
+.docs-editor-textarea{flex:1;width:100%;background:var(--input-bg);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:14px;color:var(--text);font-family:var(--font-mono);font-size:13px;line-height:1.6;resize:none;outline:none}
+.docs-editor-textarea:focus{border-color:var(--cyan)}
+.docs-editor-preview{flex:1;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:14px}
+.docs-editor-actions{display:flex;justify-content:flex-end;gap:8px}
+
+/* Version history modal */
+.docs-version-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);gap:12px}
+.docs-version-row + .docs-version-row{margin-top:8px}
+.docs-version-row:hover{border-color:color-mix(in srgb,var(--cyan) 28%,transparent)}
+.docs-version-meta{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted);min-width:0}
+.docs-version-meta strong{color:var(--text);font-size:13px}
+.docs-version-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* Empty state alias */
+.docs-empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
+
+/* Mobile responsive */
+@media (max-width:760px){
+  .docs-layout{grid-template-columns:1fr}
+  .docs-sidebar{position:static;max-height:none;margin-bottom:14px}
+  .docs-editor-pane{grid-template-columns:1fr}
+  .docs-editor-textarea,.docs-editor-preview{min-height:240px}
+  .docs-spaces-grid{grid-template-columns:1fr}
+}

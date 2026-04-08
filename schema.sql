@@ -235,6 +235,50 @@ CREATE INDEX IF NOT EXISTS idx_issues_key ON issues(issue_key);
 CREATE INDEX IF NOT EXISTS idx_issues_parent ON issues(parent_id);
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated_at DESC);
 
+-- ── Sprint 4: Docs (spaces + pages + version history) ───────
+
+CREATE TABLE IF NOT EXISTS doc_spaces (
+  id TEXT PRIMARY KEY,
+  key TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description_md TEXT NOT NULL DEFAULT '',
+  icon TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_doc_spaces_key ON doc_spaces(key);
+CREATE INDEX IF NOT EXISTS idx_doc_spaces_active ON doc_spaces(active);
+
+CREATE TABLE IF NOT EXISTS doc_pages (
+  id TEXT PRIMARY KEY,
+  space_id TEXT NOT NULL,
+  parent_id TEXT,
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL DEFAULT '',
+  content_md TEXT NOT NULL DEFAULT '',
+  position INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT NOT NULL,
+  updated_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_doc_pages_space ON doc_pages(space_id, active);
+CREATE INDEX IF NOT EXISTS idx_doc_pages_parent ON doc_pages(parent_id, position);
+CREATE INDEX IF NOT EXISTS idx_doc_pages_updated ON doc_pages(updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS doc_page_versions (
+  id TEXT PRIMARY KEY,
+  page_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content_md TEXT NOT NULL DEFAULT '',
+  author_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_doc_versions_page ON doc_page_versions(page_id, created_at DESC);
+
 -- ── Sprint 3: sprints ────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS sprints (

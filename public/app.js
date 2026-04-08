@@ -12,7 +12,8 @@ const SECTION_TITLES = {
   followups: 'Follow-ups',
   account: 'My Account',
   users: 'Users',
-  projects: 'Projects'
+  projects: 'Projects',
+  docs: 'Docs'
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
@@ -489,6 +490,13 @@ async function renderSection(s) {
       await renderTasksSection();
     } else {
       c.innerHTML = '<div class="empty"><p>Tasks module failed to load.</p></div>';
+    }
+  }
+  else if (s === 'docs') {
+    if (typeof renderDocsSection === 'function') {
+      await renderDocsSection();
+    } else {
+      c.innerHTML = '<div class="empty"><p>Docs module failed to load.</p></div>';
     }
   }
 }

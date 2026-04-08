@@ -53,6 +53,9 @@
         <div class="nav-group-label">Tasks</div>
         <button class="nav-item" id="nav-projects" type="button" onclick="nav('projects')">Projects</button>
         <div class="nav-divider"></div>
+        <div class="nav-group-label">Docs</div>
+        <button class="nav-item" id="nav-docs" type="button" onclick="nav('docs')">Spaces</button>
+        <div class="nav-divider"></div>
         <div class="nav-group-label">Settings</div>
         <button class="nav-item" id="nav-account" type="button" onclick="nav('account')">My Account</button>
         <button class="nav-item" id="nav-users" type="button" onclick="nav('users')" style="display:none">Users</button>
@@ -102,6 +105,7 @@
     <button class="mobile-sheet-item" id="more-logs" type="button" onclick="closeMobileMenu();nav('logs')">Sent Log</button>
     <button class="mobile-sheet-item" id="more-unsubs" type="button" onclick="closeMobileMenu();nav('unsubs')">Unsubscribes</button>
     <button class="mobile-sheet-item" id="more-projects" type="button" onclick="closeMobileMenu();nav('projects')">Projects</button>
+    <button class="mobile-sheet-item" id="more-docs" type="button" onclick="closeMobileMenu();nav('docs')">Docs</button>
     <button class="mobile-sheet-item" id="more-account" type="button" onclick="closeMobileMenu();nav('account')">My Account</button>
     <button class="mobile-sheet-item" id="more-users" type="button" onclick="closeMobileMenu();nav('users')" style="display:none">Users</button>
     <button class="mobile-sheet-item" type="button" onclick="closeMobileMenu();refreshCurrent()">Refresh Current Page</button>
@@ -126,5 +130,6 @@
 <script src="/app.js" defer></script>
 <script src="/tasks-ui.js" defer></script>
 <script src="/sprints-ui.js" defer></script>
+<script src="/docs-ui.js" defer></script>
 </body>
 </html>

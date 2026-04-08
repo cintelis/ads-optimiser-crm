@@ -28,6 +28,7 @@ export const EVENT_TYPES = Object.freeze({
   DOC_PAGE_CREATED:     'doc.page_created',
   DOC_PAGE_UPDATED:     'doc.page_updated',
   DOC_PAGE_COMMENTED:   'doc.page_commented',
+  DOC_PAGE_DELETED:     'doc.page_deleted',
 
   // CRM (existing surfaces will adopt these gradually)
   CONTACT_STAGE_CHANGED: 'contact.stage_changed',
