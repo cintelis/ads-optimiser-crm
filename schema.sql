@@ -234,3 +234,27 @@ CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee_id, active);
 CREATE INDEX IF NOT EXISTS idx_issues_key ON issues(issue_key);
 CREATE INDEX IF NOT EXISTS idx_issues_parent ON issues(parent_id);
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated_at DESC);
+
+-- ── Sprint 3: sprints ────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS sprints (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  goal TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL DEFAULT 'planned',
+  start_at TEXT,
+  end_at TEXT,
+  planned_end_at TEXT,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sprints_project_state ON sprints(project_id, state);
+CREATE INDEX IF NOT EXISTS idx_sprints_state ON sprints(state);
+
+-- sprint_id is added to issues via migrations/004_sprints.sql for existing
+-- databases. For fresh installs from this file, issues already has it via
+-- the column list below would need updating — but we keep the original
+-- issues definition above untouched for clarity. New installs can run the
+-- 004 migration as the final step.

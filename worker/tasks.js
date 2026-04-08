@@ -65,7 +65,29 @@ function reshapeIssueRow(r) {
   delete out.assignee_email;
   delete out.reporter_display_name;
   delete out.reporter_email;
+  out.sprint = r.s_id
+    ? { id: r.s_id, name: r.s_name || '', state: r.s_state || 'planned' }
+    : null;
+  delete out.s_id;
+  delete out.s_name;
+  delete out.s_state;
   return out;
+}
+
+// Batched sprint lookup → { id: {id, name} }. Local to tasks.js so we don't
+// pull in worker/sprints.js (which would cause unnecessary coupling).
+async function joinSprintsByIds(env, ids) {
+  const unique = Array.from(new Set((ids || []).filter(Boolean)));
+  if (!unique.length) return {};
+  const placeholders = unique.map(() => '?').join(',');
+  const { results } = await env.DB.prepare(
+    `SELECT id, name FROM sprints WHERE id IN (${placeholders})`
+  ).bind(...unique).all();
+  const map = {};
+  for (const r of (results || [])) {
+    map[r.id] = { id: r.id, name: r.name || '' };
+  }
+  return map;
 }
 
 // ── Projects ─────────────────────────────────────────────────
@@ -206,6 +228,15 @@ export async function listIssues(req, env, projIdParam) {
     where.push('i.assignee_id = ?');
     params.push(assigneeRaw);
   }
+  // Sprint filter — mirrors the assignee pattern. '__backlog__' sentinel means
+  // "no sprint at all" (sprint_id IS NULL), otherwise direct equality.
+  const sprintRaw = url.searchParams.get('sprint_id');
+  if (sprintRaw === '__backlog__') {
+    where.push('i.sprint_id IS NULL');
+  } else if (sprintRaw) {
+    where.push('i.sprint_id = ?');
+    params.push(sprintRaw);
+  }
   const q = url.searchParams.get('q');
   if (q) { where.push('(i.title LIKE ? OR i.description_md LIKE ?)'); params.push(`%${q}%`, `%${q}%`); }
   const limitRaw = parseInt(url.searchParams.get('limit') || '100', 10);
@@ -213,10 +244,12 @@ export async function listIssues(req, env, projIdParam) {
   const sql =
     `SELECT i.*,
             a.display_name AS assignee_display_name, a.email AS assignee_email,
-            r.display_name AS reporter_display_name, r.email AS reporter_email
+            r.display_name AS reporter_display_name, r.email AS reporter_email,
+            s.id AS s_id, s.name AS s_name, s.state AS s_state
      FROM issues i
      LEFT JOIN users a ON a.id = i.assignee_id
      LEFT JOIN users r ON r.id = i.reporter_id
+     LEFT JOIN sprints s ON s.id = i.sprint_id
      WHERE ${where.join(' AND ')}
      ORDER BY i.updated_at DESC
      LIMIT ?`;
@@ -295,10 +328,12 @@ export async function getIssue(env, isId) {
   const row = await env.DB.prepare(
     `SELECT i.*,
             a.display_name AS assignee_display_name, a.email AS assignee_email,
-            r.display_name AS reporter_display_name, r.email AS reporter_email
+            r.display_name AS reporter_display_name, r.email AS reporter_email,
+            s.id AS s_id, s.name AS s_name, s.state AS s_state
      FROM issues i
      LEFT JOIN users a ON a.id = i.assignee_id
      LEFT JOIN users r ON r.id = i.reporter_id
+     LEFT JOIN sprints s ON s.id = i.sprint_id
      WHERE i.id = ? AND i.active = 1`
   ).bind(isId).first();
   if (!row) return jres({ error: 'Issue not found' }, 404);
@@ -377,6 +412,10 @@ export async function patchIssue(req, env, ctx, isId) {
     const v = body.due_at || null;
     if (v !== existing.due_at) updates.due_at = v;
   }
+  if ('sprint_id' in body) {
+    const v = body.sprint_id || null;
+    if (v !== existing.sprint_id) updates.sprint_id = v;
+  }
 
   if (!Object.keys(updates).length) {
     // Still return the joined row so callers see a stable shape.
@@ -390,6 +429,14 @@ export async function patchIssue(req, env, ctx, isId) {
     if (updates.assignee_id) userIdsToFetch.push(updates.assignee_id);
   }
   const userMap = await joinUsers(env, userIdsToFetch);
+
+  // Resolve sprint names for the sprint_id delta (old + new) in one query.
+  const sprintIdsToFetch = [];
+  if ('sprint_id' in updates) {
+    if (existing.sprint_id) sprintIdsToFetch.push(existing.sprint_id);
+    if (updates.sprint_id) sprintIdsToFetch.push(updates.sprint_id);
+  }
+  const sprintMap = await joinSprintsByIds(env, sprintIdsToFetch);
 
   const ts = now();
   const setFragments = [];
@@ -431,8 +478,22 @@ export async function patchIssue(req, env, ctx, isId) {
     });
   }
 
+  if ('sprint_id' in updates) {
+    const oldName = existing.sprint_id ? (sprintMap[existing.sprint_id]?.name || 'Unknown sprint') : 'Backlog';
+    const newName = updates.sprint_id ? (sprintMap[updates.sprint_id]?.name || 'Unknown sprint') : 'Backlog';
+    await insertActivity(env, {
+      entityType: 'issue', entityId: isId, userId: ctx.user.id, kind: 'system',
+      body: `Sprint: ${oldName} → ${newName}`,
+    });
+    await emit(env, EVENT_TYPES.ISSUE_UPDATED, {
+      issue_id: isId,
+      changed_fields: ['sprint_id'],
+      actor: ctx.user,
+    });
+  }
+
   // Other field updates → one combined system row + ISSUE_UPDATED
-  const otherFields = Object.keys(updates).filter(k => k !== 'assignee_id' && k !== 'status');
+  const otherFields = Object.keys(updates).filter(k => k !== 'assignee_id' && k !== 'status' && k !== 'sprint_id');
   if (otherFields.length) {
     await insertActivity(env, {
       entityType: 'issue', entityId: isId, userId: ctx.user.id, kind: 'system',

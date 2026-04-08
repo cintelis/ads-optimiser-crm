@@ -218,6 +218,15 @@ function renderProjectDetail() {
         </div>
       </div>
 
+      <div class="tasks-tabs">
+        <button class="tasks-tab ${state.ui.tasksTab==='issues'?'active':''}" type="button" onclick="setTasksTab('issues')">Issues</button>
+        <button class="tasks-tab ${state.ui.tasksTab==='board'?'active':''}" type="button" onclick="setTasksTab('board')">Board</button>
+        <button class="tasks-tab ${state.ui.tasksTab==='backlog'?'active':''}" type="button" onclick="setTasksTab('backlog')">Backlog</button>
+        <button class="tasks-tab ${state.ui.tasksTab==='sprints'?'active':''}" type="button" onclick="setTasksTab('sprints')">Sprints</button>
+      </div>
+
+      <div id="tasks-tab-body">
+      ${state.ui.tasksTab === 'issues' ? `
       <div class="card">
         <div class="card-body" style="padding:12px 14px">
           <div class="tasks-filter-bar" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -240,8 +249,13 @@ function renderProjectDetail() {
           </table>
         </div>
       </div>
+      ` : ''}
+      </div>
     </div>
   `;
+  if (state.ui.tasksTab !== 'issues' && typeof renderTasksTab === 'function') {
+    renderTasksTab();
+  }
 }
 window.renderProjectDetail = renderProjectDetail;
 

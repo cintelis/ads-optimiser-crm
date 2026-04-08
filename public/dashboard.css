@@ -675,3 +675,71 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 /* Misc helpers */
 .mono{font-family:var(--font-mono);font-size:12px}
 .md-fallback{background:var(--surface2);padding:10px;border-radius:var(--radius-sm,4px);font-size:13px;white-space:pre-wrap;color:var(--text);font-family:var(--font-mono);margin:0}
+
+/* ── Sprint 3: Tasks board / sprints / burndown ──────────────── */
+
+/* Tab strip */
+.tasks-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tasks-tab{background:transparent;border:none;padding:10px 18px;color:var(--muted);font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.tasks-tab:hover{color:var(--text)}
+.tasks-tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+
+/* Kanban board */
+.kanban-board{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:14px;align-items:flex-start}
+.kanban-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;min-height:200px;transition:border-color .15s,background-color .15s}
+.kanban-col.drop-target{border-color:var(--cyan);background:color-mix(in srgb,var(--cyan) 6%,transparent)}
+.kanban-col-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);font-weight:700}
+.kanban-col-count{background:var(--surface2);color:var(--muted);font-size:11px;padding:1px 8px;border-radius:999px;font-weight:700}
+.kanban-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.kanban-col-body:empty::after{content:'Drop here';color:var(--muted2);font-size:11px;text-align:center;padding:20px;display:block}
+
+/* Issue cards (board) */
+.issue-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:grab;transition:border-color .15s,transform .15s,box-shadow .15s,background-color .15s}
+.issue-card:hover{border-color:color-mix(in srgb,var(--cyan) 30%,transparent);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.issue-card:active{cursor:grabbing}
+.issue-card.dragging{opacity:.4;cursor:grabbing}
+.issue-card-key{font-family:var(--font-mono);font-size:11px;color:var(--cyan);font-weight:700}
+.issue-card-title{font-size:13px;color:var(--text);font-weight:500;margin-top:4px;line-height:1.4}
+.issue-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:11px}
+
+/* Sprint cards */
+.sprint-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px;transition:border-color .15s}
+.sprint-card:hover{border-color:color-mix(in srgb,var(--cyan) 25%,transparent)}
+.sprint-card-active{border-left:3px solid var(--cyan)}
+.sprint-card-planned{border-left:3px solid var(--muted2)}
+.sprint-card-completed{border-left:3px solid var(--green);opacity:.85}
+.sprint-card-name{font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--text)}
+.sprint-card-meta{font-size:12px;color:var(--muted2);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+
+/* Sprint state badges */
+.sprint-state-badge{display:inline-block;padding:2px 8px;border-radius:var(--radius-sm);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.sprint-state-active{background:color-mix(in srgb,var(--cyan) 14%,transparent);color:var(--cyan)}
+.sprint-state-planned{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
+.sprint-state-completed{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+
+/* Sprint section labels */
+.sprints-section-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);font-weight:700;margin:18px 0 8px}
+
+/* Burndown chart (SVG) */
+.burndown-chart{display:block;width:100%;max-width:640px;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.burndown-axis{stroke:var(--muted2);stroke-width:1}
+.burndown-axis text{font-family:var(--font-body);font-size:10px;fill:var(--muted2)}
+.burndown-grid{stroke:var(--border);stroke-width:1;stroke-dasharray:2 4}
+.burndown-line-ideal{fill:none;stroke:var(--muted2);stroke-width:2;stroke-dasharray:4 4}
+.burndown-line-actual{fill:none;stroke:var(--cyan);stroke-width:2.5}
+
+/* Backlog table */
+.backlog-table tbody tr{cursor:pointer}
+.backlog-table .col-checkbox{width:32px;padding-right:0}
+.backlog-table tbody tr.selected{background:color-mix(in srgb,var(--cyan) 10%,transparent)}
+
+/* Empty state (large) */
+.empty-state-large{text-align:center;padding:64px 24px;color:var(--muted);display:flex;flex-direction:column;gap:16px;align-items:center}
+.empty-state-large h3{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text);margin:0}
+.empty-state-large p{font-size:14px;max-width:380px;margin:0}
+.empty-state-large .btn{margin-top:6px}
+
+/* Mobile responsive */
+@media (max-width:760px){
+  .kanban-board{grid-template-columns:1fr}
+}

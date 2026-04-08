@@ -33,6 +33,13 @@ import {
   getIssue as tasksGetIssue, patchIssue as tasksPatchIssue, deleteIssue as tasksDeleteIssue,
   addIssueComment as tasksAddIssueComment, deleteActivity as tasksDeleteActivity,
 } from './worker/tasks.js';
+import {
+  listProjectSprints, createSprint,
+  getSprint, patchSprint, deleteSprint,
+  startSprint, completeSprint,
+  addIssuesToSprint, removeIssueFromSprint,
+  getBurndown,
+} from './worker/sprints.js';
 
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
@@ -982,11 +989,11 @@ async function route(req, env, url, path, authCtx) {
     }
   }
 
-  // ── Tasks (Sprint 2) ─────────────────────────────────────
+  // ── Tasks (Sprint 2 + Sprint 3 sprints sub) ──────────────
   if (path === '/api/projects' && m === 'GET')  return tasksListProjects(env);
   if (path === '/api/projects' && m === 'POST') return tasksCreateProject(req, env, authCtx);
   {
-    const pm = path.match(/^\/api\/projects\/([^/]+)(?:\/(issues))?$/);
+    const pm = path.match(/^\/api\/projects\/([^/]+)(?:\/(issues|sprints))?$/);
     if (pm) {
       const projId = pm[1];
       const sub = pm[2];
@@ -1001,6 +1008,33 @@ async function route(req, env, url, path, authCtx) {
       if (sub === 'issues') {
         if (m === 'GET')  return tasksListIssues(req, env, projId);
         if (m === 'POST') return tasksCreateIssue(req, env, authCtx, projId);
+      }
+      if (sub === 'sprints') {
+        if (m === 'GET')  return listProjectSprints(env, projId);
+        if (m === 'POST') return createSprint(req, env, authCtx, projId);
+      }
+    }
+  }
+  // ── Sprints (Sprint 3) ───────────────────────────────────
+  {
+    const sm = path.match(/^\/api\/sprints\/([^/]+)(?:\/(start|complete|burndown|issues(?:\/([^/]+))?))?$/);
+    if (sm) {
+      const sprId = sm[1];
+      const action = sm[2];
+      const issueIdInPath = sm[3];
+      if (!action) {
+        if (m === 'GET')    return getSprint(env, sprId);
+        if (m === 'PATCH')  return patchSprint(req, env, sprId);
+        if (m === 'DELETE') return deleteSprint(env, sprId);
+      }
+      if (action === 'start' && m === 'POST')    return startSprint(env, authCtx, sprId);
+      if (action === 'complete' && m === 'POST') return completeSprint(req, env, authCtx, sprId);
+      if (action === 'burndown' && m === 'GET')  return getBurndown(env, sprId);
+      if (sm[2] && sm[2].startsWith('issues') && !issueIdInPath && m === 'POST') {
+        return addIssuesToSprint(req, env, authCtx, sprId);
+      }
+      if (sm[2] && sm[2].startsWith('issues') && issueIdInPath && m === 'DELETE') {
+        return removeIssueFromSprint(env, authCtx, sprId, issueIdInPath);
       }
     }
   }
