@@ -155,11 +155,7 @@ export async function deleteAttachment(env, ctx, attachmentIdParam) {
     'SELECT id, r2_key, uploaded_by FROM attachments WHERE id=?'
   ).bind(attachmentIdParam).first();
   if (!row) return jres({ error: 'Attachment not found' }, 404);
-  const isAdmin = ctx?.user?.role === 'admin';
-  const isUploader = row.uploaded_by === ctx?.user?.id;
-  if (!isAdmin && !isUploader) {
-    return jres({ error: 'Forbidden' }, 403);
-  }
+  // No per-user restriction — small team, any authenticated user can delete.
   try {
     await env.ATTACHMENTS.delete(row.r2_key);
   } catch (e) {

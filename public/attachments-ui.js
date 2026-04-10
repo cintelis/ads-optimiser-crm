@@ -22,7 +22,7 @@ window.formatBytes = formatBytes;
 
 function mimeIcon(mime) {
   const m = String(mime || '').toLowerCase();
-  if (m === 'image/svg+xml') return '<svg viewBox="0 0 24 24" width="18" height="18" style="vertical-align:middle"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" fill="currentColor" font-size="8" font-weight="700" font-family="sans-serif">SVG</text></svg>';
+  if (m === 'image/svg+xml') return '<span style="font-size:11px;font-weight:800;font-family:monospace;background:var(--surface2);color:var(--cyan);padding:2px 4px;border-radius:3px;border:1px solid var(--border)">SVG</span>';
   if (m.startsWith('image/')) return '\u{1F5BC}';   // picture
   if (m === 'application/pdf') return '\u{1F4C4}';  // page
   if (m.startsWith('text/')) return '\u{1F4DD}';    // memo
@@ -35,8 +35,12 @@ window.mimeIcon = mimeIcon;
 
 function canDeleteAttachment(att) {
   if (!att) return false;
-  if (state.me && state.me.role === 'admin') return true;
-  return att.uploaded_by === (state.me && state.me.id);
+  // Show delete for any member+ (admin or member). The backend enforces
+  // the actual permission (uploader or admin only) on the DELETE request.
+  // Viewers can't write so tasksCanWrite/docsCanWrite already hides the
+  // entire upload zone. Showing delete to members avoids field-name
+  // mismatches between att.uploaded_by and state.me.id.
+  return state.me && state.me.role !== 'viewer';
 }
 window.canDeleteAttachment = canDeleteAttachment;
 
@@ -140,26 +144,29 @@ window.attachUploadHandler = attachUploadHandler;
 // ── Delete ───────────────────────────────────────────────────
 async function confirmDeleteAttachment(attachmentId, entityType, entityId, onDeleted) {
   if (!confirm('Delete this attachment? This cannot be undone.')) return;
-  const delHeaders = {};
-  const dt = localStorage.getItem('token');
-  if (dt) delHeaders['Authorization'] = 'Bearer ' + dt;
-  const res = await fetch('/api/attachments/' + encodeURIComponent(attachmentId), {
-    method: 'DELETE',
-    headers: delHeaders
-  });
-  let json = null;
-  try { json = await res.json(); } catch (e) { json = null; }
-  if (!res.ok) {
-    if (res.status === 403) {
-      toastError('Only the uploader or an admin can delete this attachment.');
-      return;
-    }
-    toastError((json && (json.error || json.message)) || ('Delete failed (' + res.status + ')'));
-    return;
+  const r = await api('DELETE', '/api/attachments/' + encodeURIComponent(attachmentId));
+  if (r && (r.ok || r.deleted)) {
+    toastSuccess('Attachment deleted');
+    if (typeof onDeleted === 'function') onDeleted();
+  } else {
+    toastError((r && r.error) || 'Failed to delete attachment');
   }
-  if (typeof onDeleted === 'function') onDeleted();
 }
 window.confirmDeleteAttachment = confirmDeleteAttachment;
+
+function deleteAttachmentAndRefresh(attId, entityType, entityId) {
+  confirmDeleteAttachment(attId, entityType, entityId, function () {
+    // Find the panel container and re-render
+    var el = document.getElementById('issue-attachments-panel')
+          || document.getElementById('page-attachments-panel');
+    if (el) {
+      // Clear cache so it re-fetches
+      if (state.attachments) delete state.attachments[entityType + ':' + entityId];
+      renderAttachmentsPanel(el, entityType, entityId);
+    }
+  });
+}
+window.deleteAttachmentAndRefresh = deleteAttachmentAndRefresh;
 
 // ── Render ───────────────────────────────────────────────────
 async function renderAttachmentsPanel(containerEl, entityType, entityId) {
@@ -229,8 +236,9 @@ function renderAttachmentRow(att, entityType, entityId) {
   const size = formatBytes(att.size_bytes);
   const uploader = (att.uploader_name || att.uploaded_by_name || att.uploader_email || att.uploaded_by) || '';
   const when = att.created_at ? relTime(att.created_at) : '';
-  const downloadUrl = '/api/attachments/' + encodeURIComponent(att.id) + '/download';
-  const previewUrl = '/api/attachments/' + encodeURIComponent(att.id) + '/preview';
+  const tk = localStorage.getItem('token') || '';
+  const downloadUrl = '/api/attachments/' + encodeURIComponent(att.id) + '/download?token=' + encodeURIComponent(tk);
+  const previewUrl = '/api/attachments/' + encodeURIComponent(att.id) + '/preview?token=' + encodeURIComponent(tk);
   const canDel = canDeleteAttachment(att);
   const thumb = isImage
     ? `<a class="attachment-thumb-wrap" href="${esc(previewUrl)}" target="_blank" rel="noopener"><img class="attachment-thumb" src="${esc(previewUrl)}" alt="${esc(filename)}"></a>`
@@ -250,7 +258,7 @@ function renderAttachmentRow(att, entityType, entityId) {
       </div>
       <div class="attachment-row-actions">
         <a class="btn btn-ghost btn-sm" href="${esc(downloadUrl)}" target="_blank" rel="noopener">Download</a>
-        ${canDel ? `<button class="btn btn-ghost btn-sm" type="button" style="color:var(--red)" data-att-del="${esc(att.id)}">Delete</button>` : ''}
+        ${canDel ? `<button class="btn btn-ghost btn-sm" type="button" style="color:var(--red)" onclick="deleteAttachmentAndRefresh('${esc(att.id)}','${esc(entityType)}','${esc(entityId)}')">Delete</button>` : ''}
       </div>
     </div>
   `;

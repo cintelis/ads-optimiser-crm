@@ -774,6 +774,10 @@ function editIssueField(field) {
   if (!row) return;
   const valEl = row.querySelector('.kv-v');
   if (!valEl) return;
+  // Guard: if the editor is already rendered (select/input present), skip.
+  // Without this, clicks on the <select> bubble up to the parent onclick
+  // and re-create the select, which kills the open dropdown.
+  if (valEl.querySelector('#ife-input')) return;
   const i = currentIssue;
   let editorHtml = '';
   if (field === 'type') {

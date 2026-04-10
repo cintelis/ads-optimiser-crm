@@ -613,6 +613,21 @@ export default {
     if (path === '/api/auth/check' && m === 'GET') return addCors(await apiCheck(req, env));
     if (path === '/api/auth/logout' && m === 'POST') return addCors(await apiLogout(req, env));
 
+    // Attachment download/preview: accepts Bearer header OR ?token= query param
+    // because <a href> and <img src> in new tabs can't send Authorization headers.
+    {
+      const am = path.match(/^\/api\/attachments\/([^/]+)\/(download|preview)$/);
+      if (am && m === 'GET') {
+        const headerToken = getToken(req);
+        const queryToken = url.searchParams.get('token');
+        const t = headerToken || queryToken;
+        if (!t) return addCors(jres({ error: 'Unauthorized' }, 401));
+        const sess = await getActiveSession(env, t);
+        if (!sess || sess.session.is_2fa_pending) return addCors(jres({ error: 'Unauthorized' }, 401));
+        return addCors(await downloadAttachment(env, am[1], am[2] === 'preview'));
+      }
+    }
+
     if (path.startsWith('/api/')) {
       const authCtx = await requireAuth(req, env);
       if (authCtx instanceof Response) return addCors(authCtx);
