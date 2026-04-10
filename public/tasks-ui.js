@@ -33,17 +33,71 @@ const ISSUE_TYPE_ICONS = {
 };
 
 // ── Markdown helper ───────────────────────────────────────────
+// Mermaid integration: initialize once with theme-aware config.
+// mermaid.run() is called after every markdown render via renderMarkdownAndDiagrams().
+(function initMermaid() {
+  if (typeof mermaid === 'undefined') return;
+  try {
+    const isDark = document.documentElement.dataset.theme !== 'light';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      securityLevel: 'strict',
+      fontFamily: 'DM Sans, sans-serif',
+    });
+  } catch {}
+})();
+
 function renderMarkdown(text) {
   if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
     return `<pre class="md-fallback">${esc(text || '')}</pre>`;
   }
   try {
     const raw = marked.parse(String(text || ''), { breaks: true, gfm: true });
-    return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+    // DOMPurify strips unknown tags, so we need to preserve mermaid divs.
+    // marked renders ```mermaid blocks as <pre><code class="language-mermaid">...
+    // We post-process to convert them into <div class="mermaid"> for mermaid.run().
+    let html = DOMPurify.sanitize(raw, {
+      USE_PROFILES: { html: true },
+      ADD_TAGS: ['div'],
+      ADD_ATTR: ['class'],
+    });
+    // Convert <pre><code class="language-mermaid">...</code></pre> → <div class="mermaid">...</div>
+    html = html.replace(
+      /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi,
+      function (_, content) {
+        // Decode HTML entities back to plain text for mermaid parser
+        const decoded = content.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        return '<div class="mermaid">' + decoded + '</div>';
+      }
+    );
+    return html;
   } catch {
     return `<pre class="md-fallback">${esc(text || '')}</pre>`;
   }
 }
+
+// Call this after any innerHTML that may contain mermaid diagrams.
+// Safe to call even if no mermaid blocks exist — it just no-ops.
+function renderMermaidDiagrams() {
+  if (typeof mermaid === 'undefined') return;
+  try {
+    // Re-initialize with current theme (handles light/dark toggle)
+    const isDark = document.documentElement.dataset.theme !== 'light';
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      securityLevel: 'strict',
+      fontFamily: 'DM Sans, sans-serif',
+    });
+    // Find unprocessed mermaid divs and render them
+    const els = document.querySelectorAll('.mermaid:not([data-processed])');
+    if (els.length) mermaid.run({ nodes: els });
+  } catch (e) {
+    console.warn('Mermaid render error:', e);
+  }
+}
+window.renderMermaidDiagrams = renderMermaidDiagrams;
 
 // ── Relative time ─────────────────────────────────────────────
 function relTime(iso) {
@@ -557,13 +611,18 @@ function renderIssueDetailModal() {
       <button class="btn btn-ghost" type="button" onclick="closeIssueDetail()">Close</button>
     </div>
   `);
-  // Wire @mention autocomplete on the comment composer (if present).
-  // notifications-ui.js owns this helper; guard in case it hasn't loaded.
+  // Wire @mention autocomplete + markdown toolbar on the comment composer.
+  // Use a longer delay to ensure notifications-ui.js has loaded and executed.
   setTimeout(() => {
     const ct = document.getElementById('issue-comment-text');
-    if (ct && typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ct);
-    if (ct && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(ct);
-  }, 0);
+    if (!ct) return;
+    if (typeof attachMentionAutocomplete === 'function') {
+      attachMentionAutocomplete(ct);
+    }
+    if (typeof attachMarkdownToolbar === 'function') {
+      attachMarkdownToolbar(ct);
+    }
+  }, 100);
   // Sprint 6: render attachments + linked items panels into the modal extras.
   setTimeout(() => {
     const attEl = document.getElementById('issue-attachments-panel');
@@ -574,6 +633,8 @@ function renderIssueDetailModal() {
     if (lnEl && typeof renderLinksPanel === 'function' && currentIssue) {
       renderLinksPanel(lnEl, 'issue', currentIssue.id);
     }
+    // Render any mermaid diagrams in description or comments.
+    if (typeof renderMermaidDiagrams === 'function') renderMermaidDiagrams();
   }, 0);
 }
 

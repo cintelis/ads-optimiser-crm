@@ -288,7 +288,7 @@ function renderDocsSidebarHTML() {
             <div style="font-weight:600">${esc(space.name)}</div>
           </div>
         </div>
-        ${canWrite ? `<button class="btn btn-ghost btn-sm" type="button" style="margin-top:8px;width:100%" onclick="openCreatePage('')">+ New top-level page</button>` : ''}
+        ${canWrite ? `<button class="icon-btn icon-btn-ghost" type="button" title="New top-level page" style="margin-top:8px" onclick="openCreatePage('')"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5z" fill="currentColor"/></svg></button>` : ''}
       </div>
       <ul class="docs-tree">
         ${renderPageTreeHTML(tree, 0)}
@@ -452,6 +452,8 @@ function renderPage() {
       if (typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(ta);
     }
   }
+  // Render any mermaid diagrams in the page body or preview.
+  if (typeof renderMermaidDiagrams === 'function') setTimeout(renderMermaidDiagrams, 0);
   // Sprint 6: render the linked items panel below the page (view mode only).
   if (!editing && page && page.id) {
     setTimeout(() => {
@@ -538,6 +540,7 @@ function onEditorContentInput(value) {
   const preview = document.getElementById('docs-editor-preview');
   if (preview) {
     preview.innerHTML = value ? renderMarkdown(value) : '<p class="text-muted">Preview will appear here as you type.</p>';
+    if (typeof renderMermaidDiagrams === 'function') renderMermaidDiagrams();
   }
 }
 window.onEditorContentInput = onEditorContentInput;

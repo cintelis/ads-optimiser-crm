@@ -650,6 +650,8 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .md-body h3{font-size:15px}
 .md-body h4{font-size:14px}
 .md-body img{max-width:100%;border-radius:var(--radius-sm,4px)}
+.md-body .mermaid{margin:12px 0;text-align:center}
+.md-body .mermaid svg{max-width:100%;height:auto}
 
 /* Activity feed */
 .activity-feed{display:flex;flex-direction:column;gap:10px;margin-top:8px}
@@ -766,7 +768,7 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .docs-space-icon{width:44px;height:44px;border-radius:var(--radius);background:color-mix(in srgb,var(--cyan) 14%,transparent);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;font-family:var(--font-head);margin-bottom:12px}
 
 /* Two-column docs layout */
-.docs-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:start}
+.docs-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px;align-items:stretch;min-height:calc(100vh - var(--header-height) - 40px)}
 .docs-sidebar{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
 .docs-sidebar-header{padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
 .docs-main{min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px}

@@ -1201,6 +1201,9 @@ async function route(req, env, url, path, authCtx) {
     if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
     return apiCreateUser(req, env);
   }
+  // Mention search — available to all authenticated users. Must come BEFORE
+  // the /api/users/:id regex which would match "mention-search" as a userId.
+  if (path === '/api/users/mention-search' && m === 'GET') return mentionSearch(req, env);
   {
     const userMatch = path.match(/^\/api\/users\/([^/]+)(?:\/(reset-password|reset-mfa))?$/);
     if (userMatch) {
@@ -1263,8 +1266,6 @@ async function route(req, env, url, path, authCtx) {
     const nm = path.match(/^\/api\/me\/notifications\/([^/]+)\/read$/);
     if (nm && m === 'POST') return markRead(env, authCtx, nm[1]);
   }
-  if (path === '/api/users/mention-search' && m === 'GET') return mentionSearch(req, env);
-
   if (path === '/api/integrations' && m === 'GET') {
     if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
     return listIntegrations(env);

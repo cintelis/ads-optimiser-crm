@@ -302,7 +302,7 @@ function onMentionInput(textarea) {
   }
   const { prefix } = hit;
   state.mentionAutocomplete.target = textarea;
-  if (prefix === __mentionLastQuery && state.mentionAutocomplete.open) {
+  if (prefix === __mentionLastQuery && state.mentionAutocomplete.open && state.mentionAutocomplete.items.length) {
     // Reposition in case the textarea moved.
     renderMentionAutocomplete(textarea, state.mentionAutocomplete.items);
     return;

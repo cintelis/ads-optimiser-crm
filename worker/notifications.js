@@ -211,7 +211,13 @@ export async function markAllRead(env, ctx) {
 export async function mentionSearch(req, env) {
   const url = new URL(req.url);
   const qRaw = String(url.searchParams.get('q') || '').trim();
-  if (qRaw.length < 1) return jres({ users: [] });
+  // If q is empty, return all active users (for the initial @-trigger popup).
+  if (qRaw.length < 1) {
+    const { results } = await env.DB.prepare(
+      'SELECT id, email, display_name FROM users WHERE active = 1 ORDER BY display_name ASC LIMIT 8'
+    ).all();
+    return jres({ users: results || [] });
+  }
   // Sanitize: strip LIKE-wildcard chars to avoid injection into our own pattern.
   const q = qRaw.replace(/[%_]/g, '').toLowerCase();
   if (!q) return jres({ users: [] });
