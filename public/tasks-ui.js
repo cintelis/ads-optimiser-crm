@@ -71,6 +71,19 @@ function renderMarkdown(text) {
         return '<div class="mermaid">' + decoded + '</div>';
       }
     );
+    // Wiki-links: [[Page Title]] or [[SPACE/Page Title]] → clickable link.
+    // Works in issue comments, doc pages, descriptions — anywhere renderMarkdown is used.
+    html = html.replace(
+      /\[\[([^\]]{1,120})\]\]/g,
+      function (_, raw) {
+        const t = raw.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        // Display: show "Page Title" for [[SPACE/Page Title]], or the full text for [[Page Title]]
+        const displayTitle = t.includes('/') ? t.split('/').slice(1).join('/') : t;
+        const spaceHint = t.includes('/') ? '<span class="wiki-link-space">' + t.split('/')[0] + '</span> ' : '';
+        const escaped = t.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return '<a class="wiki-link" href="javascript:void(0)" onclick="openWikiLink(\'' + escaped + '\')">' + spaceHint + displayTitle + '</a>';
+      }
+    );
     return html;
   } catch {
     return `<pre class="md-fallback">${esc(text || '')}</pre>`;
@@ -98,6 +111,57 @@ function renderMermaidDiagrams() {
   }
 }
 window.renderMermaidDiagrams = renderMermaidDiagrams;
+
+// Wiki-link navigation: [[Page Title]] or [[SPACE/Page Title]] clicks resolve to the matching doc page.
+async function openWikiLink(rawLink) {
+  if (!rawLink) return;
+  try {
+    // Parse optional space prefix: [[ENG/Architecture]] → spaceKey=ENG, title=Architecture
+    let spaceKey = '';
+    let title = rawLink;
+    if (rawLink.includes('/')) {
+      spaceKey = rawLink.split('/')[0].trim().toUpperCase();
+      title = rawLink.split('/').slice(1).join('/').trim();
+    }
+    const r = await api('GET', '/api/entity-search?type=doc_page&q=' + encodeURIComponent(title));
+    const results = (r && Array.isArray(r.results)) ? r.results : [];
+    // If space key given, filter to that space first
+    let filtered = results;
+    if (spaceKey) {
+      filtered = results.filter(p => String(p.subtitle || '').toUpperCase() === spaceKey);
+    }
+    // Exact title match first, then first partial match
+    const pool = filtered.length ? filtered : results;
+    const exact = pool.find(p => String(p.title || '').toLowerCase() === title.toLowerCase());
+    const match = exact || pool[0];
+    if (match) {
+      // Fetch the page to get its space_id — renderDocsSection needs both.
+      const pageData = await api('GET', '/api/doc-pages/' + encodeURIComponent(match.id));
+      const spaceId = (pageData && pageData.space && pageData.space.id) || (pageData && pageData.page && pageData.page.space_id) || '';
+      // Close any open modal (e.g. issue detail) before navigating
+      if (typeof closeModal === 'function') closeModal();
+      if (typeof state !== 'undefined') {
+        state.ui.docsPageId = match.id;
+        state.ui.docsSpaceId = spaceId;
+        // Pre-load the page into state so renderPage has data immediately
+        if (pageData && pageData.page) {
+          state.docs.page = pageData.page;
+          if (pageData.page._children === undefined) {
+            state.docs.page._children = pageData.children || [];
+            state.docs.page._parent = pageData.parent || null;
+            state.docs.page._versionCount = pageData.version_count || 0;
+          }
+        }
+      }
+      nav('docs');
+    } else {
+      if (typeof toastWarn === 'function') toastWarn('Page not found: "' + title + '"');
+    }
+  } catch (e) {
+    if (typeof toastError === 'function') toastError('Failed to find page: ' + (e && e.message || e));
+  }
+}
+window.openWikiLink = openWikiLink;
 
 // ── Relative time ─────────────────────────────────────────────
 function relTime(iso) {
@@ -585,23 +649,28 @@ function renderIssueDetailModal() {
         </aside>
       </div>
 
-      <details class="issue-activity-details" style="margin-top:22px">
-        <summary class="issue-section-label" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:8px">
-          <span style="font-size:10px;transition:transform .15s">▸</span>
-          Activity (${currentIssueActivity.length} item${currentIssueActivity.length !== 1 ? 's' : ''})
-        </summary>
-        <div class="issue-activity" id="issue-activity" style="margin-top:8px">
-          ${renderIssueActivityFeed()}
-        </div>
-      </details>
+      <div class="issue-section-label" style="margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Comments (${currentIssueActivity.filter(a => a.kind === 'comment').length})</div>
+      <div class="issue-comments" id="issue-comments" style="margin-top:8px">
+        ${renderCommentsFeed()}
+      </div>
 
       ${canWrite ? `
       <div class="issue-comment-composer" style="margin-top:14px">
-        <textarea id="issue-comment-text" rows="3" placeholder="Add a comment… (Markdown supported)"></textarea>
+        <textarea id="issue-comment-text" rows="3" placeholder="Add a comment… (for detailed docs, create a page and link it here)"></textarea>
         <div style="margin-top:8px;display:flex;justify-content:flex-end">
           <button class="btn btn-primary btn-sm" type="button" onclick="addComment()">Add comment</button>
         </div>
       </div>` : ''}
+
+      <details class="issue-activity-details" style="margin-top:22px">
+        <summary class="issue-section-label" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;transition:transform .15s">▸</span>
+          Activity log (${currentIssueActivity.filter(a => a.kind !== 'comment').length} events)
+        </summary>
+        <div class="issue-activity" id="issue-activity" style="margin-top:8px">
+          ${renderSystemActivityFeed()}
+        </div>
+      </details>
 
       <div id="issue-attachments-panel" style="margin-top:18px"></div>
       <div id="issue-links-panel" style="margin-top:18px"></div>
@@ -616,12 +685,9 @@ function renderIssueDetailModal() {
   setTimeout(() => {
     const ct = document.getElementById('issue-comment-text');
     if (!ct) return;
-    if (typeof attachMentionAutocomplete === 'function') {
-      attachMentionAutocomplete(ct);
-    }
-    if (typeof attachMarkdownToolbar === 'function') {
-      attachMarkdownToolbar(ct);
-    }
+    if (typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ct);
+    if (typeof attachWikiLinkAutocomplete === 'function') attachWikiLinkAutocomplete(ct);
+    if (typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(ct);
   }, 100);
   // Sprint 6: render attachments + linked items panels into the modal extras.
   setTimeout(() => {
@@ -635,6 +701,8 @@ function renderIssueDetailModal() {
     }
     // Render any mermaid diagrams in description or comments.
     if (typeof renderMermaidDiagrams === 'function') renderMermaidDiagrams();
+    // Collapse long comments (> 300px rendered height).
+    if (typeof collapseOverflowingComments === 'function') collapseOverflowingComments();
   }, 0);
 }
 
@@ -726,6 +794,7 @@ function editIssueDesc() {
     const el = document.getElementById('issue-desc-input');
     if (el) el.focus();
     if (el && typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(el);
+    if (el && typeof attachWikiLinkAutocomplete === 'function') attachWikiLinkAutocomplete(el);
     if (el && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(el);
   }, 10);
 }
@@ -753,28 +822,44 @@ async function commitIssueDesc() {
 }
 window.commitIssueDesc = commitIssueDesc;
 
-// Activity feed ───────────────────────────────────────────────
-function renderIssueActivityFeed() {
-  if (!currentIssueActivity.length) return '<div class="text-muted text-sm">No activity yet.</div>';
+// Comments feed (always visible) ──────────────────────────────
+function renderCommentsFeed() {
+  const comments = currentIssueActivity.filter(a => a.kind === 'comment');
+  if (!comments.length) return '<div class="text-muted text-sm" style="padding:8px 0">No comments yet. Be the first to add one.</div>';
+  const canWrite = tasksCanWrite();
+  return comments.map(act => {
+    const u = act.user || null;
+    const who = u ? (u.display_name || u.email) : 'system';
+    const when = relTime(act.created_at);
+    // Small team — any member+ can delete any comment. Backend enforces if needed.
+    const delBtn = canWrite ? `<button class="activity-del" type="button" title="Delete comment" onclick="deleteActivity('${esc(act.id)}')">×</button>` : '';
+    const commentId = 'comment-body-' + act.id;
+    return `
+      <div class="comment-card" style="margin:10px 0;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div><strong>${esc(who)}</strong> <span class="text-muted text-sm">${esc(when)}</span></div>
+          ${delBtn}
+        </div>
+        <div class="comment-body-wrap" id="${esc(commentId)}">
+          <div class="md-body comment-body-content">${renderMarkdown(act.body_md || '')}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// System activity feed (collapsed) ────────────────────────────
+function renderSystemActivityFeed() {
+  const events = currentIssueActivity.filter(a => a.kind !== 'comment');
+  if (!events.length) return '<div class="text-muted text-sm">No system events yet.</div>';
   const myId = state.me && state.me.id;
   const isAdmin = tasksIsAdmin();
-  return currentIssueActivity.map(act => {
+  return events.map(act => {
     const u = act.user || null;
     const who = u ? (u.display_name || u.email) : 'system';
     const when = relTime(act.created_at);
     const canDelete = isAdmin || (myId && act.user_id && myId === act.user_id);
     const delBtn = canDelete ? `<button class="activity-del" type="button" title="Delete" onclick="deleteActivity('${esc(act.id)}')">×</button>` : '';
-    if (act.kind === 'comment') {
-      return `
-        <div class="activity-row activity-comment" style="margin:10px 0;padding:10px 12px;border:1px solid var(--border);border-radius:6px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <div><strong>${esc(who)}</strong> <span class="text-muted text-sm">commented ${esc(when)}</span></div>
-            ${delBtn}
-          </div>
-          <div class="md-body">${renderMarkdown(act.body_md || '')}</div>
-        </div>
-      `;
-    }
     return `
       <div class="activity-row activity-system" style="margin:6px 0;font-style:italic;color:var(--muted2);font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px">
         <div><strong>${esc(who)}</strong> ${esc(act.body_md || '')} <span class="text-muted">· ${esc(when)}</span></div>
@@ -783,6 +868,32 @@ function renderIssueActivityFeed() {
     `;
   }).join('');
 }
+
+// Collapse long comments after render
+function collapseOverflowingComments() {
+  document.querySelectorAll('.comment-body-wrap').forEach(wrap => {
+    if (wrap.dataset.collapsed) return;
+    const content = wrap.querySelector('.comment-body-content');
+    if (!content) return;
+    if (content.scrollHeight > 300) {
+      wrap.style.maxHeight = '300px';
+      wrap.style.overflow = 'hidden';
+      wrap.style.position = 'relative';
+      const btn = document.createElement('button');
+      btn.className = 'comment-show-more';
+      btn.textContent = 'Show more ▾';
+      btn.onclick = function () {
+        wrap.style.maxHeight = 'none';
+        wrap.style.overflow = 'visible';
+        btn.remove();
+        wrap.dataset.collapsed = 'expanded';
+      };
+      wrap.parentNode.appendChild(btn);
+      wrap.dataset.collapsed = 'clipped';
+    }
+  });
+}
+window.collapseOverflowingComments = collapseOverflowingComments;
 
 async function addComment() {
   const el = document.getElementById('issue-comment-text');
@@ -917,11 +1028,14 @@ async function commitIssueField(field, value) {
           <div class="kv-row"><div class="kv-k">Updated</div><div class="kv-v text-muted text-sm">${esc(relTime(currentIssue.updated_at))}</div></div>
         `;
       }
-      // Refresh activity feed only (it may have new system rows from the change)
-      const actEl = document.getElementById('issue-activity');
-      if (actEl && r.activity) {
+      // Refresh both comments + system activity if the response has new data
+      if (r.activity) {
         currentIssueActivity = r.activity;
-        actEl.innerHTML = renderIssueActivityFeed();
+        const commentsEl = document.getElementById('issue-comments');
+        if (commentsEl) commentsEl.innerHTML = renderCommentsFeed();
+        const actEl = document.getElementById('issue-activity');
+        if (actEl) actEl.innerHTML = renderSystemActivityFeed();
+        setTimeout(collapseOverflowingComments, 0);
       }
       toastSuccess('Updated');
     } else {

@@ -420,3 +420,167 @@ function hideMentionAutocomplete() {
   if (dd && dd.parentNode) dd.parentNode.removeChild(dd);
 }
 window.hideMentionAutocomplete = hideMentionAutocomplete;
+
+// ============================================================
+// Wiki-link autocomplete: triggered by [[ in any textarea.
+// Searches doc pages via /api/entity-search?type=doc_page&q=...
+// On select, inserts [[SPACE_KEY/Page Title]] into the textarea.
+// ============================================================
+
+let __wikiDebounceTimer = null;
+let __wikiLastQuery = '';
+
+function attachWikiLinkAutocomplete(textarea) {
+  if (!textarea || textarea.tagName !== 'TEXTAREA') return;
+  if (textarea.dataset.wikiAttached === '1') return;
+  textarea.dataset.wikiAttached = '1';
+
+  textarea.addEventListener('input', () => onWikiInput(textarea));
+  textarea.addEventListener('keydown', (ev) => onWikiKeyDown(textarea, ev));
+  textarea.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (state.wikiAutocomplete && state.wikiAutocomplete.target === textarea) hideWikiAutocomplete();
+    }, 150);
+  });
+}
+window.attachWikiLinkAutocomplete = attachWikiLinkAutocomplete;
+
+function getWikiPrefix(textarea) {
+  const pos = textarea.selectionStart || 0;
+  const value = textarea.value || '';
+  // Look backwards for [[
+  let i = pos - 1;
+  let text = '';
+  while (i >= 0) {
+    if (i >= 1 && value.charAt(i - 1) === '[' && value.charAt(i) === '[') {
+      // Found [[ at position i-1
+      text = value.slice(i + 1, pos);
+      // Don't match if there's a closing ]] already
+      if (text.includes(']]')) return null;
+      if (text.length > 120) return null;
+      return { start: i - 1, prefix: text };
+    }
+    // Stop at newlines — wiki-links don't span lines
+    if (value.charAt(i) === '\n') return null;
+    i--;
+  }
+  return null;
+}
+
+function onWikiInput(textarea) {
+  if (!state.wikiAutocomplete) state.wikiAutocomplete = { open: false, items: [], active: 0, target: null };
+  const hit = getWikiPrefix(textarea);
+  if (!hit) {
+    hideWikiAutocomplete();
+    return;
+  }
+  const { prefix } = hit;
+  state.wikiAutocomplete.target = textarea;
+  if (prefix === __wikiLastQuery && state.wikiAutocomplete.open && state.wikiAutocomplete.items.length) {
+    renderWikiAutocomplete(textarea, state.wikiAutocomplete.items);
+    return;
+  }
+  if (__wikiDebounceTimer) clearTimeout(__wikiDebounceTimer);
+  __wikiDebounceTimer = setTimeout(async () => {
+    __wikiLastQuery = prefix;
+    // Search for pages; if prefix contains / treat left part as space filter
+    const q = prefix.includes('/') ? prefix.split('/').slice(1).join('/') : prefix;
+    const r = await api('GET', '/api/entity-search?type=doc_page&q=' + encodeURIComponent(q || ''));
+    const items = (r && Array.isArray(r.results)) ? r.results : [];
+    if (!state.wikiAutocomplete || state.wikiAutocomplete.target !== textarea) return;
+    const current = getWikiPrefix(textarea);
+    if (!current) { hideWikiAutocomplete(); return; }
+    state.wikiAutocomplete.items = items;
+    state.wikiAutocomplete.active = 0;
+    if (!items.length) { hideWikiAutocomplete(); return; }
+    state.wikiAutocomplete.open = true;
+    renderWikiAutocomplete(textarea, items);
+  }, 200);
+}
+
+function onWikiKeyDown(textarea, ev) {
+  if (!state.wikiAutocomplete || !state.wikiAutocomplete.open || state.wikiAutocomplete.target !== textarea) return;
+  const items = state.wikiAutocomplete.items || [];
+  if (!items.length) return;
+  if (ev.key === 'ArrowDown') {
+    ev.preventDefault(); ev.stopPropagation();
+    state.wikiAutocomplete.active = (state.wikiAutocomplete.active + 1) % items.length;
+    renderWikiAutocomplete(textarea, items);
+  } else if (ev.key === 'ArrowUp') {
+    ev.preventDefault(); ev.stopPropagation();
+    state.wikiAutocomplete.active = (state.wikiAutocomplete.active - 1 + items.length) % items.length;
+    renderWikiAutocomplete(textarea, items);
+  } else if (ev.key === 'Enter' || ev.key === 'Tab') {
+    ev.preventDefault(); ev.stopPropagation();
+    const sel = items[state.wikiAutocomplete.active] || items[0];
+    if (sel) insertWikiLinkAtCursor(textarea, sel);
+  } else if (ev.key === 'Escape') {
+    ev.preventDefault(); ev.stopPropagation();
+    hideWikiAutocomplete();
+  }
+}
+
+function renderWikiAutocomplete(textarea, items) {
+  let dd = document.getElementById('wiki-autocomplete');
+  if (!dd) {
+    dd = document.createElement('div');
+    dd.id = 'wiki-autocomplete';
+    dd.className = 'mention-autocomplete';
+    document.body.appendChild(dd);
+  }
+  const r = textarea.getBoundingClientRect();
+  dd.style.position = 'fixed';
+  dd.style.left = r.left + 'px';
+  dd.style.top = (r.bottom + 4) + 'px';
+  dd.style.minWidth = Math.min(380, Math.max(260, r.width)) + 'px';
+  const active = Number(state.wikiAutocomplete.active || 0);
+  dd.innerHTML = items.map((p, idx) => {
+    const spaceLabel = p.subtitle || '';
+    const cls = 'mention-autocomplete-item' + (idx === active ? ' active' : '');
+    return `<div class="${cls}" onmousedown="__wikiPick(event, ${idx})">
+      <div class="mention-autocomplete-name">${esc(p.title || '')}</div>
+      <div class="mention-autocomplete-email">${spaceLabel ? esc(spaceLabel) : '<span class=text-muted>doc page</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+function __wikiPick(ev, idx) {
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+  const items = (state.wikiAutocomplete && state.wikiAutocomplete.items) || [];
+  const page = items[idx];
+  const target = state.wikiAutocomplete && state.wikiAutocomplete.target;
+  if (!page || !target) return;
+  insertWikiLinkAtCursor(target, page);
+}
+window.__wikiPick = __wikiPick;
+
+function insertWikiLinkAtCursor(textarea, page) {
+  const hit = getWikiPrefix(textarea);
+  if (!hit) { hideWikiAutocomplete(); return; }
+  const value = textarea.value || '';
+  const before = value.slice(0, hit.start);
+  const after = value.slice(textarea.selectionStart || 0);
+  // Build the wiki-link with space prefix for disambiguation
+  const spaceKey = page.subtitle || '';
+  const linkText = spaceKey ? spaceKey + '/' + (page.title || '') : (page.title || '');
+  const insert = '[[' + linkText + ']]';
+  textarea.value = before + insert + after;
+  const newPos = (before + insert).length;
+  try { textarea.setSelectionRange(newPos, newPos); } catch {}
+  try { textarea.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
+  hideWikiAutocomplete();
+  try { textarea.focus(); } catch {}
+}
+
+function hideWikiAutocomplete() {
+  if (state.wikiAutocomplete) {
+    state.wikiAutocomplete.open = false;
+    state.wikiAutocomplete.items = [];
+    state.wikiAutocomplete.active = 0;
+    state.wikiAutocomplete.target = null;
+  }
+  __wikiLastQuery = '';
+  const dd = document.getElementById('wiki-autocomplete');
+  if (dd && dd.parentNode) dd.parentNode.removeChild(dd);
+}
+window.hideWikiAutocomplete = hideWikiAutocomplete;

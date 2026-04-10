@@ -448,6 +448,7 @@ function renderPage() {
       try { ta.focus(); } catch (e) { /* ignore */ }
       // Wire @mention autocomplete (notifications-ui.js owns the helper).
       if (typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ta);
+      if (typeof attachWikiLinkAutocomplete === 'function') attachWikiLinkAutocomplete(ta);
       // Sprint 7: markdown toolbar
       if (typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(ta);
     }

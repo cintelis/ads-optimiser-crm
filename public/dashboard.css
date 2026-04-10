@@ -630,6 +630,9 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .issue-title input:focus{border-color:var(--cyan)}
 .issue-activity-details[open] > summary span:first-child{transform:rotate(90deg)}
 .issue-activity-details summary::-webkit-details-marker{display:none}
+.comment-card{transition:border-color .15s}
+.comment-card:hover{border-color:color-mix(in srgb, var(--cyan) 22%, transparent)}
+.comment-show-more{display:block;width:100%;margin-top:4px;padding:6px 0;background:linear-gradient(to bottom,transparent,var(--surface) 40%);border:none;color:var(--cyan);font-size:12px;font-weight:600;cursor:pointer;text-align:center;font-family:var(--font-body)}
 .issue-desc{padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm,4px);cursor:pointer;min-height:80px;transition:border-color .15s}
 .issue-desc:hover{border-color:color-mix(in srgb,var(--cyan) 28%,transparent)}
 .issue-desc.empty{color:var(--muted2);font-style:italic}
@@ -643,6 +646,9 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .md-body pre code{background:transparent;padding:0;font-size:12px}
 .md-body a{color:var(--cyan);text-decoration:none}
 .md-body a:hover{text-decoration:underline}
+.md-body a.wiki-link{color:var(--cyan);font-weight:600;text-decoration:none;border-bottom:1px dashed color-mix(in srgb, var(--cyan) 40%, transparent)}
+.md-body a.wiki-link:hover{border-bottom-style:solid}
+.wiki-link-space{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted2);margin-right:2px}
 .md-body blockquote{border-left:3px solid var(--border2);padding-left:12px;color:var(--muted);margin:8px 0}
 .md-body h1,.md-body h2,.md-body h3,.md-body h4{font-family:var(--font-head);font-weight:700;margin:14px 0 6px;color:var(--text);line-height:1.2}
 .md-body h1{font-size:20px}
@@ -664,6 +670,8 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .activity-row .activity-time{color:var(--muted2)}
 .activity-del{position:absolute;top:6px;right:6px;background:transparent;border:1px solid transparent;color:var(--muted2);width:22px;height:22px;border-radius:var(--radius-sm,4px);cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,border-color .15s,color .15s}
 .activity-row:hover .activity-del{opacity:1}
+.comment-card .activity-del{opacity:0.4;position:static}
+.comment-card:hover .activity-del{opacity:1}
 .activity-del:hover{border-color:var(--border2);color:var(--red)}
 .avatar-sm{width:28px;height:28px;border-radius:999px;background:var(--surface2);color:var(--text);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border)}
 
