@@ -482,6 +482,7 @@ function renderPageViewHTML(page, canWrite) {
       <div class="docs-page-actions" style="margin-top:12px">
         ${canWrite ? '<button class="btn btn-primary btn-sm" type="button" onclick="startEditPage()">Edit</button>' : ''}
         <button class="btn btn-ghost btn-sm" type="button" onclick="openVersionHistory()">Version history${versionCount ? ' (' + versionCount + ')' : ''}</button>
+        ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openMovePageModal()">Move</button>' : ''}
         ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openCreatePage(\'' + esc(page.id) + '\')">+ Add child</button>' : ''}
         ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="confirmDeletePage()">Delete</button>' : ''}
       </div>
@@ -681,6 +682,90 @@ async function submitCreatePage(parentId) {
 window.submitCreatePage = submitCreatePage;
 
 // ── Delete page / space ──────────────────────────────────────
+// ── Move page ───────────────────────────────────────────────
+function openMovePageModal() {
+  const page = state.docs.page;
+  if (!page) return;
+  const pages = state.docs.pages || [];
+  // Collect this page's descendant IDs to exclude them as targets (prevent cycles).
+  const descendants = new Set();
+  function collectDescendants(id) {
+    pages.forEach(p => {
+      if (p.parent_id === id && !descendants.has(p.id)) {
+        descendants.add(p.id);
+        collectDescendants(p.id);
+      }
+    });
+  }
+  descendants.add(page.id);
+  collectDescendants(page.id);
+
+  // Build the target options: top-level + every page that isn't this one or a descendant.
+  const currentParent = page.parent_id || '';
+  const options = pages
+    .filter(p => !descendants.has(p.id))
+    .map(p => {
+      // Build indent label from depth
+      let depth = 0;
+      let pid = p.parent_id;
+      while (pid && depth < 6) {
+        depth++;
+        const par = pages.find(x => x.id === pid);
+        pid = par ? par.parent_id : null;
+      }
+      const indent = '\u00A0\u00A0'.repeat(depth);
+      return `<option value="${esc(p.id)}" ${p.id === currentParent ? 'selected' : ''}>${indent}${esc(p.title)}</option>`;
+    }).join('');
+
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Move page</div>
+      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;color:var(--muted);font-size:14px">Move <strong>${esc(page.title)}</strong> to a new location in this space.</p>
+      <label>New parent</label>
+      <select id="move-page-target">
+        <option value="" ${!currentParent ? 'selected' : ''}>Top level (no parent)</option>
+        ${options}
+      </select>
+      <div class="form-msg" id="move-page-msg" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitMovePage()">Move page</button>
+    </div>
+  `);
+}
+window.openMovePageModal = openMovePageModal;
+
+async function submitMovePage() {
+  const page = state.docs.page;
+  if (!page) return;
+  const target = document.getElementById('move-page-target');
+  if (!target) return;
+  const newParentId = target.value || null;
+  if (newParentId === (page.parent_id || null)) {
+    closeModal();
+    return; // no change
+  }
+  const msg = document.getElementById('move-page-msg');
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+  const r = await api('PATCH', `/api/doc-pages/${encodeURIComponent(page.id)}`, { parent_id: newParentId });
+  if (r && (r.ok || r.page || r.unchanged)) {
+    closeModal();
+    toastSuccess('Page moved');
+    // Reload the space tree + page to reflect the new location
+    await loadSpace(state.ui.docsSpaceId);
+    await loadPage(page.id);
+    renderPage();
+  } else {
+    if (msg) {
+      msg.textContent = (r && r.error) || 'Failed to move page';
+      msg.className = 'form-msg form-msg-err';
+    }
+  }
+}
+window.submitMovePage = submitMovePage;
+
 async function confirmDeletePage() {
   const page = state.docs.page;
   if (!page) return;
