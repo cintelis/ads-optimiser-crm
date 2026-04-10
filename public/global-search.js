@@ -34,9 +34,20 @@
   }
   window.onGlobalSearchFocus = onGlobalSearchFocus;
 
+  function isFeatureVisible(feature) {
+    if (!state || !state.me || state.me.role === 'admin') return true;
+    var ff = state.featureFlags || {};
+    return ff[feature] ? ff[feature][state.me.role] !== false : true;
+  }
+
   function renderSearchResults(results, q) {
     const dd = document.getElementById('global-search-dropdown');
     if (!dd) return;
+
+    // Filter out entity types whose parent feature is disabled for the user
+    if (!isFeatureVisible('crm') && !isFeatureVisible('outreach')) {
+      results.contacts = [];
+    }
 
     const sections = [];
 
