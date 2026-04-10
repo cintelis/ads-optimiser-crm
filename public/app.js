@@ -870,6 +870,17 @@ function renderOverview() {
 
     <div id="my-issues-widget"></div>
 
+    ${showTasks ? `
+    <div class="overview-widgets-grid">
+      <div id="widget-active-sprints"></div>
+      <div id="widget-due-soon"></div>
+    </div>
+    <div class="overview-widgets-grid">
+      <div id="widget-team-workload"></div>
+      <div id="widget-recent-activity"></div>
+    </div>
+    ` : ''}
+
     ${(showOutreach || showCrm) ? `
     <div class="overview-range-row">
       <div class="overview-range-label">Date Range</div>
@@ -968,6 +979,8 @@ function renderOverview() {
   </div>`;
   // Sprint 6: render the "My open issues" widget into the placeholder
   if (typeof renderMyIssuesWidget === 'function') renderMyIssuesWidget();
+  // Dashboard widgets (Sprint 7+): active sprints, due soon, team workload, recent activity
+  if (typeof renderDashboardWidgets === 'function') renderDashboardWidgets();
 }
 
 // ── Templates ─────────────────────────────────────────────────

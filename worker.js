@@ -828,6 +828,72 @@ async function getMyIssues(env, authCtx) {
   return jres({ issues: results || [] });
 }
 
+// ── Sprint 7+: Overview dashboard widget endpoints ────────────
+async function getActiveSprints(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT s.id, s.name, s.state, s.start_at, s.planned_end_at,
+            p.key AS project_key, p.name AS project_name,
+            (SELECT COUNT(*) FROM issues WHERE sprint_id=s.id AND active=1) AS issue_count,
+            (SELECT COUNT(*) FROM issues WHERE sprint_id=s.id AND active=1 AND status='done') AS done_count
+     FROM sprints s
+     JOIN projects p ON p.id = s.project_id AND p.active = 1
+     WHERE s.state = 'active'
+     ORDER BY s.start_at ASC`
+  ).all();
+  const sprints = (results || []).map(s => {
+    let days_remaining = null;
+    if (s.planned_end_at) {
+      const diff = (new Date(s.planned_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      days_remaining = Math.max(0, Math.ceil(diff));
+    }
+    return { ...s, days_remaining };
+  });
+  return jres({ sprints });
+}
+
+async function getDueSoon(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT i.id, i.issue_key, i.title, i.status, i.priority, i.due_at, i.assignee_id,
+            u.display_name AS assignee_name, p.key AS project_key
+     FROM issues i
+     LEFT JOIN users u ON u.id = i.assignee_id
+     JOIN projects p ON p.id = i.project_id AND p.active = 1
+     WHERE i.active = 1 AND i.status <> 'done' AND i.due_at IS NOT NULL
+       AND date(i.due_at) <= date('now', '+7 days')
+     ORDER BY i.due_at ASC
+     LIMIT 15`
+  ).all();
+  return jres({ issues: results || [] });
+}
+
+async function getRecentProjectActivity(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT a.id, a.entity_type, a.entity_id, a.kind, a.body_md, a.created_at,
+            u.display_name AS user_name, u.email AS user_email
+     FROM activity a
+     LEFT JOIN users u ON u.id = a.user_id
+     ORDER BY a.created_at DESC
+     LIMIT 12`
+  ).all();
+  return jres({ activity: results || [] });
+}
+
+async function getTeamWorkload(env) {
+  const { results: users } = await env.DB.prepare(
+    `SELECT u.id, u.display_name, u.email,
+            COUNT(i.id) AS open_count
+     FROM users u
+     LEFT JOIN issues i ON i.assignee_id = u.id AND i.active = 1 AND i.status <> 'done'
+     WHERE u.active = 1
+     GROUP BY u.id
+     ORDER BY open_count DESC`
+  ).all();
+  const unassigned = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM issues WHERE active=1 AND status<>'done' AND assignee_id IS NULL`
+  ).first();
+  return jres({ users: users || [], unassigned: Number(unassigned?.n || 0) });
+}
+
 // ── Authenticated me/users/MFA endpoints ─────────────────────
 async function apiGetMe(env, authCtx) {
   const totp = await env.DB.prepare(
@@ -1116,6 +1182,12 @@ async function route(req, env, url, path, authCtx) {
   if (path === '/api/me/saved-filters' && m === 'GET') return getMySavedFilters(env, authCtx);
   if (path === '/api/me/saved-filters' && m === 'PUT') return setMySavedFilters(req, env, authCtx);
   if (path === '/api/me/my-issues' && m === 'GET') return getMyIssues(env, authCtx);
+
+  // Overview dashboard widgets
+  if (path === '/api/overview/active-sprints' && m === 'GET') return getActiveSprints(env);
+  if (path === '/api/overview/due-soon' && m === 'GET') return getDueSoon(env);
+  if (path === '/api/overview/recent-activity' && m === 'GET') return getRecentProjectActivity(env);
+  if (path === '/api/overview/team-workload' && m === 'GET') return getTeamWorkload(env);
 
   if (path === '/api/app-settings/feature-visibility' && m === 'GET') {
     return getFeatureVisibility(env).then(v => jres(v));
