@@ -499,50 +499,51 @@ function renderIssueDetailModal() {
       </div>
       <button class="modal-close" type="button" onclick="closeIssueDetail()">x</button>
     </div>
-    <div class="modal-body issue-detail-body" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:24px">
-      <div class="issue-detail-main" style="min-width:0">
-        <div class="issue-title-wrap" id="issue-title-wrap">
-          ${renderIssueTitleView(i.title)}
-        </div>
-        <div class="issue-section-label" style="margin-top:18px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Description</div>
-        <div class="issue-desc-wrap" id="issue-desc-wrap" style="margin-top:6px">
-          ${renderIssueDescView(i.description_md)}
-        </div>
-
-        <div class="issue-section-label" style="margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Activity</div>
-        <div class="issue-activity" id="issue-activity" style="margin-top:8px">
-          ${renderIssueActivityFeed()}
-        </div>
-
-        ${canWrite ? `
-        <div class="issue-comment-composer" style="margin-top:14px">
-          <textarea id="issue-comment-text" rows="3" placeholder="Add a comment… (Markdown supported)"></textarea>
-          <div style="margin-top:8px;display:flex;justify-content:flex-end">
-            <button class="btn btn-primary btn-sm" type="button" onclick="addComment()">Add comment</button>
+    <div class="modal-body" style="overflow-y:auto">
+      <div class="issue-detail-body" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:24px">
+        <div class="issue-detail-main" style="min-width:0">
+          <div class="issue-title-wrap" id="issue-title-wrap">
+            ${renderIssueTitleView(i.title)}
           </div>
-        </div>` : ''}
+          <div class="issue-section-label" style="margin-top:18px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Description</div>
+          <div class="issue-desc-wrap" id="issue-desc-wrap" style="margin-top:6px">
+            ${renderIssueDescView(i.description_md)}
+          </div>
+        </div>
+
+        <aside class="issue-detail-side" style="min-width:0">
+          <div class="kv-grid" id="issue-meta-grid">
+            ${renderIssueMetaRow('type', 'Type', `<span>${ISSUE_TYPE_ICONS[i.type] || ''}${esc(TASK_TYPE_LABELS[i.type] || i.type)}</span>`, canWrite)}
+            ${renderIssueMetaRow('status', 'Status', `<span class="lozenge lozenge-status-${esc(i.status)}">${esc(TASK_STATUS_LABELS[i.status] || i.status)}</span>`, canWrite)}
+            ${renderIssueMetaRow('priority', 'Priority', `<span class="lozenge lozenge-priority-${esc(i.priority)}">${esc(TASK_PRIORITY_LABELS[i.priority] || i.priority)}</span>`, canWrite)}
+            ${renderIssueMetaRow('assignee', 'Assignee', a ? esc(assigneeName) : '<span class="text-muted">Unassigned</span>', canWrite)}
+            <div class="kv-row"><div class="kv-k">Reporter</div><div class="kv-v">${esc(reporterName)}</div></div>
+            ${renderIssueMetaRow('due', 'Due date', dueVal ? esc(dueVal) : '<span class="text-muted">—</span>', canWrite)}
+            <div class="kv-row"><div class="kv-k">Parent</div><div class="kv-v">${currentIssueParent ? `<a href="javascript:void(0)" onclick="openIssueDetail('${esc(currentIssueParent.id)}')"><span class="mono">${esc(currentIssueParent.issue_key)}</span> ${esc(currentIssueParent.title)}</a>` : '<span class="text-muted">—</span>'}</div></div>
+            <div class="kv-row"><div class="kv-k">Sub-tasks</div><div class="kv-v">${
+              currentIssueSubtasks.length
+                ? currentIssueSubtasks.map(s => `<div><a href="javascript:void(0)" onclick="openIssueDetail('${esc(s.id)}')"><span class="mono">${esc(s.issue_key)}</span> ${esc(s.title)}</a> <span class="lozenge lozenge-status-${esc(s.status)}" style="margin-left:6px">${esc(TASK_STATUS_LABELS[s.status] || s.status)}</span></div>`).join('')
+                : '<span class="text-muted">None</span>'
+            }</div></div>
+            <div class="kv-row"><div class="kv-k">Created</div><div class="kv-v text-muted text-sm">${esc(relTime(i.created_at))}</div></div>
+            <div class="kv-row"><div class="kv-k">Updated</div><div class="kv-v text-muted text-sm">${esc(relTime(i.updated_at))}</div></div>
+          </div>
+        </aside>
       </div>
 
-      <aside class="issue-detail-side" style="min-width:0">
-        <div class="kv-grid" id="issue-meta-grid">
-          ${renderIssueMetaRow('type', 'Type', `<span>${ISSUE_TYPE_ICONS[i.type] || ''}${esc(TASK_TYPE_LABELS[i.type] || i.type)}</span>`, canWrite)}
-          ${renderIssueMetaRow('status', 'Status', `<span class="lozenge lozenge-status-${esc(i.status)}">${esc(TASK_STATUS_LABELS[i.status] || i.status)}</span>`, canWrite)}
-          ${renderIssueMetaRow('priority', 'Priority', `<span class="lozenge lozenge-priority-${esc(i.priority)}">${esc(TASK_PRIORITY_LABELS[i.priority] || i.priority)}</span>`, canWrite)}
-          ${renderIssueMetaRow('assignee', 'Assignee', a ? esc(assigneeName) : '<span class="text-muted">Unassigned</span>', canWrite)}
-          <div class="kv-row"><div class="kv-k">Reporter</div><div class="kv-v">${esc(reporterName)}</div></div>
-          ${renderIssueMetaRow('due', 'Due date', dueVal ? esc(dueVal) : '<span class="text-muted">—</span>', canWrite)}
-          <div class="kv-row"><div class="kv-k">Parent</div><div class="kv-v">${currentIssueParent ? `<a href="javascript:void(0)" onclick="openIssueDetail('${esc(currentIssueParent.id)}')"><span class="mono">${esc(currentIssueParent.issue_key)}</span> ${esc(currentIssueParent.title)}</a>` : '<span class="text-muted">—</span>'}</div></div>
-          <div class="kv-row"><div class="kv-k">Sub-tasks</div><div class="kv-v">${
-            currentIssueSubtasks.length
-              ? currentIssueSubtasks.map(s => `<div><a href="javascript:void(0)" onclick="openIssueDetail('${esc(s.id)}')"><span class="mono">${esc(s.issue_key)}</span> ${esc(s.title)}</a> <span class="lozenge lozenge-status-${esc(s.status)}" style="margin-left:6px">${esc(TASK_STATUS_LABELS[s.status] || s.status)}</span></div>`).join('')
-              : '<span class="text-muted">None</span>'
-          }</div></div>
-          <div class="kv-row"><div class="kv-k">Created</div><div class="kv-v text-muted text-sm">${esc(relTime(i.created_at))}</div></div>
-          <div class="kv-row"><div class="kv-k">Updated</div><div class="kv-v text-muted text-sm">${esc(relTime(i.updated_at))}</div></div>
+      <div class="issue-section-label" style="margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Activity</div>
+      <div class="issue-activity" id="issue-activity" style="margin-top:8px">
+        ${renderIssueActivityFeed()}
+      </div>
+
+      ${canWrite ? `
+      <div class="issue-comment-composer" style="margin-top:14px">
+        <textarea id="issue-comment-text" rows="3" placeholder="Add a comment… (Markdown supported)"></textarea>
+        <div style="margin-top:8px;display:flex;justify-content:flex-end">
+          <button class="btn btn-primary btn-sm" type="button" onclick="addComment()">Add comment</button>
         </div>
-      </aside>
-    </div>
-    <div class="issue-detail-extras" style="padding:0 24px 16px">
+      </div>` : ''}
+
       <div id="issue-attachments-panel" style="margin-top:18px"></div>
       <div id="issue-links-panel" style="margin-top:18px"></div>
     </div>
@@ -771,20 +772,20 @@ function editIssueField(field) {
   const i = currentIssue;
   let editorHtml = '';
   if (field === 'type') {
-    editorHtml = `<select id="ife-input" onchange="commitIssueField('type', this.value)" onblur="commitIssueField('type', this.value)">` +
+    editorHtml = `<select id="ife-input" onchange="commitIssueField('type', this.value)">` +
       TASK_TYPES.map(t => `<option value="${t}" ${i.type===t?'selected':''}>${esc(TASK_TYPE_LABELS[t])}</option>`).join('') + '</select>';
   } else if (field === 'status') {
-    editorHtml = `<select id="ife-input" onchange="commitIssueField('status', this.value)" onblur="commitIssueField('status', this.value)">` +
+    editorHtml = `<select id="ife-input" onchange="commitIssueField('status', this.value)">` +
       TASK_STATUSES.map(s => `<option value="${s}" ${i.status===s?'selected':''}>${esc(TASK_STATUS_LABELS[s])}</option>`).join('') + '</select>';
   } else if (field === 'priority') {
-    editorHtml = `<select id="ife-input" onchange="commitIssueField('priority', this.value)" onblur="commitIssueField('priority', this.value)">` +
+    editorHtml = `<select id="ife-input" onchange="commitIssueField('priority', this.value)">` +
       TASK_PRIORITIES.map(p => `<option value="${p}" ${i.priority===p?'selected':''}>${esc(TASK_PRIORITY_LABELS[p])}</option>`).join('') + '</select>';
   } else if (field === 'assignee') {
     const opts = '<option value="">Unassigned</option>' + (state.tasks.users||[]).map(u => `<option value="${esc(u.id)}" ${i.assignee_id===u.id?'selected':''}>${esc(u.display_name || u.email)}</option>`).join('');
-    editorHtml = `<select id="ife-input" onchange="commitIssueField('assignee_id', this.value)" onblur="commitIssueField('assignee_id', this.value)">${opts}</select>`;
+    editorHtml = `<select id="ife-input" onchange="commitIssueField('assignee_id', this.value)">${opts}</select>`;
   } else if (field === 'due') {
     const v = i.due_at ? String(i.due_at).slice(0,10) : '';
-    editorHtml = `<input id="ife-input" type="date" value="${esc(v)}" onchange="commitIssueField('due_at', this.value)" onblur="commitIssueField('due_at', this.value)">`;
+    editorHtml = `<input id="ife-input" type="date" value="${esc(v)}" onchange="commitIssueField('due_at', this.value)">`;
   }
   valEl.innerHTML = editorHtml;
   setTimeout(() => { const el = document.getElementById('ife-input'); if (el) el.focus(); }, 10);

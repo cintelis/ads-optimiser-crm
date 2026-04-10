@@ -1070,9 +1070,10 @@ async function route(req, env, url, path, authCtx) {
   if (path === '/api/auth/totp/disable' && m === 'POST') return apiTotpDisable(req, env, authCtx);
   if (path === '/api/auth/backup-codes/regenerate' && m === 'POST') return apiRegenerateBackupCodes(env, authCtx);
 
-  // ── User administration (admin role only) ────────────────
+  // ── User administration ──────────────────────────────────
+  // GET /api/users is available to all authenticated users (needed for assignee
+  // dropdowns, @mention autocomplete, etc.). Write operations stay admin-only.
   if (path === '/api/users' && m === 'GET') {
-    if (authCtx.user.role !== 'admin') return jres({ error: 'Forbidden: admin only' }, 403);
     return apiListUsers(env);
   }
   if (path === '/api/users' && m === 'POST') {
