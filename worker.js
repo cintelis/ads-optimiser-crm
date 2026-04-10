@@ -894,6 +894,46 @@ async function getTeamWorkload(env) {
   return jres({ users: users || [], unassigned: Number(unassigned?.n || 0) });
 }
 
+// ── Global search ────────────────────────────────────────────
+async function globalSearch(req, env) {
+  const url = new URL(req.url);
+  const q = String(url.searchParams.get('q') || '').trim();
+  if (q.length < 2) return jres({ results: [] });
+  const like = `%${q}%`;
+  const [issues, pages, contacts, projects] = await Promise.all([
+    env.DB.prepare(
+      `SELECT i.id, i.issue_key, i.title, i.status, i.priority, p.key AS project_key
+       FROM issues i JOIN projects p ON p.id = i.project_id AND p.active = 1
+       WHERE i.active = 1 AND (i.title LIKE ? OR i.issue_key LIKE ? OR i.description_md LIKE ?)
+       ORDER BY i.updated_at DESC LIMIT 8`
+    ).bind(like, like, like).all(),
+    env.DB.prepare(
+      `SELECT dp.id, dp.title, dp.slug, ds.key AS space_key, ds.name AS space_name
+       FROM doc_pages dp JOIN doc_spaces ds ON ds.id = dp.space_id AND ds.active = 1
+       WHERE dp.active = 1 AND (dp.title LIKE ? OR dp.content_md LIKE ?)
+       ORDER BY dp.updated_at DESC LIMIT 8`
+    ).bind(like, like).all(),
+    env.DB.prepare(
+      `SELECT c.id, c.name, c.email, c.company, c.stage
+       FROM contacts c
+       WHERE c.unsubscribed = 0 AND (c.name LIKE ? OR c.email LIKE ? OR c.company LIKE ?)
+       ORDER BY c.created_at DESC LIMIT 8`
+    ).bind(like, like, like).all(),
+    env.DB.prepare(
+      `SELECT id, key, name FROM projects WHERE active = 1 AND (name LIKE ? OR key LIKE ?)
+       ORDER BY name ASC LIMIT 5`
+    ).bind(like, like).all(),
+  ]);
+  return jres({
+    results: {
+      issues: (issues.results || []).map(r => ({ ...r, type: 'issue' })),
+      pages: (pages.results || []).map(r => ({ ...r, type: 'doc_page' })),
+      contacts: (contacts.results || []).map(r => ({ ...r, type: 'contact' })),
+      projects: (projects.results || []).map(r => ({ ...r, type: 'project' })),
+    }
+  });
+}
+
 // ── Authenticated me/users/MFA endpoints ─────────────────────
 async function apiGetMe(env, authCtx) {
   const totp = await env.DB.prepare(
@@ -1182,6 +1222,9 @@ async function route(req, env, url, path, authCtx) {
   if (path === '/api/me/saved-filters' && m === 'GET') return getMySavedFilters(env, authCtx);
   if (path === '/api/me/saved-filters' && m === 'PUT') return setMySavedFilters(req, env, authCtx);
   if (path === '/api/me/my-issues' && m === 'GET') return getMyIssues(env, authCtx);
+
+  // Global search
+  if (path === '/api/search' && m === 'GET') return globalSearch(req, env);
 
   // Overview dashboard widgets
   if (path === '/api/overview/active-sprints' && m === 'GET') return getActiveSprints(env);

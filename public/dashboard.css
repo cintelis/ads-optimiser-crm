@@ -1086,3 +1086,30 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .widget-workload-bar{height:100%;border-radius:999px;background:var(--cyan);transition:width .3s ease}
 .widget-workload-bar-muted{background:var(--muted2)}
 .widget-workload-count{width:30px;text-align:right;font-size:13px;font-weight:700;color:var(--text);flex-shrink:0}
+
+/* ── Global search (topbar) ──────────────────────────────────── */
+.topbar-search{flex:1;max-width:420px;position:relative;margin:0 18px}
+.topbar-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted2);pointer-events:none}
+#global-search-input{width:100%;padding:8px 12px 8px 32px;background:var(--input-bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-body);font-size:13px;outline:none;transition:border-color .15s}
+#global-search-input:focus{border-color:var(--cyan)}
+#global-search-input::placeholder{color:var(--muted2)}
+
+.global-search-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:100;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);max-height:440px;overflow-y:auto}
+.global-search-dropdown.open{display:block}
+
+.search-section-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);font-weight:700;padding:10px 14px 4px}
+.search-result{display:flex;gap:10px;align-items:center;padding:10px 14px;cursor:pointer;transition:background-color .12s}
+.search-result:hover{background:var(--hover)}
+.search-result-icon{width:28px;height:28px;border-radius:999px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.search-result-body{flex:1;min-width:0}
+.search-result-title{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search-result-meta{font-size:11px;color:var(--muted2);margin-top:2px}
+.search-empty{padding:24px 14px;text-align:center;color:var(--muted2);font-size:13px}
+
+@media (max-width:760px){
+  .topbar-search{max-width:none;margin:0 10px}
+}
+@media (max-width:480px){
+  .topbar-search{margin:0 6px}
+  #global-search-input{font-size:12px;padding:6px 10px 6px 28px}
+}
