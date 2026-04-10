@@ -68,6 +68,97 @@ const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
 const DEFAULT_NAME = 'Nick | 365Soft Labs';
 const CRM_PUBLIC_BASE_URL = 'https://projects.totallywild.ai';
+const SYSTEM_EMAIL_FROM = 'noreply@totallywild.ai';
+const SYSTEM_EMAIL_NAME = 'Totally Wild AI';
+
+// ── Transactional email templates (user account notifications) ──
+function systemEmailWrapper(title, bodyHtml) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+    <div style="max-width:560px;margin:32px auto;background:#ffffff;border-radius:12px;border:1px solid #dfe1e6;overflow:hidden">
+      <div style="background:#0C66E4;padding:20px 28px">
+        <div style="color:#ffffff;font-size:18px;font-weight:700">Totally Wild AI</div>
+      </div>
+      <div style="padding:28px">
+        <h2 style="margin:0 0 16px;font-size:20px;color:#172B4D">${title}</h2>
+        ${bodyHtml}
+      </div>
+      <div style="padding:16px 28px;border-top:1px solid #dfe1e6;background:#f4f5f7;font-size:12px;color:#6B778C">
+        This is an automated message from <a href="${CRM_PUBLIC_BASE_URL}" style="color:#0C66E4;text-decoration:none">Totally Wild AI</a>. Do not reply to this email.
+      </div>
+    </div>
+  </body></html>`;
+}
+
+async function sendSystemEmail(env, to, subject, title, bodyHtml) {
+  if (!to) return;
+  try {
+    await sendEmail(env, {
+      to,
+      subject: `[TW AI] ${subject}`,
+      html_body: systemEmailWrapper(title, bodyHtml),
+      from_email: SYSTEM_EMAIL_FROM,
+      from_name: SYSTEM_EMAIL_NAME,
+    });
+  } catch (e) {
+    console.error('System email failed:', e?.message || e);
+  }
+}
+
+async function notifyAccountCreated(env, email, displayName, role, tempPassword) {
+  await sendSystemEmail(env, email,
+    'Your account has been created',
+    'Welcome to Totally Wild AI',
+    `<p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Hi ${displayName || 'there'},</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">An account has been created for you on <strong>Totally Wild AI</strong>.</p>
+     <table style="margin:0 0 18px;border-collapse:collapse;font-size:14px;color:#172B4D">
+       <tr><td style="padding:6px 14px 6px 0;color:#6B778C;font-weight:600">Email</td><td style="padding:6px 0">${email}</td></tr>
+       <tr><td style="padding:6px 14px 6px 0;color:#6B778C;font-weight:600">Role</td><td style="padding:6px 0">${role}</td></tr>
+       <tr><td style="padding:6px 14px 6px 0;color:#6B778C;font-weight:600">Temporary password</td><td style="padding:6px 0;font-family:monospace;background:#f4f5f7;padding:6px 10px;border-radius:4px">${tempPassword}</td></tr>
+     </table>
+     <p style="margin:0 0 18px;color:#172B4D;font-size:15px;line-height:1.6">Please sign in and change your password immediately.</p>
+     <a href="${CRM_PUBLIC_BASE_URL}" style="display:inline-block;padding:12px 24px;background:#0C66E4;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px">Sign in to Totally Wild AI</a>`
+  );
+}
+
+async function notifyPasswordChanged(env, email, displayName, changedBy) {
+  await sendSystemEmail(env, email,
+    'Your password has been changed',
+    'Password Changed',
+    `<p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Hi ${displayName || 'there'},</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Your password on Totally Wild AI was ${changedBy === 'self' ? 'changed by you' : 'reset by an administrator'}.</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">If you did not make this change, please contact your administrator immediately.</p>`
+  );
+}
+
+async function notifyRoleChanged(env, email, displayName, oldRole, newRole) {
+  await sendSystemEmail(env, email,
+    'Your role has been updated',
+    'Role Updated',
+    `<p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Hi ${displayName || 'there'},</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Your role on Totally Wild AI has been changed from <strong>${oldRole}</strong> to <strong>${newRole}</strong>.</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">This change takes effect on your next page load.</p>`
+  );
+}
+
+async function notifyAccountDeactivated(env, email, displayName) {
+  await sendSystemEmail(env, email,
+    'Your account has been deactivated',
+    'Account Deactivated',
+    `<p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Hi ${displayName || 'there'},</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Your account on Totally Wild AI has been deactivated by an administrator. You will no longer be able to sign in.</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">If you believe this is a mistake, please contact your team administrator.</p>`
+  );
+}
+
+async function notifyMfaReset(env, email, displayName) {
+  await sendSystemEmail(env, email,
+    'Your MFA has been reset',
+    'Multi-Factor Authentication Reset',
+    `<p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Hi ${displayName || 'there'},</p>
+     <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Your multi-factor authentication (MFA) has been reset by an administrator. You will need to set up MFA again on your next sign-in via <strong>My Account → Enable MFA</strong>.</p>`
+  );
+}
 function getAdsOptimiserRealEstateTemplates() {
   return [
     {
@@ -993,6 +1084,7 @@ async function apiChangePassword(req, env, authCtx) {
   await env.DB.prepare(
     `UPDATE user_credentials SET password_hash=?, salt=?, algorithm=?, iterations=?, updated_at=? WHERE user_id=?`
   ).bind(hashed.hash, hashed.salt, hashed.algorithm, hashed.iterations, ts, authCtx.user.id).run();
+  notifyPasswordChanged(env, authCtx.user.email, authCtx.user.display_name, 'self').catch(() => {});
   return jres({ ok: true });
 }
 
@@ -1089,11 +1181,15 @@ async function apiCreateUser(req, env) {
     `INSERT INTO user_credentials (user_id, password_hash, salt, algorithm, iterations, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, hash, salt, algorithm, iterations, ts, ts).run();
+  // Send welcome email with temporary password (fire-and-forget).
+  notifyAccountCreated(env, email, display_name, role, password).catch(() => {});
   return jres({ id, email, display_name, role });
 }
 
 async function apiUpdateUser(req, env, id) {
   const body = await req.json().catch(() => ({}));
+  // Load current user state for change detection
+  const current = await env.DB.prepare('SELECT email, display_name, role, active FROM users WHERE id=?').bind(id).first();
   const fields = [];
   const vals = [];
   if ('display_name' in body) { fields.push('display_name=?'); vals.push(String(body.display_name || '')); }
@@ -1104,6 +1200,17 @@ async function apiUpdateUser(req, env, id) {
   if (!fields.length) return jres({ error: 'No fields to update' }, 400);
   vals.push(id);
   await env.DB.prepare(`UPDATE users SET ${fields.join(',')} WHERE id=?`).bind(...vals).run();
+  // Notify user of changes (fire-and-forget).
+  if (current) {
+    const email = current.email;
+    const name = body.display_name || current.display_name || '';
+    if ('role' in body && body.role !== current.role) {
+      notifyRoleChanged(env, email, name, current.role, body.role).catch(() => {});
+    }
+    if ('active' in body && !body.active && Number(current.active) === 1) {
+      notifyAccountDeactivated(env, email, name).catch(() => {});
+    }
+  }
   return jres({ ok: true });
 }
 
@@ -1111,7 +1218,7 @@ async function apiAdminResetPassword(req, env, id) {
   const body = await req.json().catch(() => ({}));
   const password = String(body.password || '');
   if (!password || password.length < 8) return jres({ error: 'password must be at least 8 characters' }, 400);
-  const user = await env.DB.prepare('SELECT id FROM users WHERE id=?').bind(id).first();
+  const user = await env.DB.prepare('SELECT id, email, display_name FROM users WHERE id=?').bind(id).first();
   if (!user) return jres({ error: 'User not found' }, 404);
   const { hash, salt, iterations, algorithm } = await hashPassword(password);
   const ts = now();
@@ -1122,22 +1229,27 @@ async function apiAdminResetPassword(req, env, id) {
        password_hash=excluded.password_hash, salt=excluded.salt,
        algorithm=excluded.algorithm, iterations=excluded.iterations, updated_at=excluded.updated_at`
   ).bind(id, hash, salt, algorithm, iterations, ts, ts).run();
+  notifyPasswordChanged(env, user.email, user.display_name, 'admin').catch(() => {});
   return jres({ ok: true });
 }
 
 async function apiAdminResetMfa(env, id) {
+  const user = await env.DB.prepare('SELECT email, display_name FROM users WHERE id=?').bind(id).first();
   await env.DB.prepare('DELETE FROM user_totp WHERE user_id=?').bind(id).run();
   await env.DB.prepare('DELETE FROM user_backup_codes WHERE user_id=?').bind(id).run();
+  if (user) notifyMfaReset(env, user.email, user.display_name).catch(() => {});
   return jres({ ok: true });
 }
 
 async function apiDeleteUser(env, id) {
+  const user = await env.DB.prepare('SELECT email, display_name FROM users WHERE id=?').bind(id).first();
   // Soft delete — preserve audit trail.
   await env.DB.prepare('UPDATE users SET active=0 WHERE id=?').bind(id).run();
   // Revoke all live sessions for the deactivated user.
   await env.DB.prepare(
     'UPDATE app_sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL'
   ).bind(now(), id).run();
+  if (user) notifyAccountDeactivated(env, user.email, user.display_name).catch(() => {});
   return jres({ ok: true });
 }
 

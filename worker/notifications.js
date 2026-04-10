@@ -114,19 +114,88 @@ export async function parseMentionsAndNotify(env, opts) {
   const actorName = actor?.display_name || actor?.email || 'Someone';
   const out = [];
   for (const { user, position } of matched) {
+    const notifTitle = title || `${actorName} mentioned you`;
+    const excerpt = extractMentionExcerpt(body_md, position);
     await createNotification(env, {
       user_id: user.id,
       kind: 'mention',
       entity_type,
       entity_id,
-      title: title || `${actorName} mentioned you`,
-      body: extractMentionExcerpt(body_md, position),
+      title: notifTitle,
+      body: excerpt,
       link: link || null,
       actor_id: actor?.id || null,
     });
+    // Send email notification for the @mention (fire-and-forget).
+    sendMentionEmail(env, {
+      to: user.email,
+      toName: user.display_name,
+      actorName,
+      entityType: entity_type,
+      entityId: entity_id,
+      excerpt,
+      bodyMd: body_md,
+      link: link || null,
+    }).catch(() => {});
     out.push(user);
   }
   return out;
+}
+
+// ── Mention email notification ──────────────────────────────
+async function sendMentionEmail(env, opts) {
+  const { to, toName, actorName, entityType, entityId, excerpt, bodyMd, link } = opts;
+  if (!to) return;
+  const entityLabel = entityType === 'issue' ? 'an issue' : entityType === 'doc_page' ? 'a doc page' : 'a comment';
+  const fullLink = link ? `https://projects.totallywild.ai/${link.replace(/^\//, '')}` : 'https://projects.totallywild.ai';
+  const subject = `${actorName} mentioned you in ${entityLabel}`;
+  // Render a clean excerpt (first 500 chars of the body, no markdown syntax)
+  const cleanBody = String(bodyMd || '').replace(/[#*_`~>\[\]|]/g, '').replace(/\n+/g, '<br>').slice(0, 500);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+    <div style="max-width:560px;margin:32px auto;background:#ffffff;border-radius:12px;border:1px solid #dfe1e6;overflow:hidden">
+      <div style="background:#0C66E4;padding:20px 28px">
+        <div style="color:#ffffff;font-size:18px;font-weight:700">Totally Wild AI</div>
+      </div>
+      <div style="padding:28px">
+        <p style="margin:0 0 14px;color:#172B4D;font-size:15px;line-height:1.6">Hi ${toName || 'there'},</p>
+        <p style="margin:0 0 18px;color:#172B4D;font-size:15px;line-height:1.6"><strong>${actorName}</strong> mentioned you in ${entityLabel}:</p>
+        <div style="padding:16px 18px;background:#f4f5f7;border-left:3px solid #0C66E4;border-radius:4px;margin:0 0 18px;font-size:14px;line-height:1.7;color:#172B4D">
+          ${cleanBody}${String(bodyMd || '').length > 500 ? '<span style="color:#6B778C">…</span>' : ''}
+        </div>
+        <a href="${fullLink}" style="display:inline-block;padding:12px 24px;background:#0C66E4;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px">View in Totally Wild AI</a>
+      </div>
+      <div style="padding:16px 28px;border-top:1px solid #dfe1e6;background:#f4f5f7;font-size:12px;color:#6B778C">
+        You received this because you were mentioned with @${(to || '').split('@')[0]}. <a href="https://projects.totallywild.ai" style="color:#0C66E4;text-decoration:none">Totally Wild AI</a>
+      </div>
+    </div>
+  </body></html>`;
+  try {
+    // Reuse the sendEmail from worker.js — but since we're in a separate module,
+    // we call the email worker directly.
+    const apiUrl = String(env.EMAIL_API_URL || env.EMAIL_WORKER_URL || 'https://email.365softlabs.com/api/send').trim();
+    const clientId = String(env.CF_ACCESS_CLIENT_ID || '').trim();
+    const clientSecret = String(env.CF_ACCESS_CLIENT_SECRET || '').trim();
+    if (!apiUrl || !clientId || !clientSecret) return;
+    const r = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'CF-Access-Client-Id': clientId,
+        'CF-Access-Client-Secret': clientSecret,
+      },
+      body: JSON.stringify({
+        to,
+        subject: `[TW AI] ${subject}`,
+        message: html,
+        contentType: 'HTML',
+        fromEmail: 'noreply@totallywild.ai',
+        fromName: 'Totally Wild AI',
+      }),
+    });
+  } catch (e) {
+    // Silent fail — email is best-effort, never blocks the comment.
+  }
 }
 
 // ── listNotifications ────────────────────────────────────────
