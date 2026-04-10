@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Tasks UI (Sprint 2)
+// Totally Wild AI — Tasks UI (Sprint 2)
 // Frontend for the Projects + Issues module. Loaded as a regular
 // <script> tag after app.js, so everything here lives on the
 // global scope and freely uses helpers from app.js: state, api(),
@@ -121,7 +121,7 @@ function renderProjects() {
         ${canWrite ? '<button class="btn btn-primary" type="button" onclick="openCreateProject()">+ New project</button>' : ''}
       </div>
       <div class="project-grid">
-        ${cards || '<div class="empty"><p>No projects yet.</p></div>'}
+        ${cards || (typeof renderEmptyState === 'function' ? renderEmptyState({ icon: 'folder', title: 'No projects yet', body: 'Create your first project to start tracking issues.', actionLabel: canWrite ? '+ New project' : undefined, actionOnClick: canWrite ? 'openCreateProject()' : undefined }) : '<div class="empty"><p>No projects yet.</p></div>')}
       </div>
     </div>
   `;
@@ -245,7 +245,7 @@ function renderProjectDetail() {
             <thead><tr>
               <th>Key</th><th>Type</th><th>Title</th><th>Status</th><th>Priority</th><th>Assignee</th><th>Updated</th>
             </tr></thead>
-            <tbody>${rows || '<tr><td colspan="7" class="empty"><p>No issues match your filters.</p></td></tr>'}</tbody>
+            <tbody>${rows || `<tr><td colspan="7">${typeof renderEmptyState === 'function' ? renderEmptyState({ icon: 'kanban', title: 'No issues match your filters', body: 'Try clearing the filter bar above, or create a new issue.' }) : '<div class="empty"><p>No issues match your filters.</p></div>'}</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -297,6 +297,10 @@ function openCreateProject() {
       <button class="btn btn-primary" type="button" onclick="submitCreateProject()">Create project</button>
     </div>
   `);
+  setTimeout(() => {
+    const el = document.getElementById('np-desc');
+    if (el && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(el);
+  }, 0);
 }
 window.openCreateProject = openCreateProject;
 
@@ -346,6 +350,10 @@ function openEditProject() {
       <button class="btn btn-primary" type="button" onclick="submitEditProject()">Save changes</button>
     </div>
   `);
+  setTimeout(() => {
+    const el = document.getElementById('ep-desc');
+    if (el && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(el);
+  }, 0);
 }
 window.openEditProject = openEditProject;
 
@@ -381,7 +389,7 @@ async function confirmDeleteProject() {
     await loadProjects();
     renderProjects();
   } else {
-    alert((r && r.error) || 'Failed to delete project');
+    toastError((r && r.error) || 'Failed to delete project');
   }
 }
 window.confirmDeleteProject = confirmDeleteProject;
@@ -415,6 +423,10 @@ function openCreateIssue() {
       <button class="btn btn-primary" type="button" onclick="submitCreateIssue()">Create issue</button>
     </div>
   `);
+  setTimeout(() => {
+    const el = document.getElementById('ni-desc');
+    if (el && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(el);
+  }, 0);
 }
 window.openCreateIssue = openCreateIssue;
 
@@ -476,6 +488,9 @@ function renderIssueDetailModal() {
   const assigneeName = a ? (a.display_name || a.email) : 'Unassigned';
   const reporterName = reporter ? (reporter.display_name || reporter.email) : '—';
   const dueVal = i.due_at ? String(i.due_at).slice(0,10) : '';
+  // Sprint 7: full-page modal for issue detail (more room for long comments + attachments)
+  const mi = document.getElementById('modal-inner');
+  if (mi) { mi.classList.remove('modal-lg'); mi.classList.add('modal-fullpage'); }
   setModal(`
     <div class="modal-head">
       <div class="modal-title">
@@ -539,9 +554,9 @@ function renderIssueDetailModal() {
   // Wire @mention autocomplete on the comment composer (if present).
   // notifications-ui.js owns this helper; guard in case it hasn't loaded.
   setTimeout(() => {
-    if (typeof attachMentionAutocomplete !== 'function') return;
     const ct = document.getElementById('issue-comment-text');
-    if (ct) attachMentionAutocomplete(ct);
+    if (ct && typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ct);
+    if (ct && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(ct);
   }, 0);
   // Sprint 6: render attachments + linked items panels into the modal extras.
   setTimeout(() => {
@@ -557,6 +572,9 @@ function renderIssueDetailModal() {
 }
 
 function closeIssueDetail() {
+  // Restore default modal size so other modals aren't affected.
+  const mi = document.getElementById('modal-inner');
+  if (mi) { mi.classList.remove('modal-fullpage'); mi.classList.add('modal-lg'); }
   // Sprint 6: drop attachment + link caches so a re-open re-fetches.
   if (currentIssue && currentIssue.id) {
     const k = 'issue:' + currentIssue.id;
@@ -614,7 +632,7 @@ async function commitIssueTitle() {
     const wrap = document.getElementById('issue-title-wrap');
     if (wrap) wrap.innerHTML = renderIssueTitleView(currentIssue.title);
   } else {
-    alert((r && r.error) || 'Failed to update title');
+    toastError((r && r.error) || 'Failed to update title');
     const wrap = document.getElementById('issue-title-wrap');
     if (wrap) wrap.innerHTML = renderIssueTitleView(currentIssue.title);
   }
@@ -641,6 +659,7 @@ function editIssueDesc() {
     const el = document.getElementById('issue-desc-input');
     if (el) el.focus();
     if (el && typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(el);
+    if (el && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(el);
   }, 10);
 }
 window.editIssueDesc = editIssueDesc;
@@ -662,7 +681,7 @@ async function commitIssueDesc() {
     const wrap = document.getElementById('issue-desc-wrap');
     if (wrap) wrap.innerHTML = renderIssueDescView(currentIssue.description_md);
   } else {
-    alert((r && r.error) || 'Failed to update description');
+    toastError((r && r.error) || 'Failed to update description');
   }
 }
 window.commitIssueDesc = commitIssueDesc;
@@ -708,7 +727,7 @@ async function addComment() {
     el.value = '';
     await refreshIssueDetail();
   } else {
-    alert((r && r.error) || 'Failed to add comment');
+    toastError((r && r.error) || 'Failed to add comment');
   }
 }
 window.addComment = addComment;
@@ -719,7 +738,7 @@ async function deleteActivity(id) {
   if (r && (r.ok || r.id)) {
     await refreshIssueDetail();
   } else {
-    alert((r && r.error) || 'Failed to delete');
+    toastError((r && r.error) || 'Failed to delete');
   }
 }
 window.deleteActivity = deleteActivity;
@@ -785,7 +804,7 @@ async function commitIssueField(field, value) {
     if (r && (r.ok || r.issue || r.id)) {
       await refreshIssueDetail();
     } else {
-      alert((r && r.error) || 'Failed to update');
+      toastError((r && r.error) || 'Failed to update');
       renderIssueDetailModal();
     }
   } finally {
@@ -802,7 +821,7 @@ async function submitDeleteIssue() {
   if (r && (r.ok || r.deleted)) {
     closeIssueDetail();
   } else {
-    alert((r && r.error) || 'Failed to delete issue');
+    toastError((r && r.error) || 'Failed to delete issue');
   }
 }
 window.submitDeleteIssue = submitDeleteIssue;

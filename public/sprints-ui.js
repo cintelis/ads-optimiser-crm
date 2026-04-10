@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Sprints UI (Sprint 3)
+// Totally Wild AI — Sprints UI (Sprint 3)
 // Frontend for the Board / Backlog / Sprints tabs on top of the
 // Sprint 2 tasks module. Loaded as a regular <script> tag after
 // tasks-ui.js, so everything here lives on the global scope and
@@ -176,10 +176,10 @@ function renderBoardTab() {
         </div>
       </div>
       <div class="card">
-        <div class="card-body empty-state-large" style="text-align:center;padding:40px 20px">
-          <h3 style="margin:0 0 8px;font-size:18px">There's no active sprint.</h3>
-          <p class="text-muted">Create a sprint to get started — or switch to Kanban mode to see all active issues at once.</p>
-          ${canWrite ? '<button class="btn btn-primary" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
+        <div class="card-body" style="padding:20px">
+          ${typeof renderEmptyState === 'function'
+            ? renderEmptyState({ icon: 'sprint', title: 'No active sprint', body: 'Create a sprint to get started — or switch to Kanban mode to see all active issues at once.', actionLabel: canWrite ? '+ New sprint' : undefined, actionOnClick: canWrite ? 'openCreateSprint()' : undefined })
+            : `<div class="empty-state-large" style="text-align:center;padding:40px 20px"><h3 style="margin:0 0 8px;font-size:18px">There's no active sprint.</h3><p class="text-muted">Create a sprint to get started — or switch to Kanban mode to see all active issues at once.</p>${canWrite ? '<button class="btn btn-primary" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}</div>`}
           ${selector}
         </div>
       </div>
@@ -335,7 +335,7 @@ async function onColumnDrop(ev, newStatus) {
     issue.status = newStatus;
     renderBoardTab();
   } else {
-    alert((r && r.error) || 'Failed to move issue');
+    toastError((r && r.error) || 'Failed to move issue');
     await loadBoardTab(state.ui.tasksProjectId);
     renderBoardTab();
   }
@@ -378,7 +378,7 @@ async function mobileMoveCard(issueId, newStatus) {
     closeModal();
     renderBoardTab();
   } else {
-    alert((r && r.error) || 'Failed to move issue');
+    toastError((r && r.error) || 'Failed to move issue');
   }
 }
 window.mobileMoveCard = mobileMoveCard;
@@ -436,7 +436,7 @@ function renderBacklogTab() {
           <thead><tr>
             <th></th><th>Key</th><th>Type</th><th>Title</th><th>Status</th><th>Priority</th><th>Assignee</th>
           </tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" class="empty"><p>Backlog is empty.</p></td></tr>'}</tbody>
+          <tbody>${rows || `<tr><td colspan="7">${typeof renderEmptyState === 'function' ? renderEmptyState({ icon: 'kanban', title: 'Backlog is empty', body: 'All issues are currently in a sprint, or there are no issues yet.' }) : '<div class="empty"><p>Backlog is empty.</p></div>'}</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -566,6 +566,21 @@ function renderSprintsTab() {
   const planned = list.filter(s => s.state === 'planned');
   const completed = list.filter(s => s.state === 'completed');
 
+  if (!list.length) {
+    body.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0;font-size:16px">Sprints</h3>
+        ${canWrite ? '<button class="btn btn-primary btn-sm" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
+      </div>
+      <div class="card"><div class="card-body" style="padding:20px">
+        ${typeof renderEmptyState === 'function'
+          ? renderEmptyState({ icon: 'sprint', title: 'No sprints yet', body: 'Create your first sprint to start planning work.', actionLabel: canWrite ? '+ New sprint' : undefined, actionOnClick: canWrite ? 'openCreateSprint()' : undefined })
+          : '<p class="text-muted">No sprints yet.</p>'}
+      </div></div>
+    `;
+    return;
+  }
+
   const activeHtml = active.length
     ? active.map(s => renderSprintCard(s, canWrite)).join('')
     : `<div class="card"><div class="card-body empty-state-large" style="padding:20px;text-align:center">
@@ -624,6 +639,10 @@ function openCreateSprint() {
       <button class="btn btn-primary" type="button" onclick="submitCreateSprint()">Create sprint</button>
     </div>
   `);
+  setTimeout(() => {
+    const el = document.getElementById('ns-goal');
+    if (el && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(el);
+  }, 0);
 }
 window.openCreateSprint = openCreateSprint;
 
@@ -669,6 +688,10 @@ function openEditSprint(sprintId) {
       <button class="btn btn-primary" type="button" onclick="submitEditSprint('${esc(sprintId)}')">Save changes</button>
     </div>
   `);
+  setTimeout(() => {
+    const el = document.getElementById('es-goal');
+    if (el && typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(el);
+  }, 0);
 }
 window.openEditSprint = openEditSprint;
 
@@ -718,7 +741,7 @@ window.confirmStartSprint = confirmStartSprint;
 
 async function openCompleteSprint(sprintId) {
   const detail = await api('GET', `/api/sprints/${encodeURIComponent(sprintId)}`);
-  if (!detail || !detail.sprint) { alert((detail && detail.error) || 'Failed to load sprint'); return; }
+  if (!detail || !detail.sprint) { toastError((detail && detail.error) || 'Failed to load sprint'); return; }
   const s = detail.sprint;
   const total = Number(detail.total_issues || 0);
   const done = Number(detail.done_count || 0);
@@ -799,7 +822,7 @@ async function confirmDeleteSprint(sprintId) {
     await loadSprintsTab(state.ui.tasksProjectId);
     renderSprintsTab();
   } else {
-    alert((r && r.error) || 'Failed to delete sprint');
+    toastError((r && r.error) || 'Failed to delete sprint');
   }
 }
 window.confirmDeleteSprint = confirmDeleteSprint;

@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Linked items UI (Sprint 6)
+// Totally Wild AI — Linked items UI (Sprint 6)
 // Cross-entity links (issue <-> doc_page <-> contact). Panel
 // rendered at the bottom of detail surfaces + a link picker
 // modal. Loaded as a regular <script> tag after app.js; uses
@@ -379,7 +379,7 @@ async function deleteLinkConfirm(linkId, fromType, fromId, onDeleted) {
   if (r && (r.ok || r.deleted)) {
     if (typeof onDeleted === 'function') onDeleted();
   } else {
-    alert((r && r.error) || 'Failed to remove link');
+    toastError((r && r.error) || 'Failed to remove link');
   }
 }
 window.deleteLinkConfirm = deleteLinkConfirm;

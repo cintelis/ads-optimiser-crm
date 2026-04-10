@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Integrations admin CRUD (Sprint 5)
+// Totally Wild AI — Integrations admin CRUD (Sprint 5)
 // Self-contained: no imports from worker.js. All routes are admin-gated
 // by worker.js; handlers here only validate bodies and run D1 queries.
 // ============================================================

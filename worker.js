@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Outreach & CRM Worker
+// Totally Wild AI — Outreach & CRM Worker
 // Cloudflare Worker: API backend + serves dashboard
 // Bindings required: DB (D1), KV (KV Namespace), UNSUBSCRIBES (KV — shared with email worker),
 //                   ADMIN_USER, ADMIN_PASS (secrets — break-glass after Sprint 1 bootstrap)
@@ -67,7 +67,7 @@ import {
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
 const DEFAULT_NAME = 'Nick | 365Soft Labs';
-const CRM_PUBLIC_BASE_URL = 'https://crm.adsoptimiser.com.au';
+const CRM_PUBLIC_BASE_URL = 'https://projects.totallywild.ai';
 function getAdsOptimiserRealEstateTemplates() {
   return [
     {

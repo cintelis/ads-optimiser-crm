@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Cross-entity links (Sprint 6)
+// Totally Wild AI — Cross-entity links (Sprint 6)
 // Polymorphic links between issues, doc pages, and contacts.
 // Self-contained: no imports from worker.js to avoid circular deps.
 // Handlers expect (req, env, ctx) where ctx = {session, user} from requireAuth().

@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Integrations UI (Sprint 5)
+// Totally Wild AI — Integrations UI (Sprint 5)
 // Admin Settings -> Integrations page. Lists Discord webhooks,
 // their per-event rules, and the delivery log. Loaded as a
 // regular <script> tag after app.js; uses state, api(), esc(),
@@ -304,7 +304,7 @@ async function confirmDeleteIntegration(id) {
     await loadIntegrations();
     renderIntegrations();
   } else {
-    alert((r && r.error) || 'Failed to delete integration');
+    toastError((r && r.error) || 'Failed to delete integration');
   }
 }
 window.confirmDeleteIntegration = confirmDeleteIntegration;
@@ -403,7 +403,7 @@ async function confirmDeleteRule(ruleId, integrationId) {
     if (integrationId) await loadIntegrationRules(integrationId);
     renderIntegrations();
   } else {
-    alert((r && r.error) || 'Failed to delete rule');
+    toastError((r && r.error) || 'Failed to delete rule');
   }
 }
 window.confirmDeleteRule = confirmDeleteRule;

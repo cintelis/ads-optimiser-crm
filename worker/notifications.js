@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — In-app notifications + @mention parser (Sprint 5)
+// Totally Wild AI — In-app notifications + @mention parser (Sprint 5)
 // Self-contained: no imports from worker.js to avoid circular deps.
 // Handlers expect (req, env, ctx) where ctx = {session, user} from requireAuth().
 // ============================================================

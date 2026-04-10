@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Docs UI (Sprint 4)
+// Totally Wild AI — Docs UI (Sprint 4)
 // Frontend for the Docs module (spaces + pages + version
 // history). Loaded as a regular <script> tag after tasks-ui.js
 // and sprints-ui.js, so it freely uses the globals defined there
@@ -448,6 +448,8 @@ function renderPage() {
       try { ta.focus(); } catch (e) { /* ignore */ }
       // Wire @mention autocomplete (notifications-ui.js owns the helper).
       if (typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ta);
+      // Sprint 7: markdown toolbar
+      if (typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(ta);
     }
   }
   // Sprint 6: render the linked items panel below the page (view mode only).
@@ -688,7 +690,7 @@ async function confirmDeletePage() {
     await loadSpace(state.ui.docsSpaceId);
     renderSpaceHome();
   } else {
-    alert((r && r.error) || 'Failed to delete page');
+    toastError((r && r.error) || 'Failed to delete page');
   }
 }
 window.confirmDeletePage = confirmDeletePage;
@@ -709,7 +711,7 @@ async function confirmDeleteSpace() {
     await loadSpaces();
     renderSpacesList();
   } else {
-    alert((r && r.error) || 'Failed to delete space');
+    toastError((r && r.error) || 'Failed to delete space');
   }
 }
 window.confirmDeleteSpace = confirmDeleteSpace;
@@ -811,7 +813,7 @@ async function confirmRestoreVersion(versionId) {
   if (!confirm('Restore this version? Current content will be saved as a new version first, so the restore is reversible.')) return;
   const r = await api('POST', `/api/doc-pages/${encodeURIComponent(page.id)}/versions/${encodeURIComponent(versionId)}/restore`);
   if (!r || r.error || !r.page) {
-    alert((r && r.error) || 'Failed to restore version');
+    toastError((r && r.error) || 'Failed to restore version');
     return;
   }
   state.docs.page = r.page;

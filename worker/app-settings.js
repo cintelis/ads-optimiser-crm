@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — App-wide settings (Sprint 6)
+// Totally Wild AI — App-wide settings (Sprint 6)
 // Currently houses the feature visibility matrix used by the route gate.
 // Self-contained: no imports from worker.js to avoid circular deps.
 // Cached at module scope with a short TTL so the gate doesn't hit D1 on

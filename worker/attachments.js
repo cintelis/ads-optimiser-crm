@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Attachments (R2-backed) (Sprint 6)
+// Totally Wild AI — Attachments (R2-backed) (Sprint 6)
 // Self-contained: no imports from worker.js to avoid circular deps.
 // Handlers expect (req, env, ctx) where ctx = {session, user} from requireAuth().
 // Metadata lives in D1 (attachments table); blobs live in R2 (env.ATTACHMENTS).

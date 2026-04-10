@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Feature visibility settings UI (Sprint 6)
+// Totally Wild AI — Feature visibility settings UI (Sprint 6)
 // Admin-only Settings page. Checkbox grid: which top-level
 // features (outreach / crm / tasks / docs) are visible to
 // members and viewers. Loaded as a regular <script> tag after
@@ -173,7 +173,7 @@ async function toggleFeatureFlag(feature, role, value, inputEl) {
     // Revert on error.
     state.featureSettings[feature][role] = prev;
     if (inputEl) inputEl.checked = prev !== false;
-    alert((r && r.error) || 'Failed to update feature visibility');
+    toastError((r && r.error) || 'Failed to update feature visibility');
   }
 }
 window.toggleFeatureFlag = toggleFeatureFlag;

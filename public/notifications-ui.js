@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Notifications UI (Sprint 5)
+// Totally Wild AI — Notifications UI (Sprint 5)
 // Bell icon + inbox dropdown + @mention autocomplete.
 // Loaded as a regular <script> tag after app.js, so everything
 // here lives on the global scope and freely uses helpers from

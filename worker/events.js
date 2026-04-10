@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Event bus
+// Totally Wild AI — Event bus
 // Sprint 1 landed this as a no-op so later sprints could sprinkle emit()
 // calls into mutation handlers cheaply. Sprint 5 plugs in real dispatch:
 //   - Discord channel notifications (matched against notification_rules)

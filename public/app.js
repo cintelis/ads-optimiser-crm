@@ -390,7 +390,8 @@ function showTemplateMessage(message, kind = 'success') {
     showAlert(alertId, message, alertClass);
     return;
   }
-  window.alert(message);
+  if (typeof toast === 'function') toast(message, alertClass === 'error' ? 'error' : 'info');
+  else window.alert(message);
 }
 
 async function refreshSeededTemplates(selectedTemplateId = state.ui.selectedTemplateId) {
@@ -831,9 +832,33 @@ function renderOverview() {
   const hasAlert = overdue > 0 || today > 0;
   const range = s.range || state.ui.overviewRange || 'all';
 
+  // Sprint 7: feature-aware Overview — hide CRM/Outreach sections for
+  // non-admin users whose roles don't have access to those features.
+  const role = state.me && state.me.role;
+  const ff = state.featureFlags || {};
+  const showOutreach = isAdmin() || ff.outreach?.[role] !== false;
+  const showCrm = isAdmin() || ff.crm?.[role] !== false;
+  const showTasks = isAdmin() || ff.tasks?.[role] !== false;
+  const showDocs = isAdmin() || ff.docs?.[role] !== false;
+
+  // Quick actions adapt based on visible features
+  const quickActions = [];
+  if (showOutreach) {
+    quickActions.push('<button class="btn btn-primary" type="button" onclick="openOverviewAddContact()">+ Add Contact</button>');
+    quickActions.push('<button class="btn btn-ghost" type="button" onclick="openOverviewNewCampaign()">+ New Campaign</button>');
+    quickActions.push('<button class="btn btn-ghost" type="button" onclick="openOverviewImportCsv()">Import CSV</button>');
+    quickActions.push('<button class="btn btn-ghost" type="button" onclick="openOverviewNewTemplate()">+ New Template</button>');
+  }
+  if (showTasks) {
+    quickActions.push('<button class="btn ' + (showOutreach ? 'btn-ghost' : 'btn-primary') + '" type="button" onclick="nav(\'projects\')">Projects</button>');
+  }
+  if (showDocs) {
+    quickActions.push('<button class="btn btn-ghost" type="button" onclick="nav(\'docs\')">Docs</button>');
+  }
+
   document.getElementById('content').innerHTML = `
   <div class="overview-stack">
-    ${hasAlert ? `<div class="dashboard-alert ${overdue > 0 ? 'dashboard-alert-danger' : 'dashboard-alert-warning'}">
+    ${(showCrm && hasAlert) ? `<div class="dashboard-alert ${overdue > 0 ? 'dashboard-alert-danger' : 'dashboard-alert-warning'}">
       <div class="dashboard-alert-copy">
         <strong>${overdue} overdue</strong>
         <span>${today} due today</span>
@@ -841,15 +866,11 @@ function renderOverview() {
       <button class="btn btn-ghost btn-sm" type="button" onclick="nav('followups')">View Follow-ups</button>
     </div>` : ''}
 
-    <div class="quick-actions">
-      <button class="btn btn-primary" type="button" onclick="openOverviewAddContact()">+ Add Contact</button>
-      <button class="btn btn-ghost" type="button" onclick="openOverviewNewCampaign()">+ New Campaign</button>
-      <button class="btn btn-ghost" type="button" onclick="openOverviewImportCsv()">Import CSV</button>
-      <button class="btn btn-ghost" type="button" onclick="openOverviewNewTemplate()">+ New Template</button>
-    </div>
+    ${quickActions.length ? `<div class="quick-actions">${quickActions.join('')}</div>` : ''}
 
     <div id="my-issues-widget"></div>
 
+    ${(showOutreach || showCrm) ? `
     <div class="overview-range-row">
       <div class="overview-range-label">Date Range</div>
       <div class="overview-range-pills">
@@ -863,6 +884,7 @@ function renderOverview() {
       </div>
     </div>
 
+    ${showOutreach ? `
     <div class="stats-grid stats-grid-overview">
       <div class="stat-card"><div class="stat-label">Active Contacts</div><div class="stat-val">${s.contacts || 0}</div></div>
       <div class="stat-card"><div class="stat-label">Templates</div><div class="stat-val">${s.templates || 0}</div></div>
@@ -870,7 +892,9 @@ function renderOverview() {
       <div class="stat-card"><div class="stat-label">Emails Sent (${getOverviewRangeLabel(range)})</div><div class="stat-val">${s.sent || 0}</div></div>
       <div class="stat-card"><div class="stat-label">Pipeline Value</div><div class="stat-val" style="font-size:22px">${fmtCurrency(s.pipeline_value || 0)}</div></div>
     </div>
+    ` : ''}
 
+    ${showCrm ? `
     <div class="overview-metrics-grid">
       <div class="overview-metric-card">
         <div class="overview-metric-label">${getOverviewWonLabel(range)}</div>
@@ -903,8 +927,10 @@ function renderOverview() {
       </div>
       <div class="overview-funnel">${renderOverviewFunnel(stages)}</div>
     </div>
+    ` : ''}
 
     <div class="overview-columns">
+      ${showCrm ? `
       <div class="overview-panel">
         <div class="overview-panel-head">
           <div>
@@ -914,7 +940,9 @@ function renderOverview() {
         </div>
         <div class="overview-timeline">${renderOverviewTimeline(activity)}</div>
       </div>
+      ` : ''}
 
+      ${showOutreach ? `
       <div class="overview-panel">
         <div class="overview-panel-head">
           <div>
@@ -934,7 +962,9 @@ function renderOverview() {
           </tbody></table>
         </div>
       </div>
+      ` : ''}
     </div>
+    ` : ''}
   </div>`;
   // Sprint 6: render the "My open issues" widget into the placeholder
   if (typeof renderMyIssuesWidget === 'function') renderMyIssuesWidget();
@@ -1897,8 +1927,8 @@ async function saveCampaign() {
 async function sendCampaignNow(id, name) {
   if (!confirm(`Send campaign "${name}" to all contacts in the list right now?`)) return;
   const r = await api('POST',`/api/campaigns/${id}/send`);
-  if (r.error) { alert('Error: '+r.error); return; }
-  alert(`Done! Sent: ${r.sent}, Skipped (unsubscribed): ${r.skipped||0}, Failed: ${r.failed}`);
+  if (r.error) { toastError('Error: '+r.error); return; }
+  toastSuccess(`Done! Sent: ${r.sent}, Skipped (unsubscribed): ${r.skipped||0}, Failed: ${r.failed}`);
   await loadCampaigns(); renderCampaigns();
 }
 
@@ -2442,7 +2472,7 @@ async function submitChangePassword() {
 // ── MFA enrolment flow ────────────────────────────────────────
 async function startMfaSetup() {
   const r = await api('POST','/api/auth/totp/setup');
-  if (!r || !r.secret) { alert((r && r.error) || 'Failed to start MFA setup'); return; }
+  if (!r || !r.secret) { toastError((r && r.error) || 'Failed to start MFA setup'); return; }
   const qrSvg = renderQrSvg(r.otpauth_uri);
   setModal(`
     <div class="modal-head"><div class="modal-title">Enable two-factor authentication</div>
@@ -2558,7 +2588,7 @@ async function openRegenerateBackupCodes() {
     showBackupCodesModal(r.backup_codes, false);
     await refreshMe();
   } else {
-    alert((r && r.error) || 'Failed to regenerate backup codes');
+    toastError((r && r.error) || 'Failed to regenerate backup codes');
   }
 }
 
@@ -2736,14 +2766,14 @@ async function resetUserMfa(id, email) {
   if (!confirm(`Reset MFA for ${email}? They will need to enrol again on their next login.`)) return;
   const r = await api('POST',`/api/users/${encodeURIComponent(id)}/reset-mfa`);
   if (r && r.ok) { await loadUsers(); renderUsers(); }
-  else { alert((r && r.error) || 'Failed to reset MFA'); }
+  else { toastError((r && r.error) || 'Failed to reset MFA'); }
 }
 
 async function deactivateUser(id, email) {
   if (!confirm(`Deactivate ${email}? Their existing sessions will be revoked immediately.`)) return;
   const r = await api('DELETE',`/api/users/${encodeURIComponent(id)}`);
   if (r && r.ok) { await loadUsers(); renderUsers(); }
-  else { alert((r && r.error) || 'Failed to deactivate'); }
+  else { toastError((r && r.error) || 'Failed to deactivate'); }
 }
 
 init();

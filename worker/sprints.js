@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Sprints (Sprint 3)
+// Totally Wild AI — Sprints (Sprint 3)
 // Sprint CRUD + start/complete transitions, issue↔sprint moves,
 // and server-side burndown computation. All handlers return Response.
 // Self-contained: no imports from worker.js (circular). Role gating

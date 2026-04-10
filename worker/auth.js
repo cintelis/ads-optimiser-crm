@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Auth primitives
+// Totally Wild AI — Auth primitives
 // PBKDF2 password hashing + RFC 6238 TOTP + base32 + backup codes.
 // Lifted from adsoptimiser-tiktok/src/worker/src/db/user-identity.ts
 // (Web Crypto only — no external dependencies, runs on Cloudflare Workers).
@@ -15,7 +15,7 @@ const TOTP_DIGITS = 6;
 const TOTP_WINDOW = 1;
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
-const TOTP_ISSUER = '365 Pulse';
+const TOTP_ISSUER = 'Totally Wild AI';
 
 // ── Hex / bytes helpers ──────────────────────────────────────
 export function toHex(bytes) {

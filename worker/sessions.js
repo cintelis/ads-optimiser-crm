@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — D1-backed session repository
+// Totally Wild AI — D1-backed session repository
 // Session id IS the Bearer token. Two-factor pending state supported.
 // Lifted from adsoptimiser-tiktok/src/worker/src/db/sessions.ts, simplified
 // (single-tenant, no workspace_id, no separate is_admin — role lives on users).

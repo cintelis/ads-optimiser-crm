@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Discord dispatcher (Sprint 5)
+// Totally Wild AI — Discord dispatcher (Sprint 5)
 // Self-contained: no imports from worker.js. Reads rules + integrations
 // out of D1, formats Discord rich embeds, fires webhooks with one retry,
 // and logs every attempt into notification_log.
@@ -20,7 +20,7 @@ const COLORS = {
 
 // Base URL for deep-linking embeds back into the app. Sprint 6/7 adds a
 // real router; for now we use a query-param hack.
-const BASE_URL = 'https://outreach-dashboard.nick-598.workers.dev';
+const BASE_URL = 'https://projects.totallywild.ai';
 
 // ── Local helpers ────────────────────────────────────────────
 function now() { return new Date().toISOString(); }
@@ -205,12 +205,12 @@ export async function dispatchEvent(env, eventType, payload, ctx) {
 export async function testWebhook(webhookUrl) {
   try {
     await sendDiscordEmbed(webhookUrl, {
-      username: '365 Pulse',
+      username: 'Totally Wild AI',
       embeds: [{
-        title: 'Test message from 365 Pulse',
+        title: 'Test message from Totally Wild AI',
         description: 'If you can see this, your webhook is configured correctly.',
         color: COLORS.cyan,
-        footer: { text: '365 Pulse • integration test' },
+        footer: { text: 'Totally Wild AI • integration test' },
         timestamp: new Date().toISOString(),
       }],
     });
@@ -234,7 +234,7 @@ export function formatEmbedFor(eventType, payload) {
       if (!issue) return null;
       const assignee = payload?.assignee ? userLabel(payload.assignee) : 'Unassigned';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `${issue.issue_key}: ${issue.title || ''}`,
           url: `${BASE_URL}/?nav=projects&issue=${issue.id}`,
@@ -260,7 +260,7 @@ export function formatEmbedFor(eventType, payload) {
       const title = payload?.issue?.title || '';
       const changed = Array.isArray(payload?.changed_fields) ? payload.changed_fields.join(', ') : '';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Updated: ${key}${title ? ': ' + title : ''}`,
           url: `${BASE_URL}/?nav=projects&issue=${issueId}`,
@@ -284,7 +284,7 @@ export function formatEmbedFor(eventType, payload) {
         || (payload?.new_assignee ? userLabel(payload.new_assignee) : null)
         || (payload?.new_assignee_id ? 'New assignee' : 'Unassigned');
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Issue assigned: ${key}${title ? ': ' + title : ''}`,
           url: `${BASE_URL}/?nav=projects&issue=${issueId}`,
@@ -313,7 +313,7 @@ export function formatEmbedFor(eventType, payload) {
       ];
       if (assignee) fields.push({ name: 'Assignee', value: assignee, inline: true });
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Status changed: ${key}${title ? ': ' + title : ''}`,
           url: `${BASE_URL}/?nav=projects&issue=${issueId}`,
@@ -331,7 +331,7 @@ export function formatEmbedFor(eventType, payload) {
       const key = payload?.issue?.issue_key || payload?.issue_key || issueId;
       const title = payload?.issue?.title || '';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `New comment on ${key}${title ? ': ' + title : ''}`,
           url: `${BASE_URL}/?nav=projects&issue=${issueId}`,
@@ -353,7 +353,7 @@ export function formatEmbedFor(eventType, payload) {
         fields.push({ name: 'Issues', value: String(payload.issue_count), inline: true });
       }
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Sprint started: ${sprint.name || 'Untitled'}`,
           description: truncate(sprint.goal_md || sprint.goal, 200),
@@ -376,7 +376,7 @@ export function formatEmbedFor(eventType, payload) {
       if (typeof moved === 'number') fields.push({ name: 'Moved', value: String(moved), inline: true });
       fields.push({ name: 'Action', value: String(action), inline: true });
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Sprint completed: ${sprint.name || 'Untitled'}`,
           description: truncate(sprint.goal_md || sprint.goal, 200),
@@ -396,7 +396,7 @@ export function formatEmbedFor(eventType, payload) {
       const spaceId = payload?.space_id || payload?.page?.space_id;
       const spaceName = payload?.space_name || '';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `New page: ${title}`,
           url: `${BASE_URL}/?nav=docs&space=${spaceId || ''}&page=${pageId}`,
@@ -416,7 +416,7 @@ export function formatEmbedFor(eventType, payload) {
       const spaceName = payload?.space_name || '';
       const changed = Array.isArray(payload?.changed_fields) ? payload.changed_fields.join(', ') : '';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Updated: ${title}`,
           url: `${BASE_URL}/?nav=docs&space=${spaceId || ''}&page=${pageId}`,
@@ -433,7 +433,7 @@ export function formatEmbedFor(eventType, payload) {
       const title = payload?.title || payload?.page?.title || 'Untitled';
       const spaceName = payload?.space_name || '';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Deleted page: ${title}`,
           description: pageId ? `Page ${pageId} and its descendants were removed.` : 'Page removed.',
@@ -450,7 +450,7 @@ export function formatEmbedFor(eventType, payload) {
       const from = payload?.old_stage || 'unknown';
       const to = payload?.new_stage || 'unknown';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `${name}: ${from} → ${to}`,
           color: COLORS.purple,
@@ -463,7 +463,7 @@ export function formatEmbedFor(eventType, payload) {
     case EVENT_TYPES.CONTACT_FOLLOWUP_DUE: {
       const name = payload?.contact_name || payload?.contact?.name || 'Contact';
       return {
-        username: '365 Pulse',
+        username: 'Totally Wild AI',
         embeds: [{
           title: `Follow-up due: ${name}`,
           description: truncate(payload?.note, 200),

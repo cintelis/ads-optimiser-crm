@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Attachments UI (Sprint 6)
+// Totally Wild AI — Attachments UI (Sprint 6)
 // Drag-drop file upload, listing, delete, inline image preview
 // on any entity (issue / doc_page / contact). Loaded as a regular
 // <script> tag after app.js; uses state, api(), esc(), relTime()
@@ -61,10 +61,13 @@ async function uploadOneFile(file, entityType, entityId) {
   fd.append('file', file);
   fd.append('entity_type', entityType);
   fd.append('entity_id', entityId);
-  // Use fetch directly since api() sends JSON bodies.
+  // Use fetch directly since api() sends JSON bodies. Must add Bearer token manually.
+  const headers = {};
+  const t = localStorage.getItem('token');
+  if (t) headers['Authorization'] = 'Bearer ' + t;
   const res = await fetch('/api/attachments', {
     method: 'POST',
-    credentials: 'include',
+    headers: headers,
     body: fd
   });
   let json = null;
@@ -118,7 +121,7 @@ function attachUploadHandler(dropZoneEl, fileInputEl, entityType, entityId, onUp
         await uploadOneFile(f, entityType, entityId);
       } catch (e) {
         if (progressSlot) progressSlot.textContent = '';
-        alert('Upload failed for ' + f.name + ': ' + (e && e.message ? e.message : String(e)));
+        toastError('Upload failed for ' + f.name + ': ' + (e && e.message ? e.message : String(e)));
       }
     }
     if (progressSlot) progressSlot.textContent = '';
@@ -136,18 +139,21 @@ window.attachUploadHandler = attachUploadHandler;
 // ── Delete ───────────────────────────────────────────────────
 async function confirmDeleteAttachment(attachmentId, entityType, entityId, onDeleted) {
   if (!confirm('Delete this attachment? This cannot be undone.')) return;
+  const delHeaders = {};
+  const dt = localStorage.getItem('token');
+  if (dt) delHeaders['Authorization'] = 'Bearer ' + dt;
   const res = await fetch('/api/attachments/' + encodeURIComponent(attachmentId), {
     method: 'DELETE',
-    credentials: 'include'
+    headers: delHeaders
   });
   let json = null;
   try { json = await res.json(); } catch (e) { json = null; }
   if (!res.ok) {
     if (res.status === 403) {
-      alert('Only the uploader or an admin can delete this attachment.');
+      toastError('Only the uploader or an admin can delete this attachment.');
       return;
     }
-    alert((json && (json.error || json.message)) || ('Delete failed (' + res.status + ')'));
+    toastError((json && (json.error || json.message)) || ('Delete failed (' + res.status + ')'));
     return;
   }
   if (typeof onDeleted === 'function') onDeleted();

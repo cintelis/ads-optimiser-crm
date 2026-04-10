@@ -1,5 +1,5 @@
 // ============================================================
-// 365 Pulse — Docs (spaces + pages + version history)
+// Totally Wild AI — Docs (spaces + pages + version history)
 // All handlers expect (req, env, ctx) where ctx = {session, user} from
 // requireAuth(). They return Response objects via the local jres() helper.
 // Self-contained: no imports from worker.js to avoid circular deps.
