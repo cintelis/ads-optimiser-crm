@@ -22,6 +22,7 @@ window.formatBytes = formatBytes;
 
 function mimeIcon(mime) {
   const m = String(mime || '').toLowerCase();
+  if (m === 'image/svg+xml') return '<svg viewBox="0 0 24 24" width="18" height="18" style="vertical-align:middle"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="12" y="16" text-anchor="middle" fill="currentColor" font-size="8" font-weight="700" font-family="sans-serif">SVG</text></svg>';
   if (m.startsWith('image/')) return '\u{1F5BC}';   // picture
   if (m === 'application/pdf') return '\u{1F4C4}';  // page
   if (m.startsWith('text/')) return '\u{1F4DD}';    // memo

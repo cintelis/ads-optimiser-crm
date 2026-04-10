@@ -531,10 +531,15 @@ function renderIssueDetailModal() {
         </aside>
       </div>
 
-      <div class="issue-section-label" style="margin-top:22px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Activity</div>
-      <div class="issue-activity" id="issue-activity" style="margin-top:8px">
-        ${renderIssueActivityFeed()}
-      </div>
+      <details class="issue-activity-details" style="margin-top:22px">
+        <summary class="issue-section-label" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;transition:transform .15s">▸</span>
+          Activity (${currentIssueActivity.length} item${currentIssueActivity.length !== 1 ? 's' : ''})
+        </summary>
+        <div class="issue-activity" id="issue-activity" style="margin-top:8px">
+          ${renderIssueActivityFeed()}
+        </div>
+      </details>
 
       ${canWrite ? `
       <div class="issue-comment-composer" style="margin-top:14px">
@@ -595,7 +600,7 @@ function closeIssueDetail() {
 window.closeIssueDetail = closeIssueDetail;
 
 function renderIssueTitleView(title) {
-  return `<h2 class="issue-title" style="margin:0;font-size:22px;cursor:text" onclick="editIssueTitle()">${esc(title || '(no title)')}</h2>`;
+  return `<h2 class="issue-title" ondblclick="editIssueTitle()">${esc(title || '(no title)')}</h2>`;
 }
 
 function editIssueTitle() {
@@ -641,8 +646,8 @@ async function commitIssueTitle() {
 window.commitIssueTitle = commitIssueTitle;
 
 function renderIssueDescView(md) {
-  const body = (md && String(md).trim()) ? renderMarkdown(md) : '<p class="text-muted">No description. Click to add one.</p>';
-  return `<div class="issue-desc md-body" style="cursor:text" onclick="editIssueDesc()">${body}</div>`;
+  const body = (md && String(md).trim()) ? renderMarkdown(md) : '<p class="text-muted">No description. Double-click to add one.</p>';
+  return `<div class="issue-desc md-body" style="min-height:200px" ondblclick="editIssueDesc()">${body}</div>`;
 }
 
 function editIssueDesc() {
@@ -798,15 +803,64 @@ async function commitIssueField(field, value) {
   fieldCommitting = true;
   try {
     const body = {};
+    const actualField = field;
     if (field === 'assignee_id') body.assignee_id = value || null;
     else if (field === 'due_at') body.due_at = value ? new Date(value + 'T00:00:00Z').toISOString() : null;
     else body[field] = value;
     const r = await api('PATCH', `/api/issues/${encodeURIComponent(currentIssue.id)}`, body);
     if (r && (r.ok || r.issue || r.id)) {
-      await refreshIssueDetail();
+      // Update local issue state without re-rendering the entire modal.
+      // This prevents the "jumpy" re-render when picking a value.
+      if (r.issue) {
+        currentIssue = r.issue;
+        if (r.activity) currentIssueActivity = r.activity;
+      } else {
+        // Patch the local object
+        if (actualField === 'assignee_id') {
+          currentIssue.assignee_id = value || null;
+          const u = (state.tasks.users || []).find(u => u.id === value);
+          currentIssue.assignee = u ? { id: u.id, display_name: u.display_name, email: u.email } : null;
+        } else if (actualField === 'due_at') {
+          currentIssue.due_at = body.due_at;
+        } else {
+          currentIssue[actualField] = value;
+        }
+      }
+      // Re-render just the metadata sidebar + activity feed, not the whole modal.
+      const metaGrid = document.getElementById('issue-meta-grid');
+      if (metaGrid) {
+        const canWrite = tasksCanWrite();
+        const a = currentIssue.assignee;
+        const reporter = currentIssue.reporter;
+        const assigneeName = a ? (a.display_name || a.email) : 'Unassigned';
+        const reporterName = reporter ? (reporter.display_name || reporter.email) : '—';
+        const dueVal = currentIssue.due_at ? String(currentIssue.due_at).slice(0,10) : '';
+        metaGrid.innerHTML = `
+          ${renderIssueMetaRow('type', 'Type', `<span>${ISSUE_TYPE_ICONS[currentIssue.type] || ''}${esc(TASK_TYPE_LABELS[currentIssue.type] || currentIssue.type)}</span>`, canWrite)}
+          ${renderIssueMetaRow('status', 'Status', `<span class="lozenge lozenge-status-${esc(currentIssue.status)}">${esc(TASK_STATUS_LABELS[currentIssue.status] || currentIssue.status)}</span>`, canWrite)}
+          ${renderIssueMetaRow('priority', 'Priority', `<span class="lozenge lozenge-priority-${esc(currentIssue.priority)}">${esc(TASK_PRIORITY_LABELS[currentIssue.priority] || currentIssue.priority)}</span>`, canWrite)}
+          ${renderIssueMetaRow('assignee', 'Assignee', a ? esc(assigneeName) : '<span class="text-muted">Unassigned</span>', canWrite)}
+          <div class="kv-row"><div class="kv-k">Reporter</div><div class="kv-v">${esc(reporterName)}</div></div>
+          ${renderIssueMetaRow('due', 'Due date', dueVal ? esc(dueVal) : '<span class="text-muted">—</span>', canWrite)}
+          <div class="kv-row"><div class="kv-k">Parent</div><div class="kv-v">${currentIssueParent ? `<a href="javascript:void(0)" onclick="openIssueDetail('${esc(currentIssueParent.id)}')"><span class="mono">${esc(currentIssueParent.issue_key)}</span> ${esc(currentIssueParent.title)}</a>` : '<span class="text-muted">—</span>'}</div></div>
+          <div class="kv-row"><div class="kv-k">Sub-tasks</div><div class="kv-v">${
+            currentIssueSubtasks.length
+              ? currentIssueSubtasks.map(s => `<div><a href="javascript:void(0)" onclick="openIssueDetail('${esc(s.id)}')"><span class="mono">${esc(s.issue_key)}</span> ${esc(s.title)}</a> <span class="lozenge lozenge-status-${esc(s.status)}" style="margin-left:6px">${esc(TASK_STATUS_LABELS[s.status] || s.status)}</span></div>`).join('')
+              : '<span class="text-muted">None</span>'
+          }</div></div>
+          <div class="kv-row"><div class="kv-k">Created</div><div class="kv-v text-muted text-sm">${esc(relTime(currentIssue.created_at))}</div></div>
+          <div class="kv-row"><div class="kv-k">Updated</div><div class="kv-v text-muted text-sm">${esc(relTime(currentIssue.updated_at))}</div></div>
+        `;
+      }
+      // Refresh activity feed only (it may have new system rows from the change)
+      const actEl = document.getElementById('issue-activity');
+      if (actEl && r.activity) {
+        currentIssueActivity = r.activity;
+        actEl.innerHTML = renderIssueActivityFeed();
+      }
+      toastSuccess('Updated');
     } else {
       toastError((r && r.error) || 'Failed to update');
-      renderIssueDetailModal();
     }
   } finally {
     fieldCommitting = false;
