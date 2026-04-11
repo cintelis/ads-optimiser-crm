@@ -226,7 +226,7 @@ function renderProjects() {
           </div>
           <div class="project-name" style="font-size:16px;font-weight:600;margin:8px 0 6px">${esc(p.name)}</div>
           ${lead ? `<div class="project-lead" style="display:flex;align-items:center;gap:8px;margin:6px 0 10px">
-            <span class="avatar-sm">${esc(initials || '?')}</span>
+            ${lead.id ? `<img class="avatar-sm-img" src="/api/users/${esc(lead.id)}/avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="avatar-sm" style="display:none">${esc(initials || '?')}</span>` : `<span class="avatar-sm">${esc(initials || '?')}</span>`}
             <span class="text-muted text-sm">${esc(lead.display_name || lead.email || '')}</span>
           </div>` : '<div class="text-muted text-sm" style="margin:6px 0 10px">No lead</div>'}
           ${projectStatusBar(p.issue_counts || {}, total)}
