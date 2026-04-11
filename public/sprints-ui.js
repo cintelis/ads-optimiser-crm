@@ -265,22 +265,127 @@ function renderIssueCard(i, mobile) {
   const priority = `<span class="lozenge lozenge-priority-${esc(i.priority)}">${esc(TASK_PRIORITY_LABELS[i.priority] || i.priority)}</span>`;
   const draggable = mobile ? '' : 'draggable="true"';
   const dragHandlers = mobile
-    ? `onclick="onCardMobileTap(event,'${esc(i.id)}')"`
-    : `ondragstart="onCardDragStart(event,'${esc(i.id)}')" ondragend="onCardDragEnd(event)" onclick="openIssueDetail('${esc(i.id)}')"`;
+    ? ``
+    : `ondragstart="onCardDragStart(event,'${esc(i.id)}')" ondragend="onCardDragEnd(event)"`;
+  const canWrite = tasksCanWrite();
   return `
-    <div class="issue-card" ${draggable} ${dragHandlers}>
-      <div class="issue-card-key">
-        ${ISSUE_TYPE_ICONS[i.type] || ISSUE_TYPE_ICONS.task}
-        <span class="mono">${esc(i.issue_key)}</span>
+    <div class="issue-card" ${draggable} ${dragHandlers} onclick="openIssueDetail('${esc(i.id)}')">
+      <div class="issue-card-top">
+        <div class="issue-card-key">
+          ${ISSUE_TYPE_ICONS[i.type] || ISSUE_TYPE_ICONS.task}
+          <span class="mono">${esc(i.issue_key)}</span>
+        </div>
+        ${canWrite ? `<button class="card-menu-btn" type="button" onclick="event.stopPropagation();toggleCardMenu('${esc(i.id)}')" title="More actions"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg></button>` : ''}
       </div>
-      <div class="issue-card-title">${esc(i.title)}</div>
+      <div class="issue-card-title-row">
+        <span class="issue-card-title" id="card-title-${esc(i.id)}">${esc(i.title)}</span>${canWrite ? `<button class="card-edit-btn" type="button" onclick="event.stopPropagation();editCardTitle('${esc(i.id)}')" title="Edit title"><svg viewBox="0 0 16 16" width="12" height="12" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 11 L5 8.5 L10 3.5 L12.5 6 L7.5 11 Z" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M9 4.5 L11.5 7" stroke="currentColor" stroke-width="1.2"/></svg></button>` : ''}
+      </div>
       <div class="issue-card-foot">
         ${avatar}
         ${priority}
       </div>
+      <div class="card-menu" id="card-menu-${esc(i.id)}" style="display:none">
+        <div class="card-menu-label">Change status</div>
+        ${BOARD_STATUSES.map(s => `<button class="card-menu-item${i.status === s ? ' active' : ''}" type="button" onclick="event.stopPropagation();cardChangeStatus('${esc(i.id)}','${s}')">${esc(TASK_STATUS_LABELS[s] || s)}</button>`).join('')}
+        <div class="card-menu-divider"></div>
+        <button class="card-menu-item" type="button" onclick="event.stopPropagation();copyIssueUrl('${esc(i.issue_key)}');closeAllCardMenus()">Copy link</button>
+        <button class="card-menu-item" type="button" onclick="event.stopPropagation();navigator.clipboard.writeText('${esc(i.issue_key)}');if(typeof toastSuccess==='function')toastSuccess('Copied ${esc(i.issue_key)}');closeAllCardMenus()">Copy key</button>
+        <div class="card-menu-divider"></div>
+        <button class="card-menu-item" type="button" onclick="event.stopPropagation();cardRemoveFromSprint('${esc(i.id)}')">Remove from sprint</button>
+      </div>
     </div>
   `;
 }
+
+// ── Card inline title edit ──────────────────────────────────
+function editCardTitle(issueId) {
+  const el = document.getElementById('card-title-' + issueId);
+  if (!el) return;
+  const issue = (state.tasks.boardIssues || []).find(x => x.id === issueId);
+  if (!issue) return;
+  const card = el.closest('.issue-card');
+  if (card) card.setAttribute('onclick', ''); // disable card click while editing
+  el.outerHTML = `<input class="card-title-input" id="card-title-edit-${issueId}" type="text" value="${esc(issue.title)}" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'){commitCardTitle('${issueId}');}else if(event.key==='Escape'){cancelCardTitle('${issueId}');}">`;
+  const inp = document.getElementById('card-title-edit-' + issueId);
+  if (inp) { inp.focus(); inp.select(); }
+}
+window.editCardTitle = editCardTitle;
+
+async function commitCardTitle(issueId) {
+  const inp = document.getElementById('card-title-edit-' + issueId);
+  if (!inp) return;
+  const newTitle = inp.value.trim();
+  const issue = (state.tasks.boardIssues || []).find(x => x.id === issueId);
+  if (!newTitle || !issue || newTitle === issue.title) {
+    cancelCardTitle(issueId);
+    return;
+  }
+  const r = await api('PATCH', `/api/issues/${encodeURIComponent(issueId)}`, { title: newTitle });
+  if (r && !r.error) {
+    issue.title = newTitle;
+    renderBoardTab();
+    toastSuccess('Title updated');
+  } else {
+    toastError((r && r.error) || 'Failed to update title');
+    cancelCardTitle(issueId);
+  }
+}
+window.commitCardTitle = commitCardTitle;
+
+function cancelCardTitle(issueId) {
+  // Re-render the board to restore the card
+  renderBoardTab();
+}
+window.cancelCardTitle = cancelCardTitle;
+
+// ── Card context menu ───────────────────────────────────────
+function toggleCardMenu(issueId) {
+  const menu = document.getElementById('card-menu-' + issueId);
+  if (!menu) return;
+  const wasOpen = menu.style.display !== 'none';
+  closeAllCardMenus();
+  if (!wasOpen) {
+    menu.style.display = 'block';
+    // Close on next click outside
+    setTimeout(() => {
+      document.addEventListener('click', closeAllCardMenus, { once: true });
+    }, 0);
+  }
+}
+window.toggleCardMenu = toggleCardMenu;
+
+function closeAllCardMenus() {
+  document.querySelectorAll('.card-menu').forEach(m => { m.style.display = 'none'; });
+}
+window.closeAllCardMenus = closeAllCardMenus;
+
+async function cardChangeStatus(issueId, newStatus) {
+  closeAllCardMenus();
+  const issue = (state.tasks.boardIssues || []).find(x => x.id === issueId);
+  if (!issue || issue.status === newStatus) return;
+  const r = await api('PATCH', `/api/issues/${encodeURIComponent(issueId)}`, { status: newStatus });
+  if (r && !r.error) {
+    issue.status = newStatus;
+    renderBoardTab();
+  } else {
+    toastError((r && r.error) || 'Failed to change status');
+  }
+}
+window.cardChangeStatus = cardChangeStatus;
+
+async function cardRemoveFromSprint(issueId) {
+  closeAllCardMenus();
+  if (!confirm('Remove this issue from the sprint? It will return to the backlog.')) return;
+  const r = await api('PATCH', `/api/issues/${encodeURIComponent(issueId)}`, { sprint_id: null });
+  if (r && !r.error) {
+    await loadBoardTab(state.ui.tasksProjectId);
+    renderBoardTab();
+    toastSuccess('Removed from sprint');
+  } else {
+    toastError((r && r.error) || 'Failed to remove');
+  }
+}
+window.cardRemoveFromSprint = cardRemoveFromSprint;
 
 async function onBoardSprintChange(sprintId) {
   state.ui.tasksBoardSprintId = sprintId || '';
@@ -331,12 +436,12 @@ async function onColumnDrop(ev, newStatus) {
   if (!issue) return;
   if (issue.status === newStatus) return;
   const r = await api('PATCH', `/api/issues/${encodeURIComponent(id)}`, { status: newStatus });
-  if (r && r.ok) {
-    issue.status = newStatus;
+  if (r && r.error) {
+    toastError(r.error);
+    await loadBoardTab(state.ui.tasksProjectId);
     renderBoardTab();
   } else {
-    toastError((r && r.error) || 'Failed to move issue');
-    await loadBoardTab(state.ui.tasksProjectId);
+    issue.status = newStatus;
     renderBoardTab();
   }
 }
@@ -373,12 +478,12 @@ async function mobileMoveCard(issueId, newStatus) {
   if (!issue) { closeModal(); return; }
   if (issue.status === newStatus) { closeModal(); return; }
   const r = await api('PATCH', `/api/issues/${encodeURIComponent(issueId)}`, { status: newStatus });
-  if (r && r.ok) {
+  if (r && r.error) {
+    toastError(r.error);
+  } else {
     issue.status = newStatus;
     closeModal();
     renderBoardTab();
-  } else {
-    toastError((r && r.error) || 'Failed to move issue');
   }
 }
 window.mobileMoveCard = mobileMoveCard;

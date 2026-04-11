@@ -725,12 +725,32 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .kanban-col-body:empty::after{content:'Drop here';color:var(--muted2);font-size:11px;text-align:center;padding:20px;display:block}
 
 /* Issue cards (board) */
-.issue-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:grab;transition:border-color .15s,transform .15s,box-shadow .15s,background-color .15s}
-.issue-card:hover{border-color:color-mix(in srgb,var(--cyan) 30%,transparent);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.issue-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;cursor:grab;transition:border-color .15s,transform .15s,box-shadow .15s,background-color .15s;position:relative}
+.issue-card:hover{border-color:color-mix(in srgb, #6E5CCC 22%, transparent);background:color-mix(in srgb, var(--text) 4%, var(--surface2))}
+[data-theme="dark"] .issue-card:hover{background:color-mix(in srgb, var(--text) 3%, var(--surface2))}
 .issue-card:active{cursor:grabbing}
 .issue-card.dragging{opacity:.4;cursor:grabbing}
 .issue-card-key{font-family:var(--font-mono);font-size:11px;color:var(--cyan);font-weight:700}
 .issue-card-title{font-size:13px;color:var(--text);font-weight:500;margin-top:4px;line-height:1.4}
+.issue-card-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.issue-card-title-row{display:flex;align-items:center;gap:0;margin-top:4px;line-height:1.4}
+.issue-card-title{flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis}
+.card-edit-btn{background:transparent;border:none;color:var(--muted2);cursor:pointer;padding:2px;opacity:0;transition:opacity .12s,color .12s;flex-shrink:0;display:inline-flex;align-items:center;margin-left:4px}
+.issue-card:hover .card-edit-btn{opacity:.5}
+.card-edit-btn:hover{opacity:1!important;color:#6E5CCC}
+.card-menu-btn{background:transparent;border:none;color:var(--muted2);cursor:pointer;padding:2px;opacity:0;transition:opacity .12s,color .12s;display:inline-flex;align-items:center}
+.issue-card:hover .card-menu-btn{opacity:.6}
+.card-menu-btn:hover{opacity:1!important;color:#6E5CCC}
+.card-title-input{width:100%;font-size:13px;font-weight:500;padding:4px 6px;background:var(--input-bg);border:1px solid var(--cyan);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-body);outline:none}
+.issue-card:has(.card-menu[style*="block"]){z-index:40}
+.card-menu{position:absolute;top:32px;right:8px;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);min-width:180px;padding:4px;overflow:visible}
+.card-menu-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);font-weight:700;padding:6px 10px 2px}
+.card-menu-item{display:block;width:100%;text-align:left;background:transparent;border:none;padding:7px 10px;font-size:13px;color:var(--text);cursor:pointer;border-radius:var(--radius-sm);font-family:var(--font-body);transition:background-color .12s}
+.card-menu-item:hover{background:color-mix(in srgb, #6E5CCC 8%, transparent)}
+.card-menu-item.active{color:#6E5CCC;font-weight:600}
+[data-theme="dark"] .card-menu-item:hover{background:color-mix(in srgb, #9B8EE8 10%, transparent)}
+[data-theme="dark"] .card-menu-item.active{color:#9B8EE8}
+.card-menu-divider{height:1px;background:var(--border);margin:4px 0}
 .issue-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:11px}
 
 /* Sprint cards */

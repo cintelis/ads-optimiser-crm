@@ -22,12 +22,27 @@
 
   // ── Write hash on navigation ──────────────────────────────
   // Patch the global nav() to also update the URL hash.
+  // Helpers to resolve keys from state for cleaner URLs
+  function getProjectKey() {
+    if (state.tasks && state.tasks.project && state.tasks.project.key) return state.tasks.project.key;
+    // Fallback: check the projects list
+    if (state.tasks && state.tasks.projects && state.ui.tasksProjectId) {
+      const p = state.tasks.projects.find(x => x.id === state.ui.tasksProjectId);
+      if (p && p.key) return p.key;
+    }
+    return state.ui.tasksProjectId || '';
+  }
+  function getSpaceKey() {
+    if (state.docs && state.docs.space && state.docs.space.key) return state.docs.space.key;
+    return state.ui.docsSpaceId || '';
+  }
+
   const originalNav = window.nav;
   window.nav = async function routedNav(section) {
-    // Write hash based on the section + current state
+    // Write hash based on the section + current state — use keys not IDs
     if (section === 'projects') {
       if (state.ui.tasksProjectId) {
-        setHash('#/project/' + state.ui.tasksProjectId);
+        setHash('#/project/' + getProjectKey());
       } else {
         setHash('#/projects');
       }
@@ -35,7 +50,7 @@
       if (state.ui.docsPageId) {
         setHash('#/page/' + state.ui.docsPageId);
       } else if (state.ui.docsSpaceId) {
-        setHash('#/space/' + state.ui.docsSpaceId);
+        setHash('#/space/' + getSpaceKey());
       } else {
         setHash('#/docs');
       }
@@ -67,7 +82,7 @@
     window.closeIssueDetail = function () {
       originalCloseIssue();
       if (state.ui.tasksProjectId) {
-        setHash('#/project/' + state.ui.tasksProjectId);
+        setHash('#/project/' + getProjectKey());
       } else {
         setHash('#/projects');
       }
@@ -88,7 +103,8 @@
   if (originalOpenProject) {
     window.openProject = function (id) {
       originalOpenProject(id);
-      setHash('#/project/' + id);
+      // Use the key from the project we just opened
+      setTimeout(() => setHash('#/project/' + getProjectKey()), 50);
     };
   }
 
@@ -101,12 +117,12 @@
     };
   }
 
-  // Patch openSpace (docs) to write the space hash
+  // Patch openSpace (docs) to write the space hash using the key
   const originalOpenSpace = window.openSpace;
   if (originalOpenSpace) {
     window.openSpace = function (id) {
       originalOpenSpace(id);
-      setHash('#/space/' + id);
+      setTimeout(() => setHash('#/space/' + getSpaceKey()), 50);
     };
   }
 
@@ -137,27 +153,20 @@
       nav('projects');
       return true;
     }
-    if (route === 'project' && param) {
-      state.ui.tasksProjectId = param;
-      state.ui.tasksTab = 'issues';
-      nav('projects');
-      return true;
-    }
-    if (route === 'board' && param) {
-      state.ui.tasksProjectId = param;
-      state.ui.tasksTab = 'board';
-      nav('projects');
-      return true;
-    }
-    if (route === 'backlog' && param) {
-      state.ui.tasksProjectId = param;
-      state.ui.tasksTab = 'backlog';
-      nav('projects');
-      return true;
-    }
-    if (route === 'sprints' && param) {
-      state.ui.tasksProjectId = param;
-      state.ui.tasksTab = 'sprints';
+    if ((route === 'project' || route === 'board' || route === 'backlog' || route === 'sprints') && param) {
+      // Resolve param: could be a key (ENG) or an ID (prj_xxx)
+      let projectId = param;
+      if (!param.startsWith('prj_')) {
+        // Looks like a key — look up the ID from the projects list
+        try {
+          const pr = await api('GET', '/api/projects');
+          const projects = (pr && Array.isArray(pr.projects)) ? pr.projects : [];
+          const match = projects.find(p => p.key === param.toUpperCase());
+          if (match) projectId = match.id;
+        } catch {}
+      }
+      state.ui.tasksProjectId = projectId;
+      state.ui.tasksTab = route === 'board' ? 'board' : route === 'backlog' ? 'backlog' : route === 'sprints' ? 'sprints' : 'issues';
       nav('projects');
       return true;
     }
@@ -193,7 +202,17 @@
       return true;
     }
     if (route === 'space' && param) {
-      state.ui.docsSpaceId = param;
+      // Resolve param: could be a key (TW) or an ID (dsp_xxx)
+      let spaceId = param;
+      if (!param.startsWith('dsp_')) {
+        try {
+          const sr = await api('GET', '/api/doc-spaces');
+          const spaces = (sr && Array.isArray(sr.spaces)) ? sr.spaces : [];
+          const match = spaces.find(s => s.key === param.toUpperCase());
+          if (match) spaceId = match.id;
+        } catch {}
+      }
+      state.ui.docsSpaceId = spaceId;
       state.ui.docsPageId = '';
       nav('docs');
       return true;

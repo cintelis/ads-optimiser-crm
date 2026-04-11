@@ -403,7 +403,8 @@ function openCreateProject() {
       <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
     <div class="modal-body">
       <label>Project key (2–10 uppercase letters)</label>
-      <input id="np-key" type="text" placeholder="ENG" maxlength="10" autofocus oninput="this.value=this.value.toUpperCase()" onblur="this.value=this.value.toUpperCase()">
+      <input id="np-key" type="text" placeholder="ENG" maxlength="10" autofocus oninput="this.value=this.value.toUpperCase();checkProjectKeyAvail(this.value)" onblur="this.value=this.value.toUpperCase()">
+      <div id="np-key-status" class="text-sm" style="margin-top:4px;min-height:1.2em"></div>
       <label style="margin-top:10px">Name</label>
       <input id="np-name" type="text" placeholder="Engineering">
       <label style="margin-top:10px">Description (Markdown)</label>
@@ -422,6 +423,26 @@ function openCreateProject() {
 }
 window.openCreateProject = openCreateProject;
 
+let _projectKeyCheckTimer = null;
+async function checkProjectKeyAvail(key) {
+  const el = document.getElementById('np-key-status');
+  if (!el) return;
+  const k = String(key || '').trim().toUpperCase();
+  if (k.length < 2 || !/^[A-Z][A-Z0-9]{1,9}$/.test(k)) { el.textContent = ''; el.style.color = ''; return; }
+  if (_projectKeyCheckTimer) clearTimeout(_projectKeyCheckTimer);
+  _projectKeyCheckTimer = setTimeout(async () => {
+    const existing = (state.tasks.projects || []).find(p => p.key === k);
+    if (existing) {
+      el.textContent = 'Key "' + k + '" is already taken by ' + (existing.name || 'another project');
+      el.style.color = 'var(--red)';
+    } else {
+      el.textContent = 'Key "' + k + '" is available';
+      el.style.color = 'var(--green)';
+    }
+  }, 200);
+}
+window.checkProjectKeyAvail = checkProjectKeyAvail;
+
 async function submitCreateProject() {
   const key = (document.getElementById('np-key').value || '').trim().toUpperCase();
   const name = (document.getElementById('np-name').value || '').trim();
@@ -431,6 +452,9 @@ async function submitCreateProject() {
   if (!key || key.length < 2) { msg.textContent = 'Key must be at least 2 characters'; msg.classList.add('form-msg-err'); return; }
   if (!/^[A-Z][A-Z0-9]{1,9}$/.test(key)) { msg.textContent = 'Key must be 2–10 uppercase letters/digits'; msg.classList.add('form-msg-err'); return; }
   if (!name) { msg.textContent = 'Name is required'; msg.classList.add('form-msg-err'); return; }
+  // Client-side duplicate check (backend also enforces)
+  const dup = (state.tasks.projects || []).find(p => p.key === key);
+  if (dup) { msg.textContent = 'Key "' + key + '" is already taken by ' + (dup.name || 'another project'); msg.classList.add('form-msg-err'); return; }
   const r = await api('POST','/api/projects',{ key, name, description_md });
   if (r && (r.id || r.project)) {
     closeModal();
