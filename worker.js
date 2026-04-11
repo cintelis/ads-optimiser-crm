@@ -31,7 +31,7 @@ import {
   getProject as tasksGetProject, patchProject as tasksPatchProject, deleteProject as tasksDeleteProject,
   listIssues as tasksListIssues, createIssue as tasksCreateIssue,
   getIssue as tasksGetIssue, patchIssue as tasksPatchIssue, deleteIssue as tasksDeleteIssue,
-  addIssueComment as tasksAddIssueComment, deleteActivity as tasksDeleteActivity,
+  addIssueComment as tasksAddIssueComment, deleteActivity as tasksDeleteActivity, patchActivity as tasksPatchActivity,
 } from './worker/tasks.js';
 import {
   listProjectSprints, createSprint,
@@ -1523,6 +1523,7 @@ async function route(req, env, url, path, authCtx) {
   {
     const am = path.match(/^\/api\/activity\/([^/]+)$/);
     if (am && m === 'DELETE') return tasksDeleteActivity(env, authCtx, am[1]);
+    if (am && m === 'PATCH') return tasksPatchActivity(req, env, authCtx, am[1]);
   }
 
   // ── Existing CRM / outreach segment-based routing ─────────

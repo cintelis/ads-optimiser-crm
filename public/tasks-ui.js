@@ -572,7 +572,7 @@ async function submitCreateIssue() {
 }
 window.submitCreateIssue = submitCreateIssue;
 
-// ── Issue detail modal ────────────────────────────────────────
+// ── Issue detail (full page view) ─────────────────────────────
 let currentIssue = null;
 let currentIssueParent = null;
 let currentIssueSubtasks = [];
@@ -580,9 +580,12 @@ let currentIssueActivity = [];
 
 async function openIssueDetail(id) {
   state.ui.tasksOpenIssueId = id;
+  // Show loading state in the content area
+  const c = document.getElementById('content');
+  if (c) c.innerHTML = '<div class="empty"><p>Loading issue...</p></div>';
   const r = await api('GET', `/api/issues/${encodeURIComponent(id)}`);
   if (!r || r.error || !r.issue) {
-    setModal(`<div class="modal-head"><div class="modal-title">Error</div><button class="modal-close" type="button" onclick="closeModal()">x</button></div><div class="modal-body"><p>${esc((r && r.error) || 'Failed to load issue')}</p></div>`);
+    if (c) c.innerHTML = `<div class="empty"><p>${esc((r && r.error) || 'Failed to load issue')}</p><button class="btn btn-ghost" type="button" onclick="closeIssueDetail()">Back</button></div>`;
     return;
   }
   currentIssue = r.issue;
@@ -593,34 +596,59 @@ async function openIssueDetail(id) {
     const ur = await api('GET','/api/users');
     state.tasks.users = (ur && Array.isArray(ur.users)) ? ur.users : [];
   }
-  renderIssueDetailModal();
+  // Also ensure the project is loaded (for the breadcrumb back button)
+  if (currentIssue.project_id && !state.ui.tasksProjectId) {
+    state.ui.tasksProjectId = currentIssue.project_id;
+  }
+  renderIssueDetailPage();
 }
 window.openIssueDetail = openIssueDetail;
 
-function renderIssueDetailModal() {
+function renderIssueDetailPage() {
   const i = currentIssue;
   if (!i) return;
+  const c = document.getElementById('content');
+  if (!c) return;
   const canWrite = tasksCanWrite();
   const a = i.assignee;
   const reporter = i.reporter;
   const assigneeName = a ? (a.display_name || a.email) : 'Unassigned';
   const reporterName = reporter ? (reporter.display_name || reporter.email) : '—';
   const dueVal = i.due_at ? String(i.due_at).slice(0,10) : '';
-  // Sprint 7: full-page modal for issue detail (more room for long comments + attachments)
-  const mi = document.getElementById('modal-inner');
-  if (mi) { mi.classList.remove('modal-lg'); mi.classList.add('modal-fullpage'); }
-  setModal(`
-    <div class="modal-head">
-      <div class="modal-title">
-        ${ISSUE_TYPE_ICONS[i.type] || ISSUE_TYPE_ICONS.task}
-        <span class="mono" style="color:var(--muted2);margin-right:8px">${esc(i.issue_key)}</span>
+
+  // Update page title
+  const titleEl = document.getElementById('page-title');
+  if (titleEl) titleEl.textContent = i.issue_key;
+
+  // Build breadcrumb: Projects › ProjectKey › ParentIssue › CurrentIssue
+  const projectKey = i.issue_key ? i.issue_key.split('-')[0] : '';
+  const projectName = (state.tasks.project && state.tasks.project.name) || projectKey;
+  const breadcrumbParts = [
+    `<a onclick="state.ui.tasksProjectId='';nav('projects')" style="cursor:pointer;color:var(--muted);text-decoration:none">Projects</a>`,
+    `<a onclick="closeIssueDetail()" style="cursor:pointer;color:var(--muted);text-decoration:none">${esc(projectKey)}${projectName && projectName !== projectKey ? ' — ' + esc(projectName) : ''}</a>`,
+  ];
+  if (currentIssueParent) {
+    breadcrumbParts.push(`<a onclick="openIssueDetail('${esc(currentIssueParent.id)}')" style="cursor:pointer;color:var(--muted);text-decoration:none"><span class="mono">${esc(currentIssueParent.issue_key)}</span></a>`);
+  }
+  breadcrumbParts.push(`<span style="color:var(--text)">${esc(i.issue_key)}</span>`);
+  const breadcrumbHtml = breadcrumbParts.join(' <span style="color:var(--muted2);margin:0 2px">›</span> ');
+
+  c.innerHTML = `
+    <div class="issue-fullpage">
+      <div class="issue-fullpage-header">
+        <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+          <div class="docs-breadcrumb" style="font-size:13px">${breadcrumbHtml}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${ISSUE_TYPE_ICONS[i.type] || ISSUE_TYPE_ICONS.task}
+            <span class="mono" style="color:var(--cyan);font-size:14px;font-weight:700">${esc(i.issue_key)}</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="copyIssueUrl('${esc(i.issue_key)}')" style="font-size:12px">Copy link</button>
+          ${canWrite ? `<button class="btn btn-ghost btn-sm" type="button" style="color:var(--red)" onclick="submitDeleteIssue()">Delete</button>` : ''}
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn btn-ghost btn-sm" type="button" onclick="copyIssueUrl('${esc(i.issue_key)}')" title="Copy link to this issue" style="font-size:12px">Copy link</button>
-        <button class="modal-close" type="button" onclick="closeIssueDetail()">x</button>
-      </div>
-    </div>
-    <div class="modal-body" style="overflow-y:auto">
+      <div class="issue-fullpage-body">
       <div class="issue-detail-body" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:24px">
         <div class="issue-detail-main" style="min-width:0">
           <div class="issue-title-wrap" id="issue-title-wrap">
@@ -677,12 +705,9 @@ function renderIssueDetailModal() {
 
       <div id="issue-attachments-panel" style="margin-top:18px"></div>
       <div id="issue-links-panel" style="margin-top:18px"></div>
+      </div>
     </div>
-    <div class="modal-foot" style="justify-content:space-between">
-      <div>${canWrite ? `<button class="btn btn-ghost btn-sm" type="button" style="color:var(--red)" onclick="submitDeleteIssue()">Delete issue</button>` : ''}</div>
-      <button class="btn btn-ghost" type="button" onclick="closeIssueDetail()">Close</button>
-    </div>
-  `);
+  `;
   // Wire @mention autocomplete + markdown toolbar on the comment composer.
   // Use a longer delay to ensure notifications-ui.js has loaded and executed.
   setTimeout(() => {
@@ -710,10 +735,7 @@ function renderIssueDetailModal() {
 }
 
 function closeIssueDetail() {
-  // Restore default modal size so other modals aren't affected.
-  const mi = document.getElementById('modal-inner');
-  if (mi) { mi.classList.remove('modal-fullpage'); mi.classList.add('modal-lg'); }
-  // Sprint 6: drop attachment + link caches so a re-open re-fetches.
+  // Drop caches so a re-open re-fetches.
   if (currentIssue && currentIssue.id) {
     const k = 'issue:' + currentIssue.id;
     if (state.attachments) delete state.attachments[k];
@@ -724,9 +746,11 @@ function closeIssueDetail() {
   currentIssueParent = null;
   currentIssueSubtasks = [];
   currentIssueActivity = [];
-  closeModal();
-  if (currentSection === 'projects' && state.ui.tasksProjectId) {
+  // Navigate back to the project detail page (full page, not a modal close).
+  if (state.ui.tasksProjectId) {
     loadProject(state.ui.tasksProjectId).then(renderProjectDetail);
+  } else {
+    nav('projects');
   }
 }
 window.closeIssueDetail = closeIssueDetail;
@@ -834,14 +858,17 @@ function renderCommentsFeed() {
     const u = act.user || null;
     const who = u ? (u.display_name || u.email) : 'system';
     const when = relTime(act.created_at);
-    // Small team — any member+ can delete any comment. Backend enforces if needed.
-    const delBtn = canWrite ? `<button class="activity-del" type="button" title="Delete comment" onclick="deleteActivity('${esc(act.id)}')">×</button>` : '';
+    const actions = canWrite ? `
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-ghost btn-sm" type="button" style="font-size:11px;padding:2px 8px" onclick="editComment('${esc(act.id)}')">Edit</button>
+        <button class="activity-del" type="button" title="Delete comment" onclick="deleteActivity('${esc(act.id)}')">×</button>
+      </div>` : '';
     const commentId = 'comment-body-' + act.id;
     return `
-      <div class="comment-card" style="margin:10px 0;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)">
+      <div class="comment-card" id="comment-card-${esc(act.id)}" style="margin:10px 0;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div><strong>${esc(who)}</strong> <span class="text-muted text-sm">${esc(when)}</span></div>
-          ${delBtn}
+          ${actions}
         </div>
         <div class="comment-body-wrap" id="${esc(commentId)}">
           <div class="md-body comment-body-content">${renderMarkdown(act.body_md || '')}</div>
@@ -897,6 +924,71 @@ function collapseOverflowingComments() {
   });
 }
 window.collapseOverflowingComments = collapseOverflowingComments;
+
+// Edit comment inline
+function editComment(actId) {
+  if (!tasksCanWrite()) return;
+  const act = currentIssueActivity.find(a => a.id === actId);
+  if (!act) return;
+  const wrap = document.getElementById('comment-body-' + actId);
+  if (!wrap) return;
+  // Remove any "show more" button
+  const showMore = wrap.parentNode.querySelector('.comment-show-more');
+  if (showMore) showMore.remove();
+  // Replace rendered content with a textarea
+  wrap.style.maxHeight = 'none';
+  wrap.style.overflow = 'visible';
+  wrap.innerHTML = `
+    <textarea id="edit-comment-text-${esc(actId)}" rows="6" style="width:100%;margin-bottom:8px">${esc(act.body_md || '')}</textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" type="button" onclick="cancelEditComment('${esc(actId)}')">Cancel</button>
+      <button class="btn btn-primary btn-sm" type="button" onclick="saveComment('${esc(actId)}')">Save</button>
+    </div>
+  `;
+  const ta = document.getElementById('edit-comment-text-' + actId);
+  if (ta) {
+    ta.focus();
+    if (typeof attachMarkdownToolbar === 'function') attachMarkdownToolbar(ta);
+    if (typeof attachMentionAutocomplete === 'function') attachMentionAutocomplete(ta);
+    if (typeof attachWikiLinkAutocomplete === 'function') attachWikiLinkAutocomplete(ta);
+  }
+}
+window.editComment = editComment;
+
+function cancelEditComment(actId) {
+  const act = currentIssueActivity.find(a => a.id === actId);
+  if (!act) return;
+  const wrap = document.getElementById('comment-body-' + actId);
+  if (!wrap) return;
+  wrap.innerHTML = `<div class="md-body comment-body-content">${renderMarkdown(act.body_md || '')}</div>`;
+  if (typeof renderMermaidDiagrams === 'function') setTimeout(renderMermaidDiagrams, 0);
+  if (typeof collapseOverflowingComments === 'function') setTimeout(collapseOverflowingComments, 0);
+}
+window.cancelEditComment = cancelEditComment;
+
+async function saveComment(actId) {
+  const ta = document.getElementById('edit-comment-text-' + actId);
+  if (!ta) return;
+  const newBody = ta.value.trim();
+  if (!newBody) { toastError('Comment cannot be empty'); return; }
+  const r = await api('PATCH', `/api/activity/${encodeURIComponent(actId)}`, { body_md: newBody });
+  if (r && !r.error) {
+    // Update local state
+    const act = currentIssueActivity.find(a => a.id === actId);
+    if (act) act.body_md = r.body_md || newBody;
+    // Re-render the comment body
+    const wrap = document.getElementById('comment-body-' + actId);
+    if (wrap) {
+      wrap.innerHTML = `<div class="md-body comment-body-content">${renderMarkdown(r.body_md || newBody)}</div>`;
+    }
+    toastSuccess('Comment updated');
+    if (typeof renderMermaidDiagrams === 'function') setTimeout(renderMermaidDiagrams, 0);
+    if (typeof collapseOverflowingComments === 'function') setTimeout(collapseOverflowingComments, 0);
+  } else {
+    toastError((r && r.error) || 'Failed to update comment');
+  }
+}
+window.saveComment = saveComment;
 
 async function addComment() {
   const el = document.getElementById('issue-comment-text');

@@ -277,28 +277,30 @@
   });
 
   // ── Initial route on page load ────────────────────────────
-  // Save the initial hash BEFORE init runs, because init() calls
-  // nav('overview') which overwrites the hash via our patch.
+  // Capture the initial hash NOW (before init's nav('overview') overwrites it).
+  // init() in app.js runs BEFORE router.js loads (defer order), so we can't
+  // patch it. Instead, we poll until the app is ready (logged in, #app visible),
+  // then restore the saved hash.
   const initialHash = (window.location.hash || '').replace(/^#\/?/, '');
 
-  const originalInit = window.init;
-  if (originalInit) {
-    window.init = async function () {
-      // Temporarily disable hash-writing so init's nav('overview') doesn't
-      // overwrite the initial hash.
-      const savedNav = window.nav;
-      if (initialHash && initialHash !== 'overview') {
-        window.nav = originalNav; // use un-patched nav during init
-      }
-      await originalInit();
-      window.nav = savedNav; // restore patched nav
-
-      // Now restore from the saved initial hash.
-      if (initialHash && initialHash !== 'overview') {
-        window.location.hash = '#/' + initialHash; // restore the hash that init may have cleared
-        await restoreFromHash();
-      }
+  if (initialHash && initialHash !== 'overview') {
+    const poll = setInterval(async () => {
+      const appEl = document.getElementById('app');
+      const loginEl = document.getElementById('login');
+      const loggedIn = appEl && appEl.style.display !== 'none'
+                    && loginEl && loginEl.style.display === 'none';
+      if (!loggedIn) return; // still loading / logging in
+      clearInterval(poll);
+      // Restore the initial hash and navigate
+      window.location.hash = '#/' + initialHash;
+      suppressNextHashChange = true;
+      await restoreFromHash();
+      suppressNextHashChange = false;
       routerActive = true;
-    };
+    }, 200);
+    // Safety: stop polling after 15 seconds
+    setTimeout(() => { clearInterval(poll); routerActive = true; }, 15000);
+  } else {
+    routerActive = true;
   }
 })();

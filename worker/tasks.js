@@ -579,3 +579,15 @@ export async function deleteActivity(env, ctx, actId) {
   await env.DB.prepare('DELETE FROM activity WHERE id=?').bind(actId).run();
   return jres({ ok: true });
 }
+
+export async function patchActivity(req, env, ctx, actId) {
+  const row = await env.DB.prepare('SELECT id, user_id, kind FROM activity WHERE id=?').bind(actId).first();
+  if (!row) return jres({ error: 'Activity not found' }, 404);
+  if (row.kind !== 'comment') return jres({ error: 'Only comments can be edited' }, 400);
+  // Any member+ can edit any comment (small team policy).
+  const body = await req.json().catch(() => ({}));
+  const newBody = String(body.body_md || '').trim();
+  if (!newBody) return jres({ error: 'body_md required' }, 400);
+  await env.DB.prepare('UPDATE activity SET body_md=? WHERE id=?').bind(newBody, actId).run();
+  return jres({ ok: true, body_md: newBody });
+}
