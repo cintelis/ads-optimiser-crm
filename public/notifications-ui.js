@@ -215,14 +215,28 @@ async function markNotificationRead(id, link) {
   // Fire-and-forget server write. Idempotent.
   api('POST', `/api/me/notifications/${encodeURIComponent(id)}/read`).catch(() => {});
   closeInbox();
-  // v1: parse ?nav=xxx out of the link and navigate to that section.
-  // The app's router doesn't yet honour deep-link query params (Sprint 6/7).
-  let target = 'overview';
+  // Parse the link for entity references and navigate directly.
   if (link) {
-    const m = String(link).match(/[?&]nav=([^&#]+)/);
-    if (m) target = decodeURIComponent(m[1]);
+    const params = new URLSearchParams(String(link).replace(/^[^?]*\??/, ''));
+    const issueId = params.get('issue');
+    const pageId = params.get('page');
+    const spaceId = params.get('space');
+    if (issueId && typeof openIssueDetail === 'function') {
+      openIssueDetail(issueId);
+      return;
+    }
+    if (pageId) {
+      if (typeof state !== 'undefined') {
+        state.ui.docsPageId = pageId;
+        if (spaceId) state.ui.docsSpaceId = spaceId;
+      }
+      if (typeof nav === 'function') nav('docs');
+      return;
+    }
+    const navTarget = params.get('nav');
+    if (navTarget && typeof nav === 'function') { nav(navTarget); return; }
   }
-  if (typeof nav === 'function') nav(target);
+  if (typeof nav === 'function') nav('overview');
 }
 window.markNotificationRead = markNotificationRead;
 
