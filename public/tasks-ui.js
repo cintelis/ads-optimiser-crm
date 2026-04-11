@@ -1049,7 +1049,7 @@ async function refreshIssueDetail() {
     currentIssueParent = r.parent || null;
     currentIssueSubtasks = Array.isArray(r.subtasks) ? r.subtasks : [];
     currentIssueActivity = Array.isArray(r.activity) ? r.activity : [];
-    renderIssueDetailModal();
+    renderIssueDetailPage();
   }
 }
 
