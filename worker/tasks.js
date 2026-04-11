@@ -573,9 +573,7 @@ export async function addIssueComment(req, env, ctx, isId) {
 export async function deleteActivity(env, ctx, actId) {
   const row = await env.DB.prepare('SELECT id, user_id FROM activity WHERE id=?').bind(actId).first();
   if (!row) return jres({ error: 'Activity not found' }, 404);
-  const isAdmin = ctx.user.role === 'admin';
-  const isAuthor = row.user_id && row.user_id === ctx.user.id;
-  if (!isAdmin && !isAuthor) return jres({ error: 'Forbidden' }, 403);
+  // Small team — any member+ can delete any comment/activity.
   await env.DB.prepare('DELETE FROM activity WHERE id=?').bind(actId).run();
   return jres({ ok: true });
 }

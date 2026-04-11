@@ -2430,21 +2430,23 @@ function renderAccount() {
       <div class="card">
         <div class="card-head"><div class="card-title">Profile</div></div>
         <div class="card-body">
-          <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
-            <div style="text-align:center">
+          <div style="display:flex;gap:24px;align-items:center">
+            <div style="flex-shrink:0;text-align:center">
               <div class="account-avatar" id="account-avatar">
-                ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;display:block">` : `<div style="width:64px;height:64px;border-radius:50%;background:color-mix(in srgb,#6E5CCC 14%,transparent);color:#6E5CCC;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700">${esc((u.display_name || u.email || '?').charAt(0).toUpperCase())}</div>`}
+                ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;border:0.5px solid var(--border)">` : `<div style="width:72px;height:72px;border-radius:50%;background:color-mix(in srgb,#6E5CCC 14%,transparent);color:#6E5CCC;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;border:0.5px solid rgba(110,92,204,0.15)">${esc((u.display_name || u.email || '?').charAt(0).toUpperCase())}</div>`}
               </div>
-              <label style="margin-top:8px;display:inline-block;cursor:pointer;font-size:12px;color:#6E5CCC;font-weight:600">
+              <label style="margin-top:10px;display:inline-block;cursor:pointer;font-size:12px;color:#6E5CCC;font-weight:600;letter-spacing:-0.2px">
                 Change photo
                 <input type="file" accept="image/*" style="display:none" onchange="uploadAvatarFile(this.files[0])">
               </label>
             </div>
-            <div class="kv-grid" style="flex:1;min-width:200px">
-              <div class="kv-row"><div class="kv-k">Email</div><div class="kv-v">${esc(u.email || '')}</div></div>
-              <div class="kv-row"><div class="kv-k">Display name</div><div class="kv-v">${esc(u.display_name || '(not set)')}</div></div>
-              <div class="kv-row"><div class="kv-k">Role</div><div class="kv-v"><span class="role-badge role-${esc(u.role || 'member')}">${esc(u.role || 'member')}</span></div></div>
-              <div class="kv-row"><div class="kv-k">MFA</div><div class="kv-v">${mfa ? 'Enabled' : 'Not enabled'}${mfa && remaining ? ` &middot; ${remaining} backup codes remaining` : ''}</div></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:20px;font-weight:600;color:var(--text);letter-spacing:-0.3px;margin-bottom:2px">${esc(u.display_name || u.email || '')}</div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${esc(u.email || '')}</div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <span class="role-badge role-${esc(u.role || 'member')}" style="border-radius:100px">${esc(u.role || 'member')}</span>
+                <span style="font-size:13px;color:var(--muted)">${mfa ? 'MFA enabled' : 'MFA not enabled'}${mfa && remaining ? ` · ${remaining} backup codes` : ''}</span>
+              </div>
             </div>
           </div>
         </div>

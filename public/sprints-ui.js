@@ -261,31 +261,43 @@ window.renderBoardTab = renderBoardTab;
 function renderIssueCard(i, mobile) {
   const a = i.assignee;
   const initials = initialsOf(a);
-  const avatarUrl = a && a.id ? `/api/users/${a.id}/avatar` : '';
-  const avatar = a
-    ? (a.avatar_url || avatarUrl ? `<img class="avatar-sm-img" src="${esc(avatarUrl)}" title="${esc(a.display_name || a.email || '')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="avatar-sm" title="${esc(a.display_name || a.email || '')}" style="display:none">${esc(initials || '?')}</span>` : `<span class="avatar-sm" title="${esc(a.display_name || a.email || '')}">${esc(initials || '?')}</span>`)
-    : '<span class="avatar-sm" title="Unassigned" style="opacity:.4">·</span>';
+  // Avatar: photo with initials fallback, or a visible "unassigned" placeholder
+  let avatarHtml;
+  if (a && a.id) {
+    const url = '/api/users/' + a.id + '/avatar';
+    const name = esc(a.display_name || a.email || '');
+    const ini = esc(initials || '?');
+    avatarHtml = `<img class="card-avatar" src="${url}" title="${name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="card-avatar-initials" title="${name}" style="display:none">${ini}</span>`;
+  } else {
+    avatarHtml = '<span class="card-avatar-initials card-avatar-unassigned" title="Unassigned">?</span>';
+  }
   const priority = `<span class="lozenge lozenge-priority-${esc(i.priority)}">${esc(TASK_PRIORITY_LABELS[i.priority] || i.priority)}</span>`;
   const draggable = mobile ? '' : 'draggable="true"';
   const dragHandlers = mobile
     ? ``
     : `ondragstart="onCardDragStart(event,'${esc(i.id)}')" ondragend="onCardDragEnd(event)"`;
   const canWrite = tasksCanWrite();
+  const doneClass = i.status === 'done' ? ' card-done' : '';
   return `
-    <div class="issue-card" ${draggable} ${dragHandlers} onclick="openIssueDetail('${esc(i.id)}')">
+    <div class="issue-card${doneClass}" ${draggable} ${dragHandlers} onclick="openIssueDetail('${esc(i.id)}')">
       <div class="issue-card-top">
-        <div class="issue-card-key">
-          ${ISSUE_TYPE_ICONS[i.type] || ISSUE_TYPE_ICONS.task}
-          <span class="mono">${esc(i.issue_key)}</span>
-        </div>
+        <div style="flex:1"></div>
         ${canWrite ? `<button class="card-menu-btn" type="button" onclick="event.stopPropagation();toggleCardMenu('${esc(i.id)}')" title="More actions"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="3" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="13" cy="8" r="1.5" fill="currentColor"/></svg></button>` : ''}
       </div>
       <div class="issue-card-title-row">
-        <span class="issue-card-title" id="card-title-${esc(i.id)}">${esc(i.title)}</span>${canWrite ? `<button class="card-edit-btn" type="button" onclick="event.stopPropagation();editCardTitle('${esc(i.id)}')" title="Edit title"><svg viewBox="0 0 16 16" width="12" height="12" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 11 L5 8.5 L10 3.5 L12.5 6 L7.5 11 Z" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M9 4.5 L11.5 7" stroke="currentColor" stroke-width="1.2"/></svg></button>` : ''}
+        <span class="issue-card-title" id="card-title-${esc(i.id)}">${esc(i.title)}</span>
+        ${canWrite ? `<button class="card-edit-btn" type="button" onclick="event.stopPropagation();editCardTitle('${esc(i.id)}')" title="Edit title"><svg viewBox="0 0 16 16" width="14" height="14" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 11 L5 8.5 L10 3.5 L12.5 6 L7.5 11 Z" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M9 4.5 L11.5 7" stroke="currentColor" stroke-width="1.2"/></svg></button>` : ''}
+        <div class="card-title-tooltip">${esc(i.title)}</div>
       </div>
       <div class="issue-card-foot">
-        ${avatar}
-        ${priority}
+        <div class="card-foot-left">
+          ${ISSUE_TYPE_ICONS[i.type] || ISSUE_TYPE_ICONS.task}
+          <span class="card-issue-key">${esc(i.issue_key)}</span>
+        </div>
+        <div class="card-foot-right">
+          ${priority}
+          ${avatarHtml}
+        </div>
       </div>
       <div class="card-menu" id="card-menu-${esc(i.id)}" style="display:none">
         <div class="card-menu-label">Change status</div>
@@ -676,15 +688,17 @@ function renderSprintsTab() {
 
   if (!list.length) {
     body.innerHTML = `
+      <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <h3 style="margin:0;font-size:16px">Sprints</h3>
-        ${canWrite ? '<button class="btn btn-primary btn-sm" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
+        <h3 style="margin:0">Sprints</h3>
+        ${canWrite ? '<button class="tw-btn-primary" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
       </div>
       <div class="card"><div class="card-body" style="padding:20px">
         ${typeof renderEmptyState === 'function'
           ? renderEmptyState({ icon: 'sprint', title: 'No sprints yet', body: 'Create your first sprint to start planning work.', actionLabel: canWrite ? '+ New sprint' : undefined, actionOnClick: canWrite ? 'openCreateSprint()' : undefined })
           : '<p class="text-muted">No sprints yet.</p>'}
       </div></div>
+      </div>
     `;
     return;
   }
@@ -709,19 +723,21 @@ function renderSprintsTab() {
     : `<div class="text-muted text-sm" style="padding:8px 2px">No completed sprints.</div>`;
 
   body.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-      <h3 style="margin:0;font-size:16px">Sprints</h3>
-      ${canWrite ? '<button class="btn btn-primary btn-sm" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">Sprints</h3>
+        ${canWrite ? '<button class="tw-btn-primary" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
+      </div>
+
+      <div class="tw-section-label">Active</div>
+      <div style="display:flex;flex-direction:column;gap:10px">${activeHtml}</div>
+
+      <div class="tw-section-label" style="margin-top:18px">Planned</div>
+      <div style="display:flex;flex-direction:column;gap:10px">${plannedHtml}</div>
+
+      <div class="tw-section-label" style="margin-top:18px">Completed</div>
+      <div>${completedHtml}</div>
     </div>
-
-    <div class="sprints-section-label" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin:12px 0 6px">Active</div>
-    <div style="display:flex;flex-direction:column;gap:10px">${activeHtml}</div>
-
-    <div class="sprints-section-label" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin:18px 0 6px">Planned</div>
-    <div style="display:flex;flex-direction:column;gap:10px">${plannedHtml}</div>
-
-    <div class="sprints-section-label" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin:18px 0 6px">Completed</div>
-    <div>${completedHtml}</div>
   `;
 }
 window.renderSprintsTab = renderSprintsTab;

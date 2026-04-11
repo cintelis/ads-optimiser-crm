@@ -64,7 +64,8 @@ export async function getActiveSession(env, sessionId) {
     `SELECT s.id, s.user_id, s.is_2fa_pending, s.created_at, s.expires_at,
             s.revoked_at, s.last_seen_at,
             u.id AS u_id, u.email AS u_email, u.display_name AS u_display_name,
-            u.role AS u_role, u.active AS u_active, u.preferences AS u_preferences
+            u.role AS u_role, u.active AS u_active, u.preferences AS u_preferences,
+            u.avatar_url AS u_avatar_url
      FROM app_sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.id = ?
@@ -90,6 +91,7 @@ export async function getActiveSession(env, sessionId) {
       role: row.u_role || 'member',
       active: Number(row.u_active) === 1,
       preferences: safeParseJson(row.u_preferences),
+      avatar_url: row.u_avatar_url || null,
     },
   };
 }

@@ -25,11 +25,12 @@ const TASK_TYPE_LABELS = { task:'Task', bug:'Bug', story:'Story', epic:'Epic' };
 const TASK_PRIORITIES = ['lowest','low','medium','high','highest'];
 const TASK_PRIORITY_LABELS = { lowest:'Lowest', low:'Low', medium:'Medium', high:'High', highest:'Highest' };
 
+// Jira-style colored type icons (16x16 rounded squares with white inner icon)
 const ISSUE_TYPE_ICONS = {
-  task: '<svg class="issue-type-icon" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor"/></svg>',
-  bug:  '<svg class="issue-type-icon" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="currentColor"/></svg>',
-  story:'<svg class="issue-type-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 2h8v10l-4-2.5L3 12V2z" fill="currentColor"/></svg>',
-  epic: '<svg class="issue-type-icon" viewBox="0 0 14 14" aria-hidden="true"><path d="M8 1L3 8h3l-1 5 5-7H7l1-5z" fill="currentColor"/></svg>'
+  task: '<span class="issue-type-icon" style="background:#4BADE8;border-radius:3px;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 12 12" width="10" height="10"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>',
+  bug:  '<span class="issue-type-icon" style="background:#E5493A;border-radius:3px;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 12 12" width="10" height="10"><circle cx="6" cy="6" r="3" fill="#fff"/></svg></span>',
+  story:'<span class="issue-type-icon" style="background:#63BA3C;border-radius:3px;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 12 12" width="10" height="10"><path d="M3 2h6v8l-3-2-3 2V2z" fill="#fff"/></svg></span>',
+  epic: '<span class="issue-type-icon" style="background:#904EE2;border-radius:3px;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 12 12" width="10" height="10"><path d="M7 1L3 7h2.5l-.5 4 4-6H6.5L7 1z" fill="#fff"/></svg></span>'
 };
 
 // ── Markdown helper ───────────────────────────────────────────
