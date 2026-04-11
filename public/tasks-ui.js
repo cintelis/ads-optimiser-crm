@@ -615,7 +615,10 @@ function renderIssueDetailModal() {
         ${ISSUE_TYPE_ICONS[i.type] || ISSUE_TYPE_ICONS.task}
         <span class="mono" style="color:var(--muted2);margin-right:8px">${esc(i.issue_key)}</span>
       </div>
-      <button class="modal-close" type="button" onclick="closeIssueDetail()">x</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-ghost btn-sm" type="button" onclick="copyIssueUrl('${esc(i.issue_key)}')" title="Copy link to this issue" style="font-size:12px">Copy link</button>
+        <button class="modal-close" type="button" onclick="closeIssueDetail()">x</button>
+      </div>
     </div>
     <div class="modal-body" style="overflow-y:auto">
       <div class="issue-detail-body" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:24px">
