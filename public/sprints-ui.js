@@ -188,7 +188,7 @@ function renderBoardTab() {
   }
 
   const mobile = isMobileBoard();
-  const daysTxt = (sprint.state === 'active' && sprint.days_remaining != null)
+  const daysTxt = (sprint && sprint.state === 'active' && sprint.days_remaining != null)
     ? `<span class="text-muted text-sm">${Number(sprint.days_remaining)} day${Number(sprint.days_remaining) === 1 ? '' : 's'} left</span>` : '';
 
   const grouped = {};
