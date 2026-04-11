@@ -74,6 +74,11 @@ function applyTheme(theme) {
       : '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 16a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zm10-6a1 1 0 0 1-1 1h-2a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1zM5 12a1 1 0 0 1-1 1H2a1 1 0 1 1 0-2h2a1 1 0 0 1 1 1zm14.07-7.07a1 1 0 0 1 0 1.41l-1.42 1.42a1 1 0 1 1-1.41-1.41l1.41-1.42a1 1 0 0 1 1.42 0zM7.76 16.24a1 1 0 0 1 0 1.41l-1.41 1.42A1 1 0 1 1 4.93 17.66l1.42-1.42a1 1 0 0 1 1.41 0zm11.31 1.41a1 1 0 0 1-1.41 1.42l-1.42-1.42a1 1 0 1 1 1.41-1.41zM7.76 7.76A1 1 0 0 1 6.35 6.35l-1.42-1.42a1 1 0 1 1 1.42-1.41l1.41 1.41a1 1 0 0 1 0 1.41z" fill="currentColor"/></svg>';
     btn.title = t === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
   }
+  // Toggle login page logo for day/night
+  const dayLogo = document.getElementById('login-logo-day');
+  const nightLogo = document.getElementById('login-logo-night');
+  if (dayLogo) dayLogo.style.display = t === 'light' ? '' : 'none';
+  if (nightLogo) nightLogo.style.display = t === 'light' ? 'none' : '';
 }
 applyTheme(getInitialTheme());
 async function toggleTheme() {

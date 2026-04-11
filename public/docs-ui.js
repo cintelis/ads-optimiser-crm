@@ -340,6 +340,7 @@ function renderSpaceHome() {
           </h1>
           <div class="docs-page-actions">
             ${canWrite ? '<button class="btn btn-primary" type="button" onclick="openCreatePage(\'\')">+ New page</button>' : ''}
+            ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openEditSpace()">Edit space</button>' : ''}
             ${isAdmin ? '<button class="btn btn-ghost btn-sm" type="button" onclick="confirmDeleteSpace()">Delete space</button>' : ''}
           </div>
         </div>
@@ -783,6 +784,56 @@ async function confirmDeletePage() {
   }
 }
 window.confirmDeletePage = confirmDeletePage;
+
+function openEditSpace() {
+  const space = state.docs.space;
+  if (!space) return;
+  setModal(`
+    <div class="modal-head"><div class="modal-title">Edit space — ${esc(space.key)}</div>
+      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
+    <div class="modal-body">
+      <label>Space key</label>
+      <input type="text" value="${esc(space.key)}" disabled>
+      <label style="margin-top:10px">Name</label>
+      <input id="es-name" type="text" value="${esc(space.name)}" autofocus>
+      <label style="margin-top:10px">Icon (emoji or short text)</label>
+      <input id="es-icon" type="text" value="${esc(space.icon || '')}" maxlength="4" style="width:60px">
+      <label style="margin-top:10px">Description (Markdown)</label>
+      <textarea id="es-desc" rows="4">${esc(space.description_md || '')}</textarea>
+      <div class="form-msg" id="es-msg" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitEditSpace()">Save changes</button>
+    </div>
+  `);
+}
+window.openEditSpace = openEditSpace;
+
+async function submitEditSpace() {
+  const space = state.docs.space;
+  if (!space) return;
+  const name = (document.getElementById('es-name').value || '').trim();
+  const icon = (document.getElementById('es-icon').value || '').trim();
+  const description_md = document.getElementById('es-desc').value || '';
+  const msg = document.getElementById('es-msg');
+  if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
+  if (!name) { if (msg) { msg.textContent = 'Name is required'; msg.className = 'form-msg form-msg-err'; } return; }
+  const r = await api('PATCH', `/api/doc-spaces/${encodeURIComponent(space.id)}`, { name, icon, description_md });
+  if (r && (r.ok || r.unchanged)) {
+    closeModal();
+    toastSuccess('Space updated');
+    await loadSpace(space.id);
+    if (state.ui.docsPageId) {
+      renderPage();
+    } else {
+      renderSpaceHome();
+    }
+  } else {
+    if (msg) { msg.textContent = (r && r.error) || 'Failed to update'; msg.className = 'form-msg form-msg-err'; }
+  }
+}
+window.submitEditSpace = submitEditSpace;
 
 async function confirmDeleteSpace() {
   if (!docsIsAdmin()) return;
