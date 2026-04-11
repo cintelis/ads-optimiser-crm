@@ -277,17 +277,25 @@
   });
 
   // ── Initial route on page load ────────────────────────────
-  // Wait for the app to finish init, then check the hash.
-  // The existing init() calls nav('overview') — we override that
-  // if there's a hash to restore.
+  // Save the initial hash BEFORE init runs, because init() calls
+  // nav('overview') which overwrites the hash via our patch.
+  const initialHash = (window.location.hash || '').replace(/^#\/?/, '');
+
   const originalInit = window.init;
   if (originalInit) {
     window.init = async function () {
+      // Temporarily disable hash-writing so init's nav('overview') doesn't
+      // overwrite the initial hash.
+      const savedNav = window.nav;
+      if (initialHash && initialHash !== 'overview') {
+        window.nav = originalNav; // use un-patched nav during init
+      }
       await originalInit();
-      // After init completes (user is logged in, state is loaded),
-      // check if there's a hash route to restore.
-      const hash = (window.location.hash || '').replace(/^#\/?/, '');
-      if (hash && hash !== 'overview') {
+      window.nav = savedNav; // restore patched nav
+
+      // Now restore from the saved initial hash.
+      if (initialHash && initialHash !== 'overview') {
+        window.location.hash = '#/' + initialHash; // restore the hash that init may have cleared
         await restoreFromHash();
       }
       routerActive = true;
