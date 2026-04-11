@@ -751,18 +751,17 @@ async function submitMovePage() {
   const msg = document.getElementById('move-page-msg');
   if (msg) { msg.className = 'form-msg'; msg.textContent = ''; }
   const r = await api('PATCH', `/api/doc-pages/${encodeURIComponent(page.id)}`, { parent_id: newParentId });
-  if (r && (r.ok || r.page || r.unchanged)) {
+  if (r && r.error) {
+    if (msg) {
+      msg.textContent = r.error;
+      msg.className = 'form-msg form-msg-err';
+    }
+  } else {
     closeModal();
     toastSuccess('Page moved');
-    // Reload the space tree + page to reflect the new location
     await loadSpace(state.ui.docsSpaceId);
     await loadPage(page.id);
     renderPage();
-  } else {
-    if (msg) {
-      msg.textContent = (r && r.error) || 'Failed to move page';
-      msg.className = 'form-msg form-msg-err';
-    }
   }
 }
 window.submitMovePage = submitMovePage;
