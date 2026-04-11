@@ -716,12 +716,12 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 .tasks-tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
 
 /* Kanban board */
-.kanban-board{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:14px;align-items:flex-start}
+.kanban-board{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:14px;align-items:stretch;min-height:calc(100vh - var(--header-height) - 200px)}
 .kanban-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;min-height:200px;transition:border-color .15s,background-color .15s}
 .kanban-col.drop-target{border-color:var(--cyan);background:color-mix(in srgb,var(--cyan) 6%,transparent)}
 .kanban-col-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);font-weight:700}
 .kanban-col-count{background:var(--surface2);color:var(--muted);font-size:11px;padding:1px 8px;border-radius:999px;font-weight:700}
-.kanban-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.kanban-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px;flex:1}
 .kanban-col-body:empty::after{content:'Drop here';color:var(--muted2);font-size:11px;text-align:center;padding:20px;display:block}
 
 /* Issue cards (board) */
@@ -751,6 +751,7 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 [data-theme="dark"] .card-menu-item:hover{background:color-mix(in srgb, #9B8EE8 10%, transparent)}
 [data-theme="dark"] .card-menu-item.active{color:#9B8EE8}
 .card-menu-divider{height:1px;background:var(--border);margin:4px 0}
+.avatar-sm-img{width:28px;height:28px;border-radius:999px;object-fit:cover;display:block;flex-shrink:0}
 .issue-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:11px}
 
 /* Sprint cards */

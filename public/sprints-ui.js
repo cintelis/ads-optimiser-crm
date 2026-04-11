@@ -261,7 +261,10 @@ window.renderBoardTab = renderBoardTab;
 function renderIssueCard(i, mobile) {
   const a = i.assignee;
   const initials = initialsOf(a);
-  const avatar = a ? `<span class="avatar-sm" title="${esc(a.display_name || a.email || '')}">${esc(initials || '?')}</span>` : '<span class="avatar-sm" title="Unassigned" style="opacity:.4">·</span>';
+  const avatarUrl = a && a.id ? `/api/users/${a.id}/avatar` : '';
+  const avatar = a
+    ? (a.avatar_url || avatarUrl ? `<img class="avatar-sm-img" src="${esc(avatarUrl)}" title="${esc(a.display_name || a.email || '')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="avatar-sm" title="${esc(a.display_name || a.email || '')}" style="display:none">${esc(initials || '?')}</span>` : `<span class="avatar-sm" title="${esc(a.display_name || a.email || '')}">${esc(initials || '?')}</span>`)
+    : '<span class="avatar-sm" title="Unassigned" style="opacity:.4">·</span>';
   const priority = `<span class="lozenge lozenge-priority-${esc(i.priority)}">${esc(TASK_PRIORITY_LABELS[i.priority] || i.priority)}</span>`;
   const draggable = mobile ? '' : 'draggable="true"';
   const dragHandlers = mobile

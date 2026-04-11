@@ -2430,11 +2430,22 @@ function renderAccount() {
       <div class="card">
         <div class="card-head"><div class="card-title">Profile</div></div>
         <div class="card-body">
-          <div class="kv-grid">
-            <div class="kv-row"><div class="kv-k">Email</div><div class="kv-v">${esc(u.email || '')}</div></div>
-            <div class="kv-row"><div class="kv-k">Display name</div><div class="kv-v">${esc(u.display_name || '(not set)')}</div></div>
-            <div class="kv-row"><div class="kv-k">Role</div><div class="kv-v"><span class="role-badge role-${esc(u.role || 'member')}">${esc(u.role || 'member')}</span></div></div>
-            <div class="kv-row"><div class="kv-k">MFA</div><div class="kv-v">${mfa ? 'Enabled' : 'Not enabled'}${mfa && remaining ? ` &middot; ${remaining} backup codes remaining` : ''}</div></div>
+          <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+            <div style="text-align:center">
+              <div class="account-avatar" id="account-avatar">
+                ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;display:block">` : `<div style="width:64px;height:64px;border-radius:50%;background:color-mix(in srgb,#6E5CCC 14%,transparent);color:#6E5CCC;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700">${esc((u.display_name || u.email || '?').charAt(0).toUpperCase())}</div>`}
+              </div>
+              <label style="margin-top:8px;display:inline-block;cursor:pointer;font-size:12px;color:#6E5CCC;font-weight:600">
+                Change photo
+                <input type="file" accept="image/*" style="display:none" onchange="uploadAvatarFile(this.files[0])">
+              </label>
+            </div>
+            <div class="kv-grid" style="flex:1;min-width:200px">
+              <div class="kv-row"><div class="kv-k">Email</div><div class="kv-v">${esc(u.email || '')}</div></div>
+              <div class="kv-row"><div class="kv-k">Display name</div><div class="kv-v">${esc(u.display_name || '(not set)')}</div></div>
+              <div class="kv-row"><div class="kv-k">Role</div><div class="kv-v"><span class="role-badge role-${esc(u.role || 'member')}">${esc(u.role || 'member')}</span></div></div>
+              <div class="kv-row"><div class="kv-k">MFA</div><div class="kv-v">${mfa ? 'Enabled' : 'Not enabled'}${mfa && remaining ? ` &middot; ${remaining} backup codes remaining` : ''}</div></div>
+            </div>
           </div>
         </div>
       </div>
@@ -2467,6 +2478,32 @@ function renderAccount() {
     </div>
   `;
 }
+
+async function uploadAvatarFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toastError('Only image files are allowed'); return; }
+  if (file.size > 5 * 1024 * 1024) { toastError('Avatar must be under 5 MB'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  const headers = {};
+  const t = localStorage.getItem('token');
+  if (t) headers['Authorization'] = 'Bearer ' + t;
+  try {
+    const res = await fetch('/api/me/avatar', { method: 'POST', headers, body: fd });
+    const r = await res.json();
+    if (r && r.ok && r.avatar_url) {
+      state.me.avatar_url = r.avatar_url;
+      const el = document.getElementById('account-avatar');
+      if (el) el.innerHTML = `<img src="${esc(r.avatar_url)}?t=${Date.now()}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;display:block">`;
+      toastSuccess('Avatar updated');
+    } else {
+      toastError((r && r.error) || 'Failed to upload avatar');
+    }
+  } catch (e) {
+    toastError('Upload failed: ' + (e.message || e));
+  }
+}
+window.uploadAvatarFile = uploadAvatarFile;
 
 async function submitChangePassword() {
   const cur = document.getElementById('acc-pw-current').value;

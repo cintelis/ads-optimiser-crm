@@ -643,47 +643,12 @@ async function saveEditPage() {
 window.saveEditPage = saveEditPage;
 
 // ── Create page modal ────────────────────────────────────────
-function openCreatePage(parentId) {
+// Create a blank page immediately (Confluence-style) and open in edit mode.
+// No title modal — the user types the title in the editor.
+async function openCreatePage(parentId) {
   const space = state.docs.space;
   if (!space) return;
-  const parent = parentId ? (state.docs.pages || []).find(p => p.id === parentId) : null;
-  const parentLabel = parent ? ` under “${esc(parent.title)}”` : '';
-  setModal(`
-    <div class="modal-head"><div class="modal-title">New page${parentLabel}</div>
-      <button class="modal-close" type="button" onclick="closeModal()">x</button></div>
-    <div class="modal-body">
-      <label>Title</label>
-      <input id="np-title" type="text" autofocus placeholder="Page title">
-      <div class="form-msg" id="np-msg" style="margin-top:10px"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" type="button" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" type="button" onclick="submitCreatePage('${esc(parentId || '')}')">Create page</button>
-    </div>
-  `);
-  // Enter submits.
-  setTimeout(() => {
-    const el = document.getElementById('np-title');
-    if (el) {
-      el.addEventListener('keydown', ev => {
-        if (ev.key === 'Enter') submitCreatePage(parentId || '');
-      });
-    }
-  }, 0);
-}
-window.openCreatePage = openCreatePage;
-
-async function submitCreatePage(parentId) {
-  const space = state.docs.space;
-  if (!space) return;
-  const title = (document.getElementById('np-title').value || '').trim();
-  const msg = document.getElementById('np-msg');
-  if (msg) msg.className = 'form-msg';
-  if (!title) {
-    if (msg) { msg.textContent = 'Title is required'; msg.classList.add('form-msg-err'); }
-    return;
-  }
-  const body = { title, parent_id: parentId || null };
+  const body = { title: 'Untitled', parent_id: parentId || null };
   const r = await api('POST', `/api/doc-spaces/${encodeURIComponent(space.id)}/pages`, body);
   if (!r || r.error || !(r.id || r.page)) {
     if (msg) { msg.textContent = (r && r.error) || 'Failed to create page'; msg.classList.add('form-msg-err'); }

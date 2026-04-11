@@ -37,12 +37,22 @@
     return state.ui.docsSpaceId || '';
   }
 
+  // Build project hash with tab: #/project/ENG, #/project/ENG/board, etc.
+  function projectHash() {
+    const key = getProjectKey();
+    const tab = state.ui.tasksTab || 'issues';
+    if (tab === 'issues' || !tab) return '#/project/' + key;
+    return '#/project/' + key + '/' + tab;
+  }
+
   const originalNav = window.nav;
   window.nav = async function routedNav(section) {
     // Write hash based on the section + current state — use keys not IDs
     if (section === 'projects') {
       if (state.ui.tasksProjectId) {
-        setHash('#/project/' + getProjectKey());
+        setHash(projectHash());
+        // Rewrite hash after project loads (key might not be available yet)
+        setTimeout(() => { if (state.ui.tasksProjectId) setHash(projectHash()); }, 500);
       } else {
         setHash('#/projects');
       }
@@ -82,7 +92,7 @@
     window.closeIssueDetail = function () {
       originalCloseIssue();
       if (state.ui.tasksProjectId) {
-        setHash('#/project/' + getProjectKey());
+        setTimeout(() => setHash(projectHash()), 100);
       } else {
         setHash('#/projects');
       }
@@ -103,8 +113,16 @@
   if (originalOpenProject) {
     window.openProject = function (id) {
       originalOpenProject(id);
-      // Use the key from the project we just opened
-      setTimeout(() => setHash('#/project/' + getProjectKey()), 50);
+      setTimeout(() => setHash(projectHash()), 200);
+    };
+  }
+
+  // Patch setTasksTab to update the hash when switching tabs
+  const originalSetTasksTab = window.setTasksTab;
+  if (originalSetTasksTab) {
+    window.setTasksTab = function (tab) {
+      originalSetTasksTab(tab);
+      setTimeout(() => setHash(projectHash()), 100);
     };
   }
 
@@ -153,11 +171,11 @@
       nav('projects');
       return true;
     }
-    if ((route === 'project' || route === 'board' || route === 'backlog' || route === 'sprints') && param) {
-      // Resolve param: could be a key (ENG) or an ID (prj_xxx)
+    if (route === 'project' && param) {
+      // URL: #/project/ENG or #/project/ENG/board or #/project/ENG/backlog or #/project/ENG/sprints
+      const tab = parts[2] || 'issues';
       let projectId = param;
       if (!param.startsWith('prj_')) {
-        // Looks like a key — look up the ID from the projects list
         try {
           const pr = await api('GET', '/api/projects');
           const projects = (pr && Array.isArray(pr.projects)) ? pr.projects : [];
@@ -166,7 +184,23 @@
         } catch {}
       }
       state.ui.tasksProjectId = projectId;
-      state.ui.tasksTab = route === 'board' ? 'board' : route === 'backlog' ? 'backlog' : route === 'sprints' ? 'sprints' : 'issues';
+      state.ui.tasksTab = ['board', 'backlog', 'sprints'].includes(tab) ? tab : 'issues';
+      nav('projects');
+      return true;
+    }
+    // Legacy routes: #/board/ENG, #/backlog/ENG, #/sprints/ENG → redirect to new format
+    if ((route === 'board' || route === 'backlog' || route === 'sprints') && param) {
+      let projectId = param;
+      if (!param.startsWith('prj_')) {
+        try {
+          const pr = await api('GET', '/api/projects');
+          const projects = (pr && Array.isArray(pr.projects)) ? pr.projects : [];
+          const match = projects.find(p => p.key === param.toUpperCase());
+          if (match) projectId = match.id;
+        } catch {}
+      }
+      state.ui.tasksProjectId = projectId;
+      state.ui.tasksTab = route;
       nav('projects');
       return true;
     }

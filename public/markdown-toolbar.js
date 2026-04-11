@@ -36,7 +36,7 @@ const TOOLBAR_BUTTONS = [
   { id: 'codeblock', title: 'Code block',          label: MD_ICON_CODEBLOCK },
   { id: 'quote',     title: 'Quote',               label: MD_ICON_QUOTE },
   { id: 'link',      title: 'Link',                label: MD_ICON_LINK },
-  { id: 'image',     title: 'Image',               label: MD_ICON_IMAGE }
+  { id: 'image',     title: 'Add image, video, or file',  label: MD_ICON_IMAGE }
 ];
 
 // Groups with dividers for visual rhythm.
@@ -269,7 +269,19 @@ function openMdLinkPopup(textarea, anchorEl, isImage) {
 
   const popup = document.createElement('div');
   popup.className = 'md-link-popup';
+  const uploadSection = isImage ? `
+    <div class="md-upload-zone" id="md-upload-zone">
+      <input type="file" id="md-upload-file" style="display:none" accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip">
+      <div style="cursor:pointer;text-align:center;padding:12px;border:1.5px dashed var(--border2);border-radius:6px;color:var(--muted);font-size:13px" onclick="document.getElementById('md-upload-file').click()">
+        Drop file here or <span style="color:#6E5CCC;font-weight:600">browse</span>
+        <div class="text-muted text-sm" style="margin-top:4px">Images, videos, or files (max 25 MB)</div>
+      </div>
+      <div id="md-upload-status" class="text-sm" style="margin-top:6px;min-height:1em"></div>
+    </div>
+    <div style="text-align:center;color:var(--muted2);font-size:11px;margin:10px 0;text-transform:uppercase;letter-spacing:1px">or paste a URL</div>
+  ` : '';
   popup.innerHTML = `
+    ${uploadSection}
     <label>${isImage ? 'Alt text' : 'Text'}
       <input type="text" class="md-link-text" value="" />
     </label>
@@ -344,5 +356,70 @@ function openMdLinkPopup(textarea, anchorEl, isImage) {
     document.addEventListener('mousedown', __mdLinkOutsideHandler, true);
     document.addEventListener('keydown', __mdLinkKeyHandler, true);
   }, 0);
+
+  // File upload handler (image popup only)
+  if (isImage) {
+    const fileInput = popup.querySelector('#md-upload-file');
+    const uploadZone = popup.querySelector('#md-upload-zone');
+    const statusEl = popup.querySelector('#md-upload-status');
+    if (fileInput) {
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        await handleMdFileUpload(file, textarea, ss, se, statusEl);
+      });
+    }
+    if (uploadZone) {
+      uploadZone.addEventListener('dragover', ev => { ev.preventDefault(); uploadZone.style.borderColor = '#6E5CCC'; });
+      uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = ''; });
+      uploadZone.addEventListener('drop', async ev => {
+        ev.preventDefault();
+        uploadZone.style.borderColor = '';
+        const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+        if (!file) return;
+        await handleMdFileUpload(file, textarea, ss, se, statusEl);
+      });
+    }
+  }
+}
+
+async function handleMdFileUpload(file, textarea, ss, se, statusEl) {
+  // Determine entity context from current state
+  let entityType = '';
+  let entityId = '';
+  if (typeof currentIssue !== 'undefined' && currentIssue && currentIssue.id) {
+    entityType = 'issue';
+    entityId = currentIssue.id;
+  } else if (state.docs && state.docs.page && state.docs.page.id) {
+    entityType = 'doc_page';
+    entityId = state.docs.page.id;
+  }
+  if (!entityType) {
+    if (statusEl) { statusEl.textContent = 'Save the page first, then add files'; statusEl.style.color = 'var(--red)'; }
+    return;
+  }
+  if (statusEl) { statusEl.textContent = 'Uploading ' + file.name + '...'; statusEl.style.color = 'var(--muted)'; }
+  try {
+    if (typeof uploadOneFile !== 'function') throw new Error('Upload not available');
+    const att = await uploadOneFile(file, entityType, entityId);
+    if (!att || !att.id) throw new Error('Upload returned no data');
+    const tk = localStorage.getItem('token') || '';
+    const isImg = String(att.mime_type || '').startsWith('image/');
+    const url = isImg
+      ? '/api/attachments/' + encodeURIComponent(att.id) + '/preview?token=' + encodeURIComponent(tk)
+      : '/api/attachments/' + encodeURIComponent(att.id) + '/download?token=' + encodeURIComponent(tk);
+    const md = isImg
+      ? '![' + (att.filename || 'image') + '](' + url + ')'
+      : '[' + (att.filename || 'file') + '](' + url + ')';
+    const v = textarea.value || '';
+    textarea.value = v.slice(0, ss) + md + v.slice(se);
+    const pos = ss + md.length;
+    try { textarea.setSelectionRange(pos, pos); } catch {}
+    closeMdLinkPopup();
+    fireInput(textarea);
+    if (typeof toastSuccess === 'function') toastSuccess('File uploaded and inserted');
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = 'Upload failed: ' + (e.message || e); statusEl.style.color = 'var(--red)'; }
+  }
 }
 window.closeMdLinkPopup = closeMdLinkPopup;

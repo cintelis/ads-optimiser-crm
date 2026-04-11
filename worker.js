@@ -704,6 +704,12 @@ export default {
     if (path === '/api/auth/check' && m === 'GET') return addCors(await apiCheck(req, env));
     if (path === '/api/auth/logout' && m === 'POST') return addCors(await apiLogout(req, env));
 
+    // User avatars — served without auth (internal team, not secret). Uses R2.
+    {
+      const avm = path.match(/^\/api\/users\/([^/]+)\/avatar$/);
+      if (avm && m === 'GET') return addCors(await serveAvatar(env, avm[1]));
+    }
+
     // Attachment download/preview: accepts Bearer header OR ?token= query param
     // because <a href> and <img src> in new tabs can't send Authorization headers.
     {
@@ -882,6 +888,7 @@ function publicUser(u) {
     display_name: u.display_name || '',
     role: u.role || 'member',
     preferences: u.preferences || {},
+    avatar_url: u.avatar_url ? `/api/users/${u.id}/avatar` : null,
   };
 }
 
@@ -1038,6 +1045,43 @@ async function globalSearch(req, env) {
       projects: (projects.results || []).map(r => ({ ...r, type: 'project' })),
     }
   });
+}
+
+// ── User avatars ─────────────────────────────────────────────
+async function serveAvatar(env, userId) {
+  const user = await env.DB.prepare('SELECT avatar_url FROM users WHERE id=?').bind(userId).first();
+  if (!user || !user.avatar_url) {
+    return new Response(null, { status: 404 });
+  }
+  // If avatar_url is an R2 key (starts with avatar/), serve from R2
+  if (user.avatar_url.startsWith('avatar/')) {
+    const obj = await env.ATTACHMENTS.get(user.avatar_url);
+    if (!obj) return new Response(null, { status: 404 });
+    return new Response(obj.body, {
+      headers: {
+        'Content-Type': obj.httpMetadata?.contentType || 'image/png',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+  }
+  // Otherwise it's an external URL — redirect
+  return Response.redirect(user.avatar_url, 302);
+}
+
+async function uploadAvatar(req, env, authCtx) {
+  let form;
+  try { form = await req.formData(); } catch { return jres({ error: 'multipart form required' }, 400); }
+  const file = form.get('file');
+  if (!file || !file.size) return jres({ error: 'file required' }, 400);
+  if (file.size > 5 * 1024 * 1024) return jres({ error: 'Avatar must be under 5 MB' }, 413);
+  const mime = String(file.type || '').toLowerCase();
+  if (!mime.startsWith('image/')) return jres({ error: 'Only image files are allowed' }, 400);
+  const ext = mime.includes('png') ? 'png' : mime.includes('gif') ? 'gif' : mime.includes('webp') ? 'webp' : 'jpg';
+  const r2Key = `avatar/${authCtx.user.id}.${ext}`;
+  await env.ATTACHMENTS.put(r2Key, file.stream(), { httpMetadata: { contentType: file.type } });
+  await env.DB.prepare('UPDATE users SET avatar_url=? WHERE id=?').bind(r2Key, authCtx.user.id).run();
+  const avatarUrl = `/api/users/${authCtx.user.id}/avatar`;
+  return jres({ ok: true, avatar_url: avatarUrl });
 }
 
 // ── Authenticated me/users/MFA endpoints ─────────────────────
@@ -1297,6 +1341,7 @@ async function route(req, env, url, path, authCtx) {
   // ── Account / self-service auth endpoints ─────────────────
   if (path === '/api/me' && m === 'GET') return apiGetMe(env, authCtx);
   if (path === '/api/me/preferences' && m === 'PATCH') return apiPatchMyPreferences(req, env, authCtx);
+  if (path === '/api/me/avatar' && m === 'POST') return uploadAvatar(req, env, authCtx);
   if (path === '/api/auth/password/change' && m === 'POST') return apiChangePassword(req, env, authCtx);
   if (path === '/api/auth/totp/setup' && m === 'POST') return apiTotpSetup(req, env, authCtx);
   if (path === '/api/auth/totp/verify' && m === 'POST') return apiTotpVerify(req, env, authCtx);
