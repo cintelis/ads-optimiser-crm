@@ -217,6 +217,7 @@ CREATE TABLE IF NOT EXISTS issues (
   assignee_id TEXT,
   reporter_id TEXT NOT NULL,
   parent_id TEXT,
+  start_at TEXT,
   due_at TEXT,
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
@@ -228,6 +229,7 @@ CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee_id, active);
 CREATE INDEX IF NOT EXISTS idx_issues_key ON issues(issue_key);
 CREATE INDEX IF NOT EXISTS idx_issues_parent ON issues(parent_id);
 CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_issues_timeline ON issues(project_id, active, start_at, due_at);
 
 -- ── Sprint 6: attachments (R2-backed) ───────────────────────
 
@@ -390,3 +392,39 @@ CREATE INDEX IF NOT EXISTS idx_sprints_state ON sprints(state);
 -- the column list below would need updating — but we keep the original
 -- issues definition above untouched for clarity. New installs can run the
 -- 004 migration as the final step.
+
+-- ── Sprint 8: Custom fields ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS custom_field_defs (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  field_type TEXT NOT NULL DEFAULT 'text',
+  options TEXT NOT NULL DEFAULT '[]',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cfd_project ON custom_field_defs(project_id, active, sort_order);
+
+CREATE TABLE IF NOT EXISTS custom_field_values (
+  id TEXT PRIMARY KEY,
+  issue_id TEXT NOT NULL,
+  field_def_id TEXT NOT NULL,
+  value TEXT NOT NULL DEFAULT '',
+  UNIQUE(issue_id, field_def_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cfv_issue ON custom_field_values(issue_id);
+CREATE INDEX IF NOT EXISTS idx_cfv_field ON custom_field_values(field_def_id);
+
+-- ── Sprint 8: Issue dependencies ─────────────────────────────
+CREATE TABLE IF NOT EXISTS issue_dependencies (
+  id TEXT PRIMARY KEY,
+  blocker_issue_id TEXT NOT NULL,
+  blocked_issue_id TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(blocker_issue_id, blocked_issue_id)
+);
+CREATE INDEX IF NOT EXISTS idx_deps_blocker ON issue_dependencies(blocker_issue_id);
+CREATE INDEX IF NOT EXISTS idx_deps_blocked ON issue_dependencies(blocked_issue_id);

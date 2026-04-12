@@ -51,13 +51,14 @@ function formatDateShort(iso) {
 
 // ── Tab dispatch ─────────────────────────────────────────────
 async function setTasksTab(tab) {
-  const known = ['issues', 'board', 'backlog', 'sprints'];
+  const known = ['issues', 'board', 'backlog', 'sprints', 'roadmap'];
   if (!known.includes(tab)) tab = 'issues';
   state.ui.tasksTab = tab;
   if (state.ui.tasksProjectId) {
     await loadProject(state.ui.tasksProjectId);
     renderProjectDetail();
   }
+  if (typeof updateTopbarCreate === 'function') updateTopbarCreate();
 }
 window.setTasksTab = setTasksTab;
 
@@ -74,6 +75,8 @@ async function renderTasksTab() {
   } else if (tab === 'sprints') {
     await loadSprintsTab(projectId);
     renderSprintsTab();
+  } else if (tab === 'roadmap') {
+    if (typeof renderRoadmapTab === 'function') renderRoadmapTab();
   }
   // 'issues' tab is rendered by tasks-ui.js itself; nothing to do here.
 }
@@ -204,7 +207,8 @@ function renderBoardTab() {
            ondragover="onColumnDragOver(event)"
            ondragleave="onColumnDragLeave(event)"
            ondrop="onColumnDrop(event, '${status}')">
-        <div class="kanban-col-head">
+        <div class="kanban-col-head kanban-col-head-${status}">
+          <span class="kanban-col-dot"></span>
           <span>${esc(TASK_STATUS_LABELS[status] || status)}</span>
           <span class="kanban-col-count">${grouped[status].length}</span>
         </div>
@@ -691,11 +695,10 @@ function renderSprintsTab() {
       <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h3 style="margin:0">Sprints</h3>
-        ${canWrite ? '<button class="tw-btn-primary" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
       </div>
       <div class="card"><div class="card-body" style="padding:20px">
         ${typeof renderEmptyState === 'function'
-          ? renderEmptyState({ icon: 'sprint', title: 'No sprints yet', body: 'Create your first sprint to start planning work.', actionLabel: canWrite ? '+ New sprint' : undefined, actionOnClick: canWrite ? 'openCreateSprint()' : undefined })
+          ? renderEmptyState({ icon: 'sprint', title: 'No sprints yet', body: 'Use the "+ Create Sprint" button in the top bar to create your first sprint.', actionLabel: canWrite ? '+ Create Sprint' : undefined, actionOnClick: canWrite ? 'openCreateSprint()' : undefined })
           : '<p class="text-muted">No sprints yet.</p>'}
       </div></div>
       </div>
@@ -726,7 +729,6 @@ function renderSprintsTab() {
     <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
         <h3 style="margin:0">Sprints</h3>
-        ${canWrite ? '<button class="tw-btn-primary" type="button" onclick="openCreateSprint()">+ New sprint</button>' : ''}
       </div>
 
       <div class="tw-section-label">Active</div>

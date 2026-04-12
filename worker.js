@@ -32,6 +32,7 @@ import {
   listIssues as tasksListIssues, createIssue as tasksCreateIssue,
   getIssue as tasksGetIssue, patchIssue as tasksPatchIssue, deleteIssue as tasksDeleteIssue,
   addIssueComment as tasksAddIssueComment, deleteActivity as tasksDeleteActivity, patchActivity as tasksPatchActivity,
+  cloneIssue, listRoadmapIssues,
 } from './worker/tasks.js';
 import {
   listProjectSprints, createSprint,
@@ -63,6 +64,13 @@ import {
 import {
   getFeatureVisibility, patchFeatureVisibility, isFeatureAllowed,
 } from './worker/app-settings.js';
+import {
+  listFieldDefs, createFieldDef, patchFieldDef, deleteFieldDef,
+  getCustomValues, setCustomValues,
+} from './worker/custom-fields.js';
+import {
+  listDependencies, addDependency, removeDependency, deleteDepsForIssue,
+} from './worker/dependencies.js';
 
 const EMAIL_WORKER = 'https://email.365softlabs.com/api/send';
 const DEFAULT_FROM = 'nick@365softlabs.com';
@@ -945,7 +953,7 @@ async function getMyIssues(env, authCtx) {
 async function getActiveSprints(env) {
   const { results } = await env.DB.prepare(
     `SELECT s.id, s.name, s.state, s.start_at, s.planned_end_at,
-            p.key AS project_key, p.name AS project_name,
+            p.id AS project_id, p.key AS project_key, p.name AS project_name,
             (SELECT COUNT(*) FROM issues WHERE sprint_id=s.id AND active=1) AS issue_count,
             (SELECT COUNT(*) FROM issues WHERE sprint_id=s.id AND active=1 AND status='done') AS done_count
      FROM sprints s
@@ -1507,7 +1515,7 @@ async function route(req, env, url, path, authCtx) {
   if (path === '/api/projects' && m === 'GET')  return tasksListProjects(env);
   if (path === '/api/projects' && m === 'POST') return tasksCreateProject(req, env, authCtx);
   {
-    const pm = path.match(/^\/api\/projects\/([^/]+)(?:\/(issues|sprints))?$/);
+    const pm = path.match(/^\/api\/projects\/([^/]+)(?:\/(issues|sprints|custom-fields|roadmap))?$/);
     if (pm) {
       const projId = pm[1];
       const sub = pm[2];
@@ -1527,6 +1535,17 @@ async function route(req, env, url, path, authCtx) {
         if (m === 'GET')  return listProjectSprints(env, projId);
         if (m === 'POST') return createSprint(req, env, authCtx, projId);
       }
+      if (sub === 'custom-fields') {
+        if (m === 'GET')  return listFieldDefs(env, projId);
+        if (m === 'POST') return createFieldDef(req, env, projId);
+      }
+      if (sub === 'roadmap' && m === 'GET') return listRoadmapIssues(req, env, projId);
+    }
+    // Custom field def PATCH/DELETE by field id
+    const cfm = path.match(/^\/api\/custom-fields\/([^/]+)$/);
+    if (cfm) {
+      if (m === 'PATCH')  return patchFieldDef(req, env, cfm[1]);
+      if (m === 'DELETE') return deleteFieldDef(env, cfm[1]);
     }
   }
   // ── Sprints (Sprint 3) ───────────────────────────────────
@@ -1551,6 +1570,25 @@ async function route(req, env, url, path, authCtx) {
         return removeIssueFromSprint(env, authCtx, sprId, issueIdInPath);
       }
     }
+  }
+  // Issue clone, dependencies, custom values — must match BEFORE the generic /api/issues/:id route
+  {
+    const cloneMatch = path.match(/^\/api\/issues\/([^/]+)\/clone$/);
+    if (cloneMatch && m === 'POST') return cloneIssue(req, env, authCtx, cloneMatch[1]);
+  }
+  {
+    const depMatch = path.match(/^\/api\/issues\/([^/]+)\/dependencies$/);
+    if (depMatch && m === 'GET') return listDependencies(env, depMatch[1]);
+    if (depMatch && m === 'POST') return addDependency(req, env, authCtx);
+  }
+  {
+    const depDel = path.match(/^\/api\/dependencies\/([^/]+)$/);
+    if (depDel && m === 'DELETE') return removeDependency(env, depDel[1]);
+  }
+  {
+    const cvMatch = path.match(/^\/api\/issues\/([^/]+)\/custom-values$/);
+    if (cvMatch && m === 'GET') return getCustomValues(env, cvMatch[1]);
+    if (cvMatch && m === 'PUT') return setCustomValues(req, env, cvMatch[1]);
   }
   {
     const im = path.match(/^\/api\/issues\/([^/]+)(?:\/(comments))?$/);

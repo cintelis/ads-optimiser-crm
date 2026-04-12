@@ -205,6 +205,7 @@ function openSpace(spaceId) {
   // Reset expansion state when switching spaces so auto-expand re-runs.
   state.ui.docsExpandedPages = {};
   nav('docs');
+  if (typeof updateTopbarCreate === 'function') updateTopbarCreate();
 }
 window.openSpace = openSpace;
 
@@ -240,6 +241,7 @@ function backToSpaces() {
   state.docs.page = null;
   state.ui.docsExpandedPages = {};
   nav('docs');
+  if (typeof updateTopbarCreate === 'function') updateTopbarCreate();
 }
 window.backToSpaces = backToSpaces;
 
@@ -362,7 +364,6 @@ function renderSpaceHome() {
             <span>${esc(space.name)}</span>
           </h1>
           <div class="docs-page-actions">
-            ${canWrite ? '<button class="btn btn-primary" type="button" onclick="openCreatePage(\'\')">+ New page</button>' : ''}
             ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openEditSpace()">Edit space</button>' : ''}
             ${isAdmin ? '<button class="btn btn-ghost btn-sm" type="button" onclick="confirmDeleteSpace()">Delete space</button>' : ''}
           </div>

@@ -2,3 +2,4 @@ _agent-instructions.lnk
 AGENTS.md
 .tmp_*
 *.bak
+.env

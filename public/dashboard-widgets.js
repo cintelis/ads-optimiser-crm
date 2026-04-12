@@ -27,7 +27,7 @@ async function renderActiveSprintsWidget() {
       const inProgress = total - done;
       const daysLeft = s.days_remaining != null ? `${s.days_remaining} day${s.days_remaining === 1 ? '' : 's'} left` : '';
       return `
-        <div class="widget-sprint-row">
+        <div class="widget-sprint-row widget-sprint-clickable" onclick="navigateToSprint('${esc(s.project_id)}','${esc(s.project_key)}')" title="Open ${esc(s.project_key)} board">
           <div class="widget-sprint-head">
             <span class="widget-sprint-label"><span class="mono" style="color:var(--cyan)">${esc(s.project_key)}</span> <span style="margin-left:4px">${esc(s.name)}</span></span>
             <span class="text-muted text-sm">${done}/${total} done</span>
@@ -215,3 +215,12 @@ async function renderDashboardWidgets() {
   ]);
 }
 window.renderDashboardWidgets = renderDashboardWidgets;
+
+// Navigate from an Active Sprint widget row to the project's board tab
+function navigateToSprint(projectId, projectKey) {
+  if (typeof openProject === 'function') openProject(projectId);
+  setTimeout(function () {
+    if (typeof setTasksTab === 'function') setTasksTab('board');
+  }, 100);
+}
+window.navigateToSprint = navigateToSprint;

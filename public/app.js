@@ -294,7 +294,18 @@ function applyRoleVisibility() {
   const i2 = document.getElementById('more-integrations'); if (i2) i2.style.display = show;
   const f1 = document.getElementById('nav-feature-settings'); if (f1) f1.style.display = show;
   const f2 = document.getElementById('more-feature-settings'); if (f2) f2.style.display = show;
+  // Update topbar avatar
+  const avatarBtn = document.getElementById('topbar-avatar');
+  if (avatarBtn && state.me) {
+    const u = state.me;
+    if (u.avatar_url) {
+      avatarBtn.innerHTML = '<img src="' + esc(u.avatar_url) + '" onerror="this.parentNode.textContent=\'' + esc((u.display_name || u.email || '?').charAt(0).toUpperCase()) + '\'">';
+    } else {
+      avatarBtn.textContent = (u.display_name || u.email || '?').charAt(0).toUpperCase();
+    }
+  }
   applyFeatureVisibility();
+  hideEmptyNavGroups();
 }
 
 // Sprint 6: hide top-level nav items based on per-role feature visibility.
@@ -318,6 +329,63 @@ function applyFeatureVisibility() {
     }
   }
 }
+
+// Hide group labels + dividers when all their child nav items are hidden.
+function hideEmptyNavGroups() {
+  const groups = [
+    { divider: 'nav-outreach-divider', label: 'nav-outreach-label', items: ['nav-templates','nav-contacts','nav-lists','nav-campaigns','nav-logs','nav-unsubs'] },
+    { divider: 'nav-crm-divider', label: 'nav-crm-label', items: ['nav-pipeline','nav-followups'] },
+    { divider: 'nav-tasks-divider', label: 'nav-tasks-label', items: ['nav-projects'] },
+    { divider: 'nav-docs-divider', label: 'nav-docs-label', items: ['nav-docs'] },
+  ];
+  for (const g of groups) {
+    const anyVisible = g.items.some(id => {
+      const el = document.getElementById(id);
+      return el && el.style.display !== 'none';
+    });
+    const divEl = document.getElementById(g.divider);
+    const lblEl = document.getElementById(g.label);
+    if (divEl) divEl.style.display = anyVisible ? '' : 'none';
+    if (lblEl) lblEl.style.display = anyVisible ? '' : 'none';
+  }
+}
+
+// ── Topbar "+ Create" button (context-aware) ─────────────────
+function updateTopbarCreate() {
+  const btn = document.getElementById('topbar-create');
+  if (!btn) return;
+  const section = currentSection;
+  const tab = state.ui && state.ui.tasksTab;
+  const hasProject = state.ui && state.ui.tasksProjectId;
+  const hasSpace = state.ui && state.ui.docsSpaceId;
+  // Show on project detail pages and docs space pages
+  if (section === 'projects' && hasProject) {
+    btn.style.display = '';
+    if (tab === 'sprints') { btn.textContent = '+ Create Sprint'; }
+    else { btn.textContent = '+ Create Issue'; }
+  } else if (section === 'docs' && hasSpace) {
+    btn.style.display = '';
+    btn.textContent = '+ Create Page';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+window.updateTopbarCreate = updateTopbarCreate;
+
+function topbarCreate() {
+  const section = currentSection;
+  const tab = state.ui && state.ui.tasksTab;
+  const hasProject = state.ui && state.ui.tasksProjectId;
+  const hasSpace = state.ui && state.ui.docsSpaceId;
+  if (section === 'projects' && hasProject && tab === 'sprints') {
+    if (typeof openCreateSprint === 'function') openCreateSprint();
+  } else if (section === 'projects' && hasProject) {
+    if (typeof openCreateIssue === 'function') openCreateIssue();
+  } else if (section === 'docs' && hasSpace) {
+    if (typeof openCreatePage === 'function') openCreatePage('');
+  }
+}
+window.topbarCreate = topbarCreate;
 
 // ── API helper ────────────────────────────────────────────────
 async function api(method, path, body, auth = true) {
@@ -349,6 +417,7 @@ async function nav(section) {
     if (moreTab) moreTab.classList.add('active');
   }
   document.getElementById('page-title').textContent = SECTION_TITLES[section] || section;
+  updateTopbarCreate();
   return renderSection(section);
 }
 async function refreshCurrent() { return nav(currentSection); }
@@ -853,12 +922,6 @@ function renderOverview() {
     quickActions.push('<button class="btn btn-ghost" type="button" onclick="openOverviewNewCampaign()">+ New Campaign</button>');
     quickActions.push('<button class="btn btn-ghost" type="button" onclick="openOverviewImportCsv()">Import CSV</button>');
     quickActions.push('<button class="btn btn-ghost" type="button" onclick="openOverviewNewTemplate()">+ New Template</button>');
-  }
-  if (showTasks) {
-    quickActions.push('<button class="btn ' + (showOutreach ? 'btn-ghost' : 'btn-primary') + '" type="button" onclick="nav(\'projects\')">Projects</button>');
-  }
-  if (showDocs) {
-    quickActions.push('<button class="btn btn-ghost" type="button" onclick="nav(\'docs\')">Docs</button>');
   }
 
   document.getElementById('content').innerHTML = `

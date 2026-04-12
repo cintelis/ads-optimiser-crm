@@ -9,6 +9,8 @@ import { emit, EVENT_TYPES } from './events.js';
 import { parseMentionsAndNotify } from './notifications.js';
 import { deleteAttachmentsForEntity } from './attachments.js';
 import { deleteLinksForEntity } from './entity-links.js';
+import { cloneCustomValues } from './custom-fields.js';
+import { deleteDepsForIssue, getBlockerStatus } from './dependencies.js';
 
 // ── Local helpers (mirror worker.js) ─────────────────────────
 function jres(data, status = 200) {
@@ -307,6 +309,7 @@ export async function createIssue(req, env, ctx, projIdParam) {
     assignee_id: body.assignee_id || null,
     reporter_id: ctx.user.id,
     parent_id: parent.parent_id,
+    start_at: body.start_at || null,
     due_at: body.due_at || null,
     active: 1,
     created_at: ts,
@@ -314,12 +317,12 @@ export async function createIssue(req, env, ctx, projIdParam) {
   };
   await env.DB.prepare(
     `INSERT INTO issues (id, project_id, issue_key, issue_number, title, description_md, type, status,
-                         priority, assignee_id, reporter_id, parent_id, due_at, active, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+                         priority, assignee_id, reporter_id, parent_id, start_at, due_at, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
   ).bind(
     issue.id, issue.project_id, issue.issue_key, issue.issue_number, issue.title, issue.description_md,
     issue.type, issue.status, issue.priority, issue.assignee_id, issue.reporter_id, issue.parent_id,
-    issue.due_at, issue.created_at, issue.updated_at
+    issue.start_at, issue.due_at, issue.created_at, issue.updated_at
   ).run();
 
   await insertActivity(env, { entityType: 'issue', entityId: id, userId: ctx.user.id, kind: 'system', body: 'Issue created' });
@@ -382,7 +385,22 @@ export async function getIssue(env, isId) {
     return out;
   });
 
-  return jres({ issue, parent, subtasks, activity });
+  // Dependencies
+  const { results: blocksRows } = await env.DB.prepare(
+    `SELECT d.id AS dep_id, i.id, i.issue_key, i.title, i.status
+     FROM issue_dependencies d
+     JOIN issues i ON i.id = d.blocked_issue_id AND i.active = 1
+     WHERE d.blocker_issue_id = ?`
+  ).bind(issue.id).all();
+  const { results: blockedByRows } = await env.DB.prepare(
+    `SELECT d.id AS dep_id, i.id, i.issue_key, i.title, i.status
+     FROM issue_dependencies d
+     JOIN issues i ON i.id = d.blocker_issue_id AND i.active = 1
+     WHERE d.blocked_issue_id = ?`
+  ).bind(issue.id).all();
+  const dependencies = { blocks: blocksRows || [], blocked_by: blockedByRows || [] };
+
+  return jres({ issue, parent, subtasks, activity, dependencies });
 }
 
 // Diff old vs new fields, write per-change system rows, emit specific events.
@@ -420,6 +438,10 @@ export async function patchIssue(req, env, ctx, isId) {
     const parent = await resolveParent(env, body);
     if (!parent.ok) return jres({ error: parent.error }, 400);
     if (parent.parent_id !== existing.parent_id) updates.parent_id = parent.parent_id;
+  }
+  if ('start_at' in body) {
+    const v = body.start_at || null;
+    if (v !== existing.start_at) updates.start_at = v;
   }
   if ('due_at' in body) {
     const v = body.due_at || null;
@@ -541,6 +563,7 @@ export async function deleteIssue(env, isId) {
   await env.DB.prepare('DELETE FROM issues WHERE id=?').bind(isId).run();
   await deleteAttachmentsForEntity(env, 'issue', isId);
   await deleteLinksForEntity(env, 'issue', isId);
+  await deleteDepsForIssue(env, isId);
   return jres({ ok: true });
 }
 
@@ -588,4 +611,49 @@ export async function patchActivity(req, env, ctx, actId) {
   if (!newBody) return jres({ error: 'body_md required' }, 400);
   await env.DB.prepare('UPDATE activity SET body_md=? WHERE id=?').bind(newBody, actId).run();
   return jres({ ok: true, body_md: newBody });
+}
+
+// ── Clone issue ─────────────────────────────────────────────
+export async function cloneIssue(req, env, ctx, sourceId) {
+  const source = await env.DB.prepare('SELECT * FROM issues WHERE id=? AND active=1').bind(sourceId).first();
+  if (!source) return jres({ error: 'Issue not found' }, 404);
+  const body = await req.json().catch(() => ({}));
+  const ts = now();
+  const seqRow = await env.DB.prepare(
+    'UPDATE projects SET issue_seq = issue_seq + 1, updated_at = ? WHERE id = ? AND active = 1 RETURNING issue_seq, key'
+  ).bind(ts, source.project_id).first();
+  if (!seqRow) return jres({ error: 'Project not found' }, 404);
+  const id = issueId();
+  const issueKey = `${seqRow.key}-${seqRow.issue_seq}`;
+  const title = body.title || `Copy of ${source.title}`;
+  await env.DB.prepare(
+    `INSERT INTO issues (id, project_id, issue_key, issue_number, title, description_md, type, status,
+                         priority, assignee_id, reporter_id, parent_id, start_at, due_at, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'todo', ?, NULL, ?, ?, ?, ?, 1, ?, ?)`
+  ).bind(
+    id, source.project_id, issueKey, seqRow.issue_seq, title, source.description_md || '',
+    source.type, source.priority, ctx.user.id, source.parent_id || null,
+    source.start_at || null, source.due_at || null, ts, ts
+  ).run();
+  await insertActivity(env, {
+    entityType: 'issue', entityId: id, userId: ctx.user.id, kind: 'system',
+    body: `Cloned from ${source.issue_key}`,
+  });
+  await cloneCustomValues(env, sourceId, id);
+  await emit(env, EVENT_TYPES.ISSUE_CREATED, { issue: { id, issue_key: issueKey, title, project_id: source.project_id }, actor: ctx.user });
+  return getIssue(env, id);
+}
+
+// ── Roadmap issues ──────────────────────────────────────────
+export async function listRoadmapIssues(req, env, projId) {
+  const { results } = await env.DB.prepare(
+    `SELECT i.id, i.issue_key, i.title, i.status, i.priority, i.type,
+            i.assignee_id, i.start_at, i.due_at,
+            u.display_name AS assignee_display_name, u.email AS assignee_email
+     FROM issues i
+     LEFT JOIN users u ON u.id = i.assignee_id
+     WHERE i.project_id = ? AND i.active = 1
+     ORDER BY COALESCE(i.start_at, i.due_at) ASC NULLS LAST, i.issue_number ASC`
+  ).bind(projId).all();
+  return jres({ issues: results || [] });
 }

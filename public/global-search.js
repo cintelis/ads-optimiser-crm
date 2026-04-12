@@ -8,28 +8,90 @@
   let searchTimer = null;
   let searchOpen = false;
   let lastQuery = '';
+  const RECENT_KEY = 'tw_recent_searches';
+  const MAX_RECENT = 8;
+
+  function getRecentSearches() {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').slice(0, MAX_RECENT); } catch { return []; }
+  }
+  function addRecentSearch(q) {
+    const text = String(q || '').trim();
+    if (!text || text.length < 2) return;
+    let recent = getRecentSearches().filter(r => r !== text);
+    recent.unshift(text);
+    if (recent.length > MAX_RECENT) recent = recent.slice(0, MAX_RECENT);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch {}
+  }
+  function removeRecentSearch(q) {
+    const recent = getRecentSearches().filter(r => r !== q);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch {}
+  }
+  function clearRecentSearches() {
+    try { localStorage.removeItem(RECENT_KEY); } catch {}
+  }
+  window.removeRecentSearch = function (q) { removeRecentSearch(q); showRecentSearches(); };
+  window.clearRecentSearches = function () { clearRecentSearches(); hideSearchDropdown(); };
+  window.applyRecentSearch = function (q) {
+    const input = document.getElementById('global-search-input');
+    if (input) { input.value = q; input.focus(); }
+    onGlobalSearchInput(q);
+  };
+
+  function showRecentSearches() {
+    const dd = document.getElementById('global-search-dropdown');
+    if (!dd) return;
+    const recent = getRecentSearches();
+    if (!recent.length) { dd.classList.remove('open'); return; }
+    const rows = recent.map(q => `
+      <div class="search-result" onclick="applyRecentSearch('${esc(q)}')">
+        <span class="search-result-icon" style="font-size:14px">🕐</span>
+        <div class="search-result-body">
+          <div class="search-result-title">${esc(q)}</div>
+        </div>
+        <button class="search-recent-remove" type="button" onclick="event.stopPropagation();removeRecentSearch('${esc(q)}')" title="Remove">&times;</button>
+      </div>
+    `).join('');
+    dd.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px 4px">
+        <div class="search-section-label" style="padding:0">Recent</div>
+        <button class="search-recent-clear" type="button" onclick="event.stopPropagation();clearRecentSearches()">Clear all</button>
+      </div>
+      ${rows}
+    `;
+    dd.classList.add('open');
+    searchOpen = true;
+  }
 
   function onGlobalSearchInput(value) {
     const q = String(value || '').trim();
     lastQuery = q;
     if (searchTimer) clearTimeout(searchTimer);
     if (q.length < 2) {
-      hideSearchDropdown();
+      // Show recent searches when input is empty/short
+      if (q.length === 0) showRecentSearches();
+      else hideSearchDropdown();
       return;
     }
     searchTimer = setTimeout(async () => {
       const r = await api('GET', '/api/search?q=' + encodeURIComponent(q));
       if (lastQuery !== q) return; // stale
-      if (r && r.results) renderSearchResults(r.results, q);
+      if (r && r.results) {
+        renderSearchResults(r.results, q);
+        addRecentSearch(q);
+      }
     }, 250);
   }
   window.onGlobalSearchInput = onGlobalSearchInput;
 
   function onGlobalSearchFocus() {
     const input = document.getElementById('global-search-input');
-    if (input && input.value.trim().length >= 2) {
+    if (!input) return;
+    const q = input.value.trim();
+    if (q.length >= 2) {
       const dd = document.getElementById('global-search-dropdown');
       if (dd && dd.innerHTML) dd.classList.add('open');
+    } else {
+      showRecentSearches();
     }
   }
   window.onGlobalSearchFocus = onGlobalSearchFocus;

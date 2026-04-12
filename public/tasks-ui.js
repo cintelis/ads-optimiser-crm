@@ -251,6 +251,7 @@ function openProject(id) {
   state.ui.tasksProjectId = id;
   state.ui.tasksFilters = { status:'', assignee_id:'', type:'', priority:'', q:'' };
   renderTasksSection();
+  if (typeof updateTopbarCreate === 'function') updateTopbarCreate();
 }
 window.openProject = openProject;
 
@@ -259,6 +260,7 @@ function backToProjects() {
   state.tasks.project = null;
   state.tasks.issues = [];
   renderTasksSection();
+  if (typeof updateTopbarCreate === 'function') updateTopbarCreate();
 }
 window.backToProjects = backToProjects;
 
@@ -333,7 +335,6 @@ function renderProjectDetail() {
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${canWrite ? `<button class="btn btn-ghost btn-sm" type="button" onclick="openEditProject()">Edit project</button>` : ''}
           ${tasksIsAdmin() ? `<button class="btn btn-ghost btn-sm" type="button" onclick="confirmDeleteProject()">Delete project</button>` : ''}
-          ${canWrite ? '<button class="btn btn-primary" type="button" onclick="openCreateIssue()">+ New issue</button>' : ''}
         </div>
       </div>
 
@@ -342,18 +343,18 @@ function renderProjectDetail() {
         <button class="tasks-tab ${state.ui.tasksTab==='board'?'active':''}" type="button" onclick="setTasksTab('board')">Board</button>
         <button class="tasks-tab ${state.ui.tasksTab==='backlog'?'active':''}" type="button" onclick="setTasksTab('backlog')">Backlog</button>
         <button class="tasks-tab ${state.ui.tasksTab==='sprints'?'active':''}" type="button" onclick="setTasksTab('sprints')">Sprints</button>
+        <button class="tasks-tab ${state.ui.tasksTab==='roadmap'?'active':''}" type="button" onclick="setTasksTab('roadmap')">Roadmap</button>
       </div>
 
       <div id="tasks-tab-body">
       ${state.ui.tasksTab === 'issues' ? `
       <div class="card">
         <div class="card-body" style="padding:12px 14px">
-          <div class="tasks-filter-bar" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <div class="tasks-filter-bar" style="display:flex;gap:10px;align-items:center">
             <select onchange="onTasksFilterChange('status', this.value)">${statusOpts}</select>
             <select onchange="onTasksFilterChange('type', this.value)">${typeOpts}</select>
             <select onchange="onTasksFilterChange('priority', this.value)">${prioOpts}</select>
             <select onchange="onTasksFilterChange('assignee_id', this.value)">${userOpts}</select>
-            <input id="tasks-q" type="search" placeholder="Search issues…" value="${esc(f.q || '')}" oninput="onTasksSearchInput(this.value)" style="flex:1;min-width:180px">
           </div>
         </div>
       </div>
@@ -601,6 +602,7 @@ window.submitCreateIssue = submitCreateIssue;
 let currentIssue = null;
 let currentIssueParent = null;
 let currentIssueSubtasks = [];
+let currentIssueDeps = { blocks: [], blocked_by: [] };
 let currentIssueActivity = [];
 
 async function openIssueDetail(id) {
@@ -617,6 +619,7 @@ async function openIssueDetail(id) {
   currentIssueParent = r.parent || null;
   currentIssueSubtasks = Array.isArray(r.subtasks) ? r.subtasks : [];
   currentIssueActivity = Array.isArray(r.activity) ? r.activity : [];
+  currentIssueDeps = r.dependencies || { blocks: [], blocked_by: [] };
   if (!state.tasks.users || !state.tasks.users.length) {
     const ur = await api('GET','/api/users');
     state.tasks.users = (ur && Array.isArray(ur.users)) ? ur.users : [];
@@ -669,6 +672,7 @@ function renderIssueDetailPage() {
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          ${canWrite ? `<button class="btn btn-ghost btn-sm" type="button" onclick="cloneCurrentIssue()" style="font-size:12px">Clone</button>` : ''}
           <button class="btn btn-ghost btn-sm" type="button" onclick="copyIssueUrl('${esc(i.issue_key)}')" style="font-size:12px">Copy link</button>
           ${canWrite ? `<button class="btn btn-ghost btn-sm" type="button" style="color:var(--red)" onclick="submitDeleteIssue()">Delete</button>` : ''}
         </div>
@@ -692,6 +696,7 @@ function renderIssueDetailPage() {
             ${renderIssueMetaRow('priority', 'Priority', `<span class="lozenge lozenge-priority-${esc(i.priority)}">${esc(TASK_PRIORITY_LABELS[i.priority] || i.priority)}</span>`, canWrite)}
             ${renderIssueMetaRow('assignee', 'Assignee', a ? esc(assigneeName) : '<span class="text-muted">Unassigned</span>', canWrite)}
             <div class="kv-row"><div class="kv-k">Reporter</div><div class="kv-v">${esc(reporterName)}</div></div>
+            ${renderIssueMetaRow('start', 'Start date', i.start_at ? esc(String(i.start_at).slice(0,10)) : '<span class="text-muted">—</span>', canWrite)}
             ${renderIssueMetaRow('due', 'Due date', dueVal ? esc(dueVal) : '<span class="text-muted">—</span>', canWrite)}
             <div class="kv-row"><div class="kv-k">Parent</div><div class="kv-v">${currentIssueParent ? `<a href="javascript:void(0)" onclick="openIssueDetail('${esc(currentIssueParent.id)}')"><span class="mono">${esc(currentIssueParent.issue_key)}</span> ${esc(currentIssueParent.title)}</a>` : '<span class="text-muted">—</span>'}</div></div>
             <div class="kv-row"><div class="kv-k">Sub-tasks</div><div class="kv-v">${
@@ -699,9 +704,20 @@ function renderIssueDetailPage() {
                 ? currentIssueSubtasks.map(s => `<div><a href="javascript:void(0)" onclick="openIssueDetail('${esc(s.id)}')"><span class="mono">${esc(s.issue_key)}</span> ${esc(s.title)}</a> <span class="lozenge lozenge-status-${esc(s.status)}" style="margin-left:6px">${esc(TASK_STATUS_LABELS[s.status] || s.status)}</span></div>`).join('')
                 : '<span class="text-muted">None</span>'
             }</div></div>
+            <div class="kv-row"><div class="kv-k">Blocked by</div><div class="kv-v">${
+              currentIssueDeps && currentIssueDeps.blocked_by && currentIssueDeps.blocked_by.length
+                ? currentIssueDeps.blocked_by.map(d => `<div style="display:flex;align-items:center;gap:4px"><a href="javascript:void(0)" onclick="openIssueDetail('${esc(d.id)}')"><span class="mono">${esc(d.issue_key)}</span></a> <span class="lozenge lozenge-status-${esc(d.status)}" style="font-size:10px">${esc(d.status)}</span>${canWrite ? ` <button class="btn-icon-xs" onclick="removeDep('${esc(d.dep_id)}')" title="Remove">&times;</button>` : ''}</div>`).join('')
+                : '<span class="text-muted">None</span>'
+            }${canWrite ? `<button class="btn btn-ghost btn-sm" style="margin-top:4px;font-size:11px" onclick="openAddDependency('blocked_by')">+ Add blocker</button>` : ''}</div></div>
+            <div class="kv-row"><div class="kv-k">Blocks</div><div class="kv-v">${
+              currentIssueDeps && currentIssueDeps.blocks && currentIssueDeps.blocks.length
+                ? currentIssueDeps.blocks.map(d => `<div style="display:flex;align-items:center;gap:4px"><a href="javascript:void(0)" onclick="openIssueDetail('${esc(d.id)}')"><span class="mono">${esc(d.issue_key)}</span></a> <span class="lozenge lozenge-status-${esc(d.status)}" style="font-size:10px">${esc(d.status)}</span>${canWrite ? ` <button class="btn-icon-xs" onclick="removeDep('${esc(d.dep_id)}')" title="Remove">&times;</button>` : ''}</div>`).join('')
+                : '<span class="text-muted">None</span>'
+            }${canWrite ? `<button class="btn btn-ghost btn-sm" style="margin-top:4px;font-size:11px" onclick="openAddDependency('blocks')">+ Add dependency</button>` : ''}</div></div>
             <div class="kv-row"><div class="kv-k">Created</div><div class="kv-v text-muted text-sm">${esc(relTime(i.created_at))}</div></div>
             <div class="kv-row"><div class="kv-k">Updated</div><div class="kv-v text-muted text-sm">${esc(relTime(i.updated_at))}</div></div>
           </div>
+          <div id="issue-custom-fields"></div>
         </aside>
       </div>
 
@@ -756,6 +772,8 @@ function renderIssueDetailPage() {
     if (typeof renderMermaidDiagrams === 'function') renderMermaidDiagrams();
     // Collapse long comments (> 300px rendered height).
     if (typeof collapseOverflowingComments === 'function') collapseOverflowingComments();
+    // Load custom fields for issue sidebar.
+    if (typeof loadCustomFields === 'function') loadCustomFields();
   }, 0);
 }
 
@@ -770,6 +788,7 @@ function closeIssueDetail() {
   currentIssue = null;
   currentIssueParent = null;
   currentIssueSubtasks = [];
+  currentIssueDeps = { blocks: [], blocked_by: [] };
   currentIssueActivity = [];
   // Navigate back to the project detail page (full page, not a modal close).
   if (state.ui.tasksProjectId) {
@@ -1084,6 +1103,9 @@ function editIssueField(field) {
   } else if (field === 'assignee') {
     const opts = '<option value="">Unassigned</option>' + (state.tasks.users||[]).map(u => `<option value="${esc(u.id)}" ${i.assignee_id===u.id?'selected':''}>${esc(u.display_name || u.email)}</option>`).join('');
     editorHtml = `<select id="ife-input" onchange="commitIssueField('assignee_id', this.value)">${opts}</select>`;
+  } else if (field === 'start') {
+    const v = i.start_at ? String(i.start_at).slice(0,10) : '';
+    editorHtml = `<input id="ife-input" type="date" value="${esc(v)}" onchange="commitIssueField('start_at', this.value)">`;
   } else if (field === 'due') {
     const v = i.due_at ? String(i.due_at).slice(0,10) : '';
     editorHtml = `<input id="ife-input" type="date" value="${esc(v)}" onchange="commitIssueField('due_at', this.value)">`;
@@ -1102,6 +1124,7 @@ async function commitIssueField(field, value) {
     const actualField = field;
     if (field === 'assignee_id') body.assignee_id = value || null;
     else if (field === 'due_at') body.due_at = value ? new Date(value + 'T00:00:00Z').toISOString() : null;
+    else if (field === 'start_at') body.start_at = value ? new Date(value + 'T00:00:00Z').toISOString() : null;
     else body[field] = value;
     const r = await api('PATCH', `/api/issues/${encodeURIComponent(currentIssue.id)}`, body);
     if (r && (r.ok || r.issue || r.id)) {
@@ -1179,3 +1202,140 @@ async function submitDeleteIssue() {
   }
 }
 window.submitDeleteIssue = submitDeleteIssue;
+
+// ── Clone issue ─────────────────────────────────────────────
+async function cloneCurrentIssue() {
+  if (!currentIssue) return;
+  const r = await api('POST', `/api/issues/${encodeURIComponent(currentIssue.id)}/clone`, {});
+  if (r && r.issue) {
+    toastSuccess(`Cloned as ${r.issue.issue_key}`);
+    openIssueDetail(r.issue.id);
+  } else {
+    toastError((r && r.error) || 'Failed to clone issue');
+  }
+}
+window.cloneCurrentIssue = cloneCurrentIssue;
+
+// ── Dependencies ────────────────────────────────────────────
+function openAddDependency(direction) {
+  if (!currentIssue) return;
+  const title = direction === 'blocked_by' ? 'Add Blocker' : 'Add Dependency (this blocks)';
+  const hint = direction === 'blocked_by' ? 'Enter the issue key that blocks this issue:' : 'Enter the issue key that this issue blocks:';
+  setModal(`
+    <div class="modal-head"><div class="modal-title">${title}</div><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p class="text-muted text-sm">${hint}</p>
+      <input id="dep-key-input" type="text" placeholder="e.g. ENG-42" style="width:100%;margin-top:8px">
+      <div id="dep-err" class="form-msg form-msg-err" style="display:none;margin-top:8px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost btn-sm" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" type="button" onclick="submitAddDependency('${direction}')">Add</button>
+    </div>
+  `);
+  setTimeout(() => { const el = document.getElementById('dep-key-input'); if (el) el.focus(); }, 50);
+}
+window.openAddDependency = openAddDependency;
+
+async function submitAddDependency(direction) {
+  const input = document.getElementById('dep-key-input');
+  const errEl = document.getElementById('dep-err');
+  if (!input || !currentIssue) return;
+  const key = input.value.trim().toUpperCase();
+  if (!key) { if (errEl) { errEl.textContent = 'Enter an issue key'; errEl.style.display = ''; } return; }
+  // Look up the issue by key
+  const searchR = await api('GET', `/api/search?q=${encodeURIComponent(key)}`);
+  const found = searchR && searchR.results && searchR.results.issues && searchR.results.issues.find(i => i.issue_key === key);
+  if (!found) { if (errEl) { errEl.textContent = `Issue "${key}" not found`; errEl.style.display = ''; } return; }
+  const body = direction === 'blocked_by'
+    ? { blocker_issue_id: found.id, blocked_issue_id: currentIssue.id }
+    : { blocker_issue_id: currentIssue.id, blocked_issue_id: found.id };
+  const r = await api('POST', `/api/issues/${encodeURIComponent(currentIssue.id)}/dependencies`, body);
+  if (r && r.error) { if (errEl) { errEl.textContent = r.error; errEl.style.display = ''; } return; }
+  closeModal();
+  toastSuccess('Dependency added');
+  openIssueDetail(currentIssue.id);
+}
+window.submitAddDependency = submitAddDependency;
+
+async function removeDep(depId) {
+  const r = await api('DELETE', `/api/dependencies/${encodeURIComponent(depId)}`);
+  if (r && r.ok) {
+    toastSuccess('Dependency removed');
+    openIssueDetail(currentIssue.id);
+  } else {
+    toastError((r && r.error) || 'Failed to remove dependency');
+  }
+}
+window.removeDep = removeDep;
+
+// ── Custom fields (loaded after render) ─────────────────────
+async function loadCustomFields() {
+  if (!currentIssue) return;
+  const projectId = currentIssue.project_id || (state.tasks.project && state.tasks.project.id);
+  if (!projectId) return;
+  const [defsR, valsR] = await Promise.all([
+    api('GET', `/api/projects/${encodeURIComponent(projectId)}/custom-fields`),
+    api('GET', `/api/issues/${encodeURIComponent(currentIssue.id)}/custom-values`),
+  ]);
+  const defs = (defsR && Array.isArray(defsR.field_defs)) ? defsR.field_defs : [];
+  const vals = (valsR && Array.isArray(valsR.values)) ? valsR.values : [];
+  if (!defs.length) return;
+  const valMap = {};
+  vals.forEach(v => { valMap[v.field_def_id] = v.value; });
+  const el = document.getElementById('issue-custom-fields');
+  if (!el) return;
+  const canWrite = tasksCanWrite();
+  const rows = defs.map(d => {
+    const val = valMap[d.id] || '';
+    let display = val || '<span class="text-muted">—</span>';
+    if (d.field_type === 'checkbox') display = val === 'true' ? 'Yes' : (val === 'false' ? 'No' : '<span class="text-muted">—</span>');
+    return `
+      <div class="kv-row">
+        <div class="kv-k">${esc(d.name)}</div>
+        <div class="kv-v" ${canWrite ? `style="cursor:pointer" onclick="editCustomField('${esc(d.id)}','${esc(d.field_type)}',${esc(JSON.stringify(d.options || '[]'))})"` : ''}>
+          ${display}
+        </div>
+      </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="issue-section-label" style="margin-top:14px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2)">Custom Fields</div>
+    <div class="kv-grid">${rows}</div>
+  `;
+}
+
+function editCustomField(fieldId, fieldType, optionsJson) {
+  if (!tasksCanWrite() || !currentIssue) return;
+  let options = [];
+  try { options = typeof optionsJson === 'string' ? JSON.parse(optionsJson) : optionsJson; } catch {}
+  const el = event.target.closest('.kv-v');
+  if (!el || el.querySelector('#cf-input')) return;
+  const currentVal = el.textContent.trim() === '—' ? '' : el.textContent.trim();
+  let html = '';
+  if (fieldType === 'select') {
+    html = `<select id="cf-input" onchange="commitCustomField('${esc(fieldId)}',this.value)"><option value="">—</option>` +
+      options.map(o => `<option value="${esc(o)}" ${currentVal===o?'selected':''}>${esc(o)}</option>`).join('') + '</select>';
+  } else if (fieldType === 'checkbox') {
+    const checked = currentVal === 'Yes';
+    html = `<select id="cf-input" onchange="commitCustomField('${esc(fieldId)}',this.value)">
+      <option value="">—</option><option value="true" ${checked?'selected':''}>Yes</option><option value="false" ${!checked&&currentVal?'selected':''}>No</option></select>`;
+  } else if (fieldType === 'date') {
+    html = `<input id="cf-input" type="date" value="${esc(currentVal)}" onchange="commitCustomField('${esc(fieldId)}',this.value)">`;
+  } else if (fieldType === 'number') {
+    html = `<input id="cf-input" type="number" value="${esc(currentVal)}" onblur="commitCustomField('${esc(fieldId)}',this.value)" style="width:100px">`;
+  } else {
+    html = `<input id="cf-input" type="text" value="${esc(currentVal)}" onblur="commitCustomField('${esc(fieldId)}',this.value)" style="width:100%">`;
+  }
+  el.innerHTML = html;
+  setTimeout(() => { const inp = document.getElementById('cf-input'); if (inp) inp.focus(); }, 10);
+}
+window.editCustomField = editCustomField;
+
+async function commitCustomField(fieldId, value) {
+  if (!currentIssue) return;
+  await api('PUT', `/api/issues/${encodeURIComponent(currentIssue.id)}/custom-values`, {
+    values: [{ field_def_id: fieldId, value: value || '' }]
+  });
+  loadCustomFields();
+}
+window.commitCustomField = commitCustomField;

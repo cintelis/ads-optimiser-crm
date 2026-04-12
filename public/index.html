@@ -3,7 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <title>TW AI — Projects & Spaces</title>
+<meta name="description" content="Totally Wild AI — internal project management, sprint planning, documentation wiki, and team collaboration platform.">
+<meta name="theme-color" content="#1A1A1A">
+<meta name="application-name" content="Totally Wild AI">
+<meta name="robots" content="noindex, nofollow">
+<!-- Open Graph (login/landing page) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Totally Wild AI — Projects & Spaces">
+<meta property="og:description" content="Plan, build, document, and collaborate. Agile project management with sprints, kanban boards, roadmaps, and a built-in documentation wiki.">
+<meta property="og:image" content="https://projects.totallywild.ai/og-image.svg">
+<meta property="og:url" content="https://projects.totallywild.ai/">
+<meta property="og:site_name" content="Totally Wild AI">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Totally Wild AI — Projects & Spaces">
+<meta name="twitter:description" content="Agile project management, sprint planning, and documentation wiki for teams.">
+<meta name="twitter:image" content="https://projects.totallywild.ai/og-image.svg">
+<!-- Apple -->
+<meta name="apple-mobile-web-app-title" content="TW AI">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/dashboard.css">
@@ -35,62 +56,64 @@
 </div>
 
 <div id="app">
+  <div class="topbar" id="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">TW</span>
+    </div>
+    <div class="topbar-search" id="topbar-search">
+      <svg class="topbar-search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+      <input id="global-search-input" type="search" placeholder="Search issues, pages, contacts…  ( / )" autocomplete="off" oninput="onGlobalSearchInput(this.value)" onfocus="onGlobalSearchFocus()">
+      <div class="global-search-dropdown" id="global-search-dropdown"></div>
+    </div>
+    <button class="topbar-create-btn" id="topbar-create" type="button" onclick="topbarCreate()" style="display:none">+ Create</button>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm mobile-only" type="button" onclick="openMobileMenu()">More</button>
+      <button class="topbar-bell" id="inbox-bell" type="button" onclick="toggleInbox(event)" title="Notifications" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a6 6 0 0 0-6 6v3.5l-1.7 3.4A1 1 0 0 0 5.2 16h13.6a1 1 0 0 0 .9-1.1L18 11.5V8a6 6 0 0 0-6-6zm-2 16a2 2 0 1 0 4 0h-4z" fill="currentColor"/></svg>
+        <span class="topbar-bell-badge" id="inbox-badge" style="display:none">0</span>
+      </button>
+      <button class="icon-btn icon-btn-ghost" id="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle theme"></button>
+      <button class="topbar-avatar-btn" type="button" onclick="nav('account')" title="My Account" id="topbar-avatar"></button>
+    </div>
+  </div>
+  <div class="page-title" id="page-title" style="display:none">Overview</div>
   <div class="layout">
     <aside class="sidebar">
-      <div class="s-logo">
-        <div class="s-logo-text">Totally Wild AI</div>
-        <div class="s-logo-sub">Projects & Spaces</div>
-      </div>
       <nav class="s-nav">
-        <button class="nav-item active" id="nav-overview" type="button" onclick="nav('overview')">Overview</button>
-        <button class="nav-item" id="nav-templates" type="button" onclick="nav('templates')">Templates</button>
-        <button class="nav-item" id="nav-contacts" type="button" onclick="nav('contacts')">Contacts</button>
-        <button class="nav-item" id="nav-lists" type="button" onclick="nav('lists')">Lists</button>
-        <button class="nav-item" id="nav-campaigns" type="button" onclick="nav('campaigns')">Campaigns</button>
-        <button class="nav-item" id="nav-logs" type="button" onclick="nav('logs')">Sent Log</button>
-        <button class="nav-item" id="nav-unsubs" type="button" onclick="nav('unsubs')">Unsubscribes</button>
-        <div class="nav-divider"></div>
-        <div class="nav-group-label">CRM</div>
-        <button class="nav-item" id="nav-pipeline" type="button" onclick="nav('pipeline')">Pipeline</button>
+        <button class="nav-item active" id="nav-overview" type="button" onclick="nav('overview')">📊 Overview</button>
+        <div class="nav-divider" id="nav-outreach-divider"></div>
+        <div class="nav-group-label" id="nav-outreach-label">Outreach</div>
+        <button class="nav-item" id="nav-templates" type="button" onclick="nav('templates')">📝 Templates</button>
+        <button class="nav-item" id="nav-contacts" type="button" onclick="nav('contacts')">👤 Contacts</button>
+        <button class="nav-item" id="nav-lists" type="button" onclick="nav('lists')">📋 Lists</button>
+        <button class="nav-item" id="nav-campaigns" type="button" onclick="nav('campaigns')">📣 Campaigns</button>
+        <button class="nav-item" id="nav-logs" type="button" onclick="nav('logs')">📨 Sent Log</button>
+        <button class="nav-item" id="nav-unsubs" type="button" onclick="nav('unsubs')">🚫 Unsubscribes</button>
+        <div class="nav-divider" id="nav-crm-divider"></div>
+        <div class="nav-group-label" id="nav-crm-label">CRM</div>
+        <button class="nav-item" id="nav-pipeline" type="button" onclick="nav('pipeline')">🔀 Pipeline</button>
         <button class="nav-item nav-item-badged" id="nav-followups" type="button" onclick="nav('followups')">
-          Follow-ups
+          📅 Follow-ups
           <span id="fu-badge" class="nav-badge" style="display:none"></span>
         </button>
-        <div class="nav-divider"></div>
-        <div class="nav-group-label">Tasks</div>
-        <button class="nav-item" id="nav-projects" type="button" onclick="nav('projects')">Projects</button>
-        <div class="nav-divider"></div>
-        <div class="nav-group-label">Docs</div>
-        <button class="nav-item" id="nav-docs" type="button" onclick="nav('docs')">Spaces</button>
+        <div class="nav-divider" id="nav-tasks-divider"></div>
+        <div class="nav-group-label" id="nav-tasks-label">Tasks</div>
+        <button class="nav-item" id="nav-projects" type="button" onclick="nav('projects')">📋 Projects</button>
+        <div class="nav-divider" id="nav-docs-divider"></div>
+        <div class="nav-group-label" id="nav-docs-label">Docs</div>
+        <button class="nav-item" id="nav-docs" type="button" onclick="nav('docs')">📄 Spaces</button>
         <div class="nav-divider"></div>
         <div class="nav-group-label">Settings</div>
-        <button class="nav-item" id="nav-account" type="button" onclick="nav('account')">My Account</button>
-        <button class="nav-item" id="nav-users" type="button" onclick="nav('users')" style="display:none">Users</button>
-        <button class="nav-item" id="nav-integrations" type="button" onclick="nav('integrations')" style="display:none">Integrations</button>
-        <button class="nav-item" id="nav-feature-settings" type="button" onclick="nav('feature_settings')" style="display:none">Feature visibility</button>
+        <button class="nav-item" id="nav-account" type="button" onclick="nav('account')">⚙️ My Account</button>
+        <button class="nav-item" id="nav-users" type="button" onclick="nav('users')" style="display:none">👥 Users</button>
+        <button class="nav-item" id="nav-integrations" type="button" onclick="nav('integrations')" style="display:none">🔌 Integrations</button>
+        <button class="nav-item" id="nav-feature-settings" type="button" onclick="nav('feature_settings')" style="display:none">🎛️ Feature visibility</button>
       </nav>
       <div class="s-footer">
         <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="doLogout()">Sign Out</button>
       </div>
     </aside>
     <div class="main">
-      <div class="topbar">
-        <div class="page-title" id="page-title">Overview</div>
-        <div class="topbar-search" id="topbar-search">
-          <svg class="topbar-search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
-          <input id="global-search-input" type="search" placeholder="Search issues, pages, contacts…  ( / )" autocomplete="off" oninput="onGlobalSearchInput(this.value)" onfocus="onGlobalSearchFocus()">
-          <div class="global-search-dropdown" id="global-search-dropdown"></div>
-        </div>
-        <div class="topbar-actions">
-          <button class="btn btn-ghost btn-sm mobile-only" type="button" onclick="openMobileMenu()">More</button>
-          <button class="topbar-bell" id="inbox-bell" type="button" onclick="toggleInbox(event)" title="Notifications" aria-label="Notifications">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a6 6 0 0 0-6 6v3.5l-1.7 3.4A1 1 0 0 0 5.2 16h13.6a1 1 0 0 0 .9-1.1L18 11.5V8a6 6 0 0 0-6-6zm-2 16a2 2 0 1 0 4 0h-4z" fill="currentColor"/></svg>
-            <span class="topbar-bell-badge" id="inbox-badge" style="display:none">0</span>
-          </button>
-          <button class="icon-btn icon-btn-ghost" id="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle theme"></button>
-          <button class="btn btn-ghost btn-sm" type="button" onclick="refreshCurrent()">Refresh</button>
-        </div>
-      </div>
       <div class="content" id="content"></div>
     </div>
   </div>
@@ -117,17 +140,17 @@
     <button class="modal-close" type="button" onclick="closeMobileMenu()">x</button>
   </div>
   <div class="mobile-sheet-body">
-    <button class="mobile-sheet-item" id="more-templates" type="button" onclick="closeMobileMenu();nav('templates')">Templates</button>
-    <button class="mobile-sheet-item" id="more-lists" type="button" onclick="closeMobileMenu();nav('lists')">Lists</button>
-    <button class="mobile-sheet-item" id="more-campaigns" type="button" onclick="closeMobileMenu();nav('campaigns')">Campaigns</button>
-    <button class="mobile-sheet-item" id="more-logs" type="button" onclick="closeMobileMenu();nav('logs')">Sent Log</button>
-    <button class="mobile-sheet-item" id="more-unsubs" type="button" onclick="closeMobileMenu();nav('unsubs')">Unsubscribes</button>
-    <button class="mobile-sheet-item" id="more-projects" type="button" onclick="closeMobileMenu();nav('projects')">Projects</button>
-    <button class="mobile-sheet-item" id="more-docs" type="button" onclick="closeMobileMenu();nav('docs')">Docs</button>
-    <button class="mobile-sheet-item" id="more-account" type="button" onclick="closeMobileMenu();nav('account')">My Account</button>
-    <button class="mobile-sheet-item" id="more-users" type="button" onclick="closeMobileMenu();nav('users')" style="display:none">Users</button>
-    <button class="mobile-sheet-item" id="more-integrations" type="button" onclick="closeMobileMenu();nav('integrations')" style="display:none">Integrations</button>
-    <button class="mobile-sheet-item" id="more-feature-settings" type="button" onclick="closeMobileMenu();nav('feature_settings')" style="display:none">Feature visibility</button>
+    <button class="mobile-sheet-item" id="more-templates" type="button" onclick="closeMobileMenu();nav('templates')">📝 Templates</button>
+    <button class="mobile-sheet-item" id="more-lists" type="button" onclick="closeMobileMenu();nav('lists')">📋 Lists</button>
+    <button class="mobile-sheet-item" id="more-campaigns" type="button" onclick="closeMobileMenu();nav('campaigns')">📣 Campaigns</button>
+    <button class="mobile-sheet-item" id="more-logs" type="button" onclick="closeMobileMenu();nav('logs')">📨 Sent Log</button>
+    <button class="mobile-sheet-item" id="more-unsubs" type="button" onclick="closeMobileMenu();nav('unsubs')">🚫 Unsubscribes</button>
+    <button class="mobile-sheet-item" id="more-projects" type="button" onclick="closeMobileMenu();nav('projects')">📋 Projects</button>
+    <button class="mobile-sheet-item" id="more-docs" type="button" onclick="closeMobileMenu();nav('docs')">📄 Docs</button>
+    <button class="mobile-sheet-item" id="more-account" type="button" onclick="closeMobileMenu();nav('account')">⚙️ My Account</button>
+    <button class="mobile-sheet-item" id="more-users" type="button" onclick="closeMobileMenu();nav('users')" style="display:none">👥 Users</button>
+    <button class="mobile-sheet-item" id="more-integrations" type="button" onclick="closeMobileMenu();nav('integrations')" style="display:none">🔌 Integrations</button>
+    <button class="mobile-sheet-item" id="more-feature-settings" type="button" onclick="closeMobileMenu();nav('feature_settings')" style="display:none">🎛️ Feature visibility</button>
     <button class="mobile-sheet-item" type="button" onclick="closeMobileMenu();refreshCurrent()">Refresh Current Page</button>
     <button class="mobile-sheet-item mobile-sheet-item-danger" type="button" onclick="doLogout()">Sign Out</button>
   </div>
@@ -150,6 +173,7 @@
 <script src="/app.js" defer></script>
 <script src="/tasks-ui.js" defer></script>
 <script src="/sprints-ui.js" defer></script>
+<script src="/roadmap-ui.js" defer></script>
 <script src="/docs-ui.js" defer></script>
 <script src="/notifications-ui.js" defer></script>
 <script src="/integrations-ui.js" defer></script>
