@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Totally Wild AI — Revenue Projection</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0A0A0A;color:#fff;padding:48px;}
+.label{font-size:10px;font-weight:500;color:#6B4FE8;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.heading{font-size:32px;font-weight:500;letter-spacing:-0.8px;margin-bottom:6px;}
+.sub{font-size:14px;color:rgba(255,255,255,0.4);margin-bottom:48px;}
+hr{border:none;border-top:0.5px solid rgba(255,255,255,0.08);margin:0 0 36px;}
+.sl{font-size:10px;font-weight:500;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:20px;}
+
+/* Assumption controls */
+.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:36px;}
+.controls-5{grid-template-columns:repeat(5,minmax(0,1fr));}
+.ctrl{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px;}
+.ctrl label{font-size:11px;color:rgba(255,255,255,0.4);display:block;margin-bottom:6px;}
+.ctrl .val{font-size:20px;font-weight:500;color:#fff;margin-bottom:6px;}
+.ctrl input[type=range]{width:100%;accent-color:#6B4FE8;}
+.ctrl span{font-size:11px;color:rgba(255,255,255,0.3);}
+.ctrl-sub .val{color:#6B4FE8;}
+.ctrl-build .val{color:#1D9E75;}
+.ctrl-pub .val{color:#BA7517;}
+.ctrl-maint .val{color:#D4537E;}
+.ctrl-creator .val{color:#378ADD;}
+
+/* Summary KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:36px;}
+.kpi{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;text-align:center;}
+.kpi.hi{background:rgba(107,79,232,0.08);border-color:rgba(107,79,232,0.3);}
+.kpi p{font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:6px;}
+.kpi h3{font-size:26px;font-weight:500;letter-spacing:-0.8px;}
+.kpi small{font-size:11px;color:rgba(255,255,255,0.25);}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;margin-bottom:36px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{border-bottom:0.5px solid rgba(255,255,255,0.12);}
+thead th{text-align:right;padding:10px 12px;font-size:10px;font-weight:500;letter-spacing:1px;color:rgba(255,255,255,0.3);text-transform:uppercase;}
+thead th:first-child{text-align:left;}
+tbody tr{border-bottom:0.5px solid rgba(255,255,255,0.05);}
+tbody tr:hover{background:rgba(255,255,255,0.02);}
+tbody td{padding:10px 12px;text-align:right;color:rgba(255,255,255,0.7);}
+tbody td:first-child{text-align:left;color:#fff;font-weight:500;}
+.total-row td{color:#fff;font-weight:500;border-top:0.5px solid rgba(107,79,232,0.3);background:rgba(107,79,232,0.05);}
+.mrr-row td{color:#6B4FE8;}
+
+/* Chart */
+.chart-area{position:relative;height:220px;margin-bottom:36px;}
+canvas{width:100%!important;height:220px!important;}
+
+/* Revenue breakdown */
+.breakdown{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:36px;}
+.bk{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px;}
+.bk-color{width:8px;height:8px;border-radius:50%;margin-bottom:8px;}
+.bk h5{font-size:11px;font-weight:500;color:#fff;margin-bottom:4px;}
+.bk p{font-size:11px;color:rgba(255,255,255,0.35);}
+.bk .bk-val{font-size:18px;font-weight:500;color:#fff;margin-bottom:2px;letter-spacing:-0.4px;}
+
+/* Milestones */
+.milestones{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.ms{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;}
+.ms-q{font-size:10px;font-weight:500;letter-spacing:1px;color:#6B4FE8;margin-bottom:6px;}
+.ms h4{font-size:13px;font-weight:500;color:#fff;margin-bottom:8px;}
+.ms ul{list-style:none;display:flex;flex-direction:column;gap:5px;}
+.ms li{font-size:11px;color:rgba(255,255,255,0.4);padding-left:12px;position:relative;line-height:1.4;}
+.ms li::before{content:'-';position:absolute;left:0;color:rgba(107,79,232,0.6);}
+
+/* Back link */
+.back-link{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.4);font-size:12px;text-decoration:none;margin-bottom:24px;transition:color .15s;}
+.back-link:hover{color:#fff;}
+
+@media(max-width:900px){
+  body{padding:24px 16px;}
+  .controls{grid-template-columns:1fr;}
+  .controls-5{grid-template-columns:repeat(2,1fr);}
+  .kpis{grid-template-columns:repeat(2,1fr);}
+  .breakdown{grid-template-columns:repeat(2,1fr);}
+  .milestones{grid-template-columns:repeat(2,1fr);}
+}
+@media(max-width:480px){
+  .controls-5{grid-template-columns:1fr;}
+  .kpis{grid-template-columns:1fr;}
+  .breakdown{grid-template-columns:1fr;}
+  .milestones{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<a class="back-link" href="/#/space/BSM">&larr; Back to Business Modelling</a>
+
+<p class="label">Revenue projection</p>
+<h1 class="heading">Totally Wild AI — AIR</h1>
+<p class="sub">12-month model &middot; Adjust assumptions below</p>
+<hr>
+
+<p class="sl">Growth assumptions</p>
+<div class="controls">
+  <div class="ctrl">
+    <label>Monthly user growth rate</label>
+    <div class="val" id="growth-val">25%</div>
+    <input type="range" id="growth" min="10" max="60" value="25" step="1">
+    <span>Conservative 10% &rarr; Aggressive 60%</span>
+  </div>
+  <div class="ctrl">
+    <label>Paid conversion rate</label>
+    <div class="val" id="conv-val">8%</div>
+    <input type="range" id="conv" min="3" max="20" value="8" step="1">
+    <span>Free &rarr; Pro upgrade %</span>
+  </div>
+  <div class="ctrl">
+    <label>Starting free users (month 1)</label>
+    <div class="val" id="users-val">200</div>
+    <input type="range" id="users" min="50" max="1000" value="200" step="50">
+    <span>Post-launch waitlist conversion</span>
+  </div>
+</div>
+
+<p class="sl">Revenue stream pricing</p>
+<div class="controls controls-5">
+  <div class="ctrl ctrl-sub">
+    <label>Subscription (annual)</label>
+    <div class="val" id="sub-price-val">$99</div>
+    <input type="range" id="sub-price" min="29" max="299" value="99" step="10">
+    <span>$29 &rarr; $299/yr</span>
+  </div>
+  <div class="ctrl ctrl-build">
+    <label>Avg build fee / user / mo</label>
+    <div class="val" id="build-price-val">$15</div>
+    <input type="range" id="build-price" min="5" max="10000" value="15" step="5">
+    <span>$5 &rarr; $10,000 per user</span>
+  </div>
+  <div class="ctrl ctrl-pub">
+    <label>Publishing fee (one-time)</label>
+    <div class="val" id="pub-price-val">$49</div>
+    <input type="range" id="pub-price" min="9" max="5000" value="49" step="5">
+    <span>$9 &rarr; $5,000 per app</span>
+  </div>
+  <div class="ctrl ctrl-maint">
+    <label>Maintenance fee / app / mo</label>
+    <div class="val" id="maint-price-val">$19</div>
+    <input type="range" id="maint-price" min="5" max="5000" value="19" step="5">
+    <span>$5 &rarr; $5,000 per app</span>
+  </div>
+  <div class="ctrl ctrl-creator">
+    <label>Creator marketplace take</label>
+    <div class="val" id="creator-take-val">20%</div>
+    <input type="range" id="creator-take" min="5" max="40" value="20" step="1">
+    <span>5% &rarr; 40% of GMV</span>
+  </div>
+</div>
+
+<p class="sl">Year 1 summary</p>
+<div class="kpis" id="kpi-row">
+  <div class="kpi hi">
+    <p>Total ARR (month 12)</p>
+    <h3 id="kpi-arr">$0</h3>
+    <small>annualised run rate</small>
+  </div>
+  <div class="kpi">
+    <p>Total MRR (month 12)</p>
+    <h3 id="kpi-mrr">$0</h3>
+    <small>monthly recurring</small>
+  </div>
+  <div class="kpi">
+    <p>Paid users (month 12)</p>
+    <h3 id="kpi-paid">0</h3>
+    <small>Pro subscribers</small>
+  </div>
+  <div class="kpi">
+    <p>Cumulative revenue</p>
+    <h3 id="kpi-cumrev">$0</h3>
+    <small>all streams Y1</small>
+  </div>
+</div>
+
+<p class="sl">Monthly breakdown</p>
+<div class="chart-area">
+  <canvas id="rev-chart"></canvas>
+</div>
+
+<div class="tbl-wrap">
+  <table id="proj-table">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th>Free users</th>
+        <th>Paid users</th>
+        <th>Subscription</th>
+        <th>Build fees</th>
+        <th>Publishing</th>
+        <th>Maintenance</th>
+        <th>Creator fee</th>
+        <th>Total MRR</th>
+      </tr>
+    </thead>
+    <tbody id="tbl-body"></tbody>
+  </table>
+</div>
+
+<p class="sl">Revenue stream breakdown (month 12)</p>
+<div class="breakdown" id="breakdown-row">
+  <div class="bk"><div class="bk-color" style="background:#6B4FE8;"></div><h5>Subscription</h5><div class="bk-val" id="bk-sub">$0</div><p id="bk-sub-desc">$99/yr / 12</p></div>
+  <div class="bk"><div class="bk-color" style="background:#1D9E75;"></div><h5>Build fees</h5><div class="bk-val" id="bk-build">$0</div><p id="bk-build-desc">avg $15/user/mo</p></div>
+  <div class="bk"><div class="bk-color" style="background:#BA7517;"></div><h5>Publishing</h5><div class="bk-val" id="bk-pub">$0</div><p id="bk-pub-desc">$49 one-time / 10%</p></div>
+  <div class="bk"><div class="bk-color" style="background:#D4537E;"></div><h5>Maintenance</h5><div class="bk-val" id="bk-maint">$0</div><p id="bk-maint-desc">$19/app/mo</p></div>
+  <div class="bk"><div class="bk-color" style="background:#378ADD;"></div><h5>Creator fee</h5><div class="bk-val" id="bk-creator">$0</div><p id="bk-creator-desc">20% marketplace take</p></div>
+</div>
+<hr>
+
+<p class="sl">Milestones</p>
+<div class="milestones">
+  <div class="ms">
+    <div class="ms-q">Q1 &middot; Months 1-3</div>
+    <h4>Launch &amp; seed</h4>
+    <ul>
+      <li>Open waitlist, convert to free users</li>
+      <li>First 20-50 paid subscribers</li>
+      <li>CoreWeave GPU infra live</li>
+      <li>Apple App Store submission</li>
+    </ul>
+  </div>
+  <div class="ms">
+    <div class="ms-q">Q2 &middot; Months 4-6</div>
+    <h4>Creator marketplace</h4>
+    <ul>
+      <li>Open creator publishing</li>
+      <li>First marketplace transactions</li>
+      <li>USDT B2A payment rails live</li>
+      <li>100+ paid users</li>
+    </ul>
+  </div>
+  <div class="ms">
+    <div class="ms-q">Q3 &middot; Months 7-9</div>
+    <h4>Growth &amp; agents</h4>
+    <ul>
+      <li>Agent API public beta</li>
+      <li>Maintenance revenue compound</li>
+      <li>First B2B enterprise deal</li>
+      <li>Seed round close</li>
+    </ul>
+  </div>
+  <div class="ms">
+    <div class="ms-q">Q4 &middot; Months 10-12</div>
+    <h4>Scale</h4>
+    <ul>
+      <li>$50K+ MRR target</li>
+      <li>1,000+ paid subscribers</li>
+      <li>Series A pipeline begins</li>
+      <li>International expansion</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const PUB_RATE = 0.10;
+const MAINT_RATE = 0.30;
+const CREATOR_GMV_PER_ACTIVE = 40;
+
+let chart = null;
+
+function fmt(n){ return n>=1000?'$'+(n/1000).toFixed(1)+'K':'$'+Math.round(n); }
+function fmtN(n){ return n>=1000?(n/1000).toFixed(1)+'K':Math.round(n).toString(); }
+
+function calc(){
+  const growthRate = parseInt(document.getElementById('growth').value)/100;
+  const convRate = parseInt(document.getElementById('conv').value)/100;
+  const startUsers = parseInt(document.getElementById('users').value);
+  const subAnnual = parseInt(document.getElementById('sub-price').value);
+  const buildAvg = parseInt(document.getElementById('build-price').value);
+  const pubPrice = parseInt(document.getElementById('pub-price').value);
+  const maintPrice = parseInt(document.getElementById('maint-price').value);
+  const creatorTake = parseInt(document.getElementById('creator-take').value)/100;
+
+  const subMonthly = subAnnual/12;
+
+  document.getElementById('growth-val').textContent = Math.round(growthRate*100)+'%';
+  document.getElementById('conv-val').textContent = Math.round(convRate*100)+'%';
+  document.getElementById('users-val').textContent = startUsers;
+  document.getElementById('sub-price-val').textContent = '$'+subAnnual;
+  document.getElementById('build-price-val').textContent = '$'+buildAvg;
+  document.getElementById('pub-price-val').textContent = '$'+pubPrice;
+  document.getElementById('maint-price-val').textContent = '$'+maintPrice;
+  document.getElementById('creator-take-val').textContent = Math.round(creatorTake*100)+'%';
+
+  // Update breakdown descriptions
+  document.getElementById('bk-sub-desc').textContent = '$'+subAnnual+'/yr / 12';
+  document.getElementById('bk-build-desc').textContent = 'avg $'+buildAvg+'/user/mo';
+  document.getElementById('bk-pub-desc').textContent = '$'+pubPrice+' one-time / 10%';
+  document.getElementById('bk-maint-desc').textContent = '$'+maintPrice+'/app/mo';
+  document.getElementById('bk-creator-desc').textContent = Math.round(creatorTake*100)+'% marketplace take';
+
+  const rows = [];
+  let freeUsers = startUsers;
+  let cumRev = 0;
+  let maintApps = 0;
+
+  for(let m=1;m<=12;m++){
+    if(m>1) freeUsers = Math.round(freeUsers*(1+growthRate));
+    const paid = Math.round(freeUsers*convRate);
+    const sub = Math.round(paid*subMonthly);
+    const build = Math.round(paid*buildAvg);
+    const newPubs = Math.round(paid*PUB_RATE);
+    const pub = newPubs*pubPrice;
+    maintApps += newPubs;
+    const maint = Math.round(maintApps*maintPrice*MAINT_RATE);
+    const creator = Math.round(paid*0.15*CREATOR_GMV_PER_ACTIVE*creatorTake);
+    const total = sub+build+pub+maint+creator;
+    cumRev += total;
+    rows.push({m,freeUsers,paid,sub,build,pub,maint,creator,total});
+  }
+
+  const last = rows[11];
+  document.getElementById('kpi-arr').textContent = fmt(last.total*12);
+  document.getElementById('kpi-mrr').textContent = fmt(last.total);
+  document.getElementById('kpi-paid').textContent = fmtN(last.paid);
+  document.getElementById('kpi-cumrev').textContent = fmt(cumRev);
+
+  document.getElementById('bk-sub').textContent = fmt(last.sub);
+  document.getElementById('bk-build').textContent = fmt(last.build);
+  document.getElementById('bk-pub').textContent = fmt(last.pub);
+  document.getElementById('bk-maint').textContent = fmt(last.maint);
+  document.getElementById('bk-creator').textContent = fmt(last.creator);
+
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = rows.map(r=>
+    '<tr>'+
+      '<td>Month '+r.m+'</td>'+
+      '<td>'+fmtN(r.freeUsers)+'</td>'+
+      '<td>'+fmtN(r.paid)+'</td>'+
+      '<td>'+fmt(r.sub)+'</td>'+
+      '<td>'+fmt(r.build)+'</td>'+
+      '<td>'+fmt(r.pub)+'</td>'+
+      '<td>'+fmt(r.maint)+'</td>'+
+      '<td>'+fmt(r.creator)+'</td>'+
+      '<td style="color:#6B4FE8;font-weight:500;">'+fmt(r.total)+'</td>'+
+    '</tr>'
+  ).join('');
+
+  const labels = rows.map(r=>'M'+r.m);
+  const datasets = [
+    {label:'Subscription',data:rows.map(r=>r.sub),backgroundColor:'rgba(107,79,232,0.75)',stack:'s'},
+    {label:'Build fees',data:rows.map(r=>r.build),backgroundColor:'rgba(29,158,117,0.75)',stack:'s'},
+    {label:'Publishing',data:rows.map(r=>r.pub),backgroundColor:'rgba(186,117,23,0.75)',stack:'s'},
+    {label:'Maintenance',data:rows.map(r=>r.maint),backgroundColor:'rgba(212,83,126,0.75)',stack:'s'},
+    {label:'Creator fee',data:rows.map(r=>r.creator),backgroundColor:'rgba(55,138,221,0.75)',stack:'s'},
+  ];
+
+  if(chart){ chart.destroy(); }
+  var ctx = document.getElementById('rev-chart').getContext('2d');
+  chart = new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:'rgba(255,255,255,0.5)',font:{size:11},boxWidth:10,boxHeight:10}},
+        tooltip:{backgroundColor:'#1a1a1a',borderColor:'rgba(255,255,255,0.1)',borderWidth:0.5,titleColor:'#fff',bodyColor:'rgba(255,255,255,0.6)',callbacks:{label:function(c){return c.dataset.label+': $'+Math.round(c.raw).toLocaleString();}}}
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.35)',font:{size:11}}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.35)',font:{size:11},callback:function(v){return v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v;}},stacked:true}
+      }
+    }
+  });
+}
+
+document.getElementById('growth').addEventListener('input',calc);
+document.getElementById('conv').addEventListener('input',calc);
+document.getElementById('users').addEventListener('input',calc);
+document.getElementById('sub-price').addEventListener('input',calc);
+document.getElementById('build-price').addEventListener('input',calc);
+document.getElementById('pub-price').addEventListener('input',calc);
+document.getElementById('maint-price').addEventListener('input',calc);
+document.getElementById('creator-take').addEventListener('input',calc);
+calc();
+</script>
+</body>
+</html>

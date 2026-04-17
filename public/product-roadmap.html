@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Totally Wild AI — Roadmap</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --black:#0F0F0F;--g900:#1A1A1A;--g800:#2E2E2E;--g600:#6B6B6B;
+  --g500:#8A8A8A;--g400:#A1A1A1;--g300:#C4C4C4;--g200:#E2E2E2;
+  --g100:#F0F0F0;--g50:#F7F7F7;--white:#FFFFFF;
+  --iris:#6E5CCC;--iris-bright:#9B8EE8;--iris-light:#F3F1FC;--iris-mid:#DDD8F7;
+  --bg:var(--black);--bg2:var(--g900);--bg3:var(--g800);
+  --text1:var(--white);--text2:var(--g300);--text3:var(--g400);
+  --accent:var(--iris-bright);--accent-bg:rgba(110,92,204,0.12);
+  --border:rgba(255,255,255,0.08);--border-hover:rgba(255,255,255,0.15);
+  --radius-sm:6px;--radius-md:8px;--radius-lg:12px;--radius-pill:100px;
+  --font:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'Geist Mono','SF Mono','Fira Code',monospace;
+  --focus-ring:rgba(155,142,232,0.4);
+  --success:#4ADE80;--error:#F87171;--warning:#FBBF24;
+}
+
+html{font-family:var(--font);background:var(--bg);color:var(--text1);line-height:1.55;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;padding:0}
+
+/* Subtle grid bg */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);
+  background-size:56px 56px;
+}
+body::after{
+  content:'';position:fixed;top:0;left:50%;transform:translateX(-50%);
+  width:800px;height:600px;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse,rgba(110,92,204,0.08) 0%,transparent 70%);
+}
+
+.app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:40px 24px 80px}
+
+/* Logo */
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:40px}
+.logo-mark{width:28px;height:28px;position:relative}
+.logo-mark .ring{width:28px;height:28px;border:1.5px solid var(--g300);border-radius:50%}
+.logo-mark .core{width:9px;height:9px;background:var(--accent);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
+.logo-text{font-size:14px;font-weight:500;color:var(--text1);letter-spacing:-0.2px}
+
+/* Header */
+.header{margin-bottom:48px}
+.header-label{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.header-title{font-size:36px;font-weight:700;letter-spacing:-1px;line-height:1.08;
+  background:linear-gradient(180deg,#FFFFFF 30%,#C4C4C4 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.header-sub{font-size:15px;color:var(--text2);margin-top:8px;letter-spacing:-0.2px}
+
+/* Toolbar */
+.toolbar{display:flex;gap:10px;margin-bottom:32px;flex-wrap:wrap;align-items:center}
+.btn{
+  font-family:var(--font);font-size:13px;font-weight:500;
+  border:none;cursor:pointer;border-radius:var(--radius-md);
+  padding:8px 20px;transition:all 0.15s ease;outline:none;
+}
+.btn:focus-visible{box-shadow:0 0 0 3px var(--focus-ring)}
+.btn-primary{background:var(--text1);color:var(--black)}
+.btn-primary:hover{background:var(--g200)}
+.btn-ghost{
+  background:transparent;color:var(--g300);
+  border:0.5px solid var(--border);
+}
+.btn-ghost:hover{border-color:var(--border-hover);color:var(--text1)}
+.btn-danger{background:transparent;color:var(--error);border:0.5px solid rgba(248,113,113,0.25)}
+.btn-danger:hover{background:rgba(248,113,113,0.1)}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-icon{
+  width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;border:0.5px solid var(--border);color:var(--text3);
+  border-radius:var(--radius-sm);font-size:16px;
+}
+.btn-icon:hover{border-color:var(--border-hover);color:var(--text1)}
+.btn-icon.active{background:var(--accent-bg);border-color:rgba(155,142,232,0.25);color:var(--accent)}
+
+.toolbar-spacer{flex:1}
+.filter-pills{display:flex;gap:6px}
+.pill{
+  font-family:var(--font);font-size:11px;font-weight:500;
+  padding:4px 12px;border-radius:var(--radius-pill);cursor:pointer;
+  border:0.5px solid var(--border);background:transparent;color:var(--text3);
+  transition:all 0.15s ease;
+}
+.pill:hover{border-color:var(--border-hover);color:var(--text2)}
+.pill.active{background:var(--accent-bg);border-color:rgba(155,142,232,0.25);color:var(--accent)}
+
+/* Timeline */
+.timeline{position:relative}
+.timeline::before{
+  content:'';position:absolute;left:15px;top:24px;bottom:0;width:1px;
+  background:linear-gradient(180deg,var(--accent) 0%,var(--border) 100%);
+}
+
+/* Milestone */
+.milestone{
+  position:relative;padding-left:48px;margin-bottom:12px;
+  transition:opacity 0.2s ease;
+}
+.milestone.dragging{opacity:0.4}
+.milestone.drag-over .card{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+
+.milestone-dot{
+  position:absolute;left:8px;top:20px;width:15px;height:15px;
+  border-radius:50%;border:2px solid var(--bg);z-index:2;
+}
+.milestone-dot.planned{background:var(--g500)}
+.milestone-dot.in-progress{background:var(--warning)}
+.milestone-dot.completed{background:var(--success)}
+
+.card{
+  background:var(--bg2);border:0.5px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px 20px;
+  transition:border-color 0.15s ease,box-shadow 0.15s ease;
+  cursor:grab;
+}
+.card:hover{border-color:var(--border-hover)}
+.card:active{cursor:grabbing}
+
+.card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+.card-title{
+  flex:1;font-size:15px;font-weight:600;color:var(--text1);letter-spacing:-0.2px;
+  border:none;background:transparent;outline:none;font-family:var(--font);
+  width:100%;padding:0;line-height:1.4;
+}
+.card-title:focus{color:var(--accent)}
+
+.card-actions{display:flex;gap:4px;opacity:0;transition:opacity 0.15s ease;flex-shrink:0}
+.card:hover .card-actions{opacity:1}
+
+.card-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.card-date{
+  font-family:var(--mono);font-size:12px;color:var(--text3);
+  border:none;background:transparent;outline:none;width:110px;padding:0;
+}
+.card-date:focus{color:var(--accent)}
+
+.status-badge{
+  font-size:10px;font-weight:600;padding:2px 10px;
+  border-radius:var(--radius-pill);cursor:pointer;
+  border:none;font-family:var(--font);transition:all 0.15s ease;
+}
+.status-badge.planned{background:rgba(161,161,161,0.15);color:var(--g400)}
+.status-badge.in-progress{background:rgba(251,191,36,0.15);color:var(--warning)}
+.status-badge.completed{background:rgba(74,222,128,0.15);color:var(--success)}
+
+.card-desc{
+  font-size:13px;color:var(--text3);margin-top:8px;
+  border:none;background:transparent;outline:none;font-family:var(--font);
+  width:100%;resize:none;line-height:1.5;padding:0;
+}
+.card-desc:focus{color:var(--text2)}
+
+/* Empty state */
+.empty{
+  text-align:center;padding:80px 20px;color:var(--text3);
+}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:0.3}
+.empty-text{font-size:15px;margin-bottom:24px}
+
+/* Modal */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity 0.2s ease;
+  backdrop-filter:blur(4px);
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--bg2);border:0.5px solid var(--border);
+  border-radius:var(--radius-lg);padding:28px;width:100%;max-width:480px;
+  transform:translateY(10px);transition:transform 0.2s ease;
+}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-title{font-size:18px;font-weight:600;margin-bottom:20px;letter-spacing:-0.3px}
+.modal-field{margin-bottom:16px}
+.modal-label{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.modal-input{
+  width:100%;padding:10px 14px;font-size:14px;font-family:var(--font);
+  background:var(--bg);border:0.5px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text1);outline:none;
+  transition:border-color 0.15s ease;
+}
+.modal-input:focus{border-color:var(--accent)}
+.modal-input::placeholder{color:var(--g600)}
+textarea.modal-input{resize:vertical;min-height:60px;line-height:1.5}
+select.modal-input{cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23A1A1A1'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+
+/* Stats bar */
+.stats{display:flex;gap:24px;margin-bottom:32px;flex-wrap:wrap}
+.stat{display:flex;align-items:baseline;gap:6px}
+.stat-val{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text1)}
+.stat-label{font-size:12px;color:var(--text3)}
+
+/* Drag handle */
+.drag-handle{
+  display:flex;flex-direction:column;gap:2px;padding:4px 2px;cursor:grab;opacity:0.3;
+  transition:opacity 0.15s ease;flex-shrink:0;margin-top:2px;
+}
+.drag-handle:hover{opacity:0.7}
+.drag-handle span{display:block;width:12px;height:1.5px;background:var(--text3);border-radius:1px}
+
+/* Animations */
+@keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.milestone{animation:slideIn 0.3s ease both}
+
+/* Responsive */
+@media(max-width:600px){
+  .app{padding:24px 16px 60px}
+  .header-title{font-size:28px}
+  .toolbar{gap:8px}
+  .stats{gap:16px}
+  .card{padding:14px 16px}
+}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <!-- Logo -->
+  <div class="logo">
+    <div class="logo-mark"><div class="ring"></div><div class="core"></div></div>
+    <span class="logo-text">Totally Wild</span>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-label">Product roadmap</div>
+    <h1 class="header-title">AIR Marketplace Roadmap</h1>
+    <p class="header-sub">Drag to reorder. Click to edit inline. Filter by status.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats"></div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openAddModal()">+ Add milestone</button>
+    <div class="toolbar-spacer"></div>
+    <div class="filter-pills" id="filters">
+      <button class="pill active" data-filter="all" onclick="setFilter('all',this)">All</button>
+      <button class="pill" data-filter="planned" onclick="setFilter('planned',this)">Planned</button>
+      <button class="pill" data-filter="in-progress" onclick="setFilter('in-progress',this)">In progress</button>
+      <button class="pill" data-filter="completed" onclick="setFilter('completed',this)">Completed</button>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="timeline" id="timeline"></div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Add milestone</div>
+    <div class="modal-field">
+      <div class="modal-label">Title</div>
+      <input class="modal-input" id="mTitle" placeholder="e.g. Launch beta marketplace">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Date</div>
+      <input class="modal-input" id="mDate" type="date">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Status</div>
+      <select class="modal-input" id="mStatus">
+        <option value="planned">Planned</option>
+        <option value="in-progress">In progress</option>
+        <option value="completed">Completed</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Description (optional)</div>
+      <textarea class="modal-input" id="mDesc" placeholder="Brief description of this milestone..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modalSave" onclick="saveMilestone()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- State ---
+let milestones = [
+  { id: 1, title: "Core build engine MVP", date: "2025-03-01", status: "completed", desc: "Automated code generation from natural language prompts" },
+  { id: 2, title: "Creator SDK & CLI tools", date: "2025-05-15", status: "completed", desc: "Tools for creators to build and test agents locally" },
+  { id: 3, title: "AIR Marketplace alpha", date: "2025-07-01", status: "in-progress", desc: "Internal marketplace with listing, search, and agent transactions" },
+  { id: 4, title: "USDT payment rails", date: "2025-08-15", status: "in-progress", desc: "Stablecoin integration for B2A autonomous agent payments" },
+  { id: 5, title: "App Store publishing pipeline", date: "2025-10-01", status: "planned", desc: "One-click deploy to Apple App Store and web marketplace" },
+  { id: 6, title: "CoreWeave GPU scaling", date: "2025-11-01", status: "planned", desc: "Auto-scaling Blackwell/Hopper compute for build workloads" },
+  { id: 7, title: "Enterprise licensing (B2B)", date: "2026-01-15", status: "planned", desc: "White-label and API access for enterprise customers" },
+  { id: 8, title: "Public marketplace launch", date: "2026-03-01", status: "planned", desc: "Full public launch with all five revenue streams active" },
+];
+let nextId = 9;
+let currentFilter = "all";
+let editingId = null;
+let dragId = null;
+
+// --- Render ---
+function render() {
+  renderStats();
+  renderTimeline();
+}
+
+function renderStats() {
+  const total = milestones.length;
+  const completed = milestones.filter(m => m.status === "completed").length;
+  const inProgress = milestones.filter(m => m.status === "in-progress").length;
+  const planned = milestones.filter(m => m.status === "planned").length;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><span class="stat-val">${total}</span><span class="stat-label">total</span></div>
+    <div class="stat"><span class="stat-val" style="color:var(--success)">${completed}</span><span class="stat-label">completed</span></div>
+    <div class="stat"><span class="stat-val" style="color:var(--warning)">${inProgress}</span><span class="stat-label">in progress</span></div>
+    <div class="stat"><span class="stat-val">${planned}</span><span class="stat-label">planned</span></div>
+  `;
+}
+
+function renderTimeline() {
+  const tl = document.getElementById("timeline");
+  const filtered = currentFilter === "all" ? milestones : milestones.filter(m => m.status === currentFilter);
+
+  if (filtered.length === 0) {
+    tl.innerHTML = `<div class="empty"><div class="empty-icon">◇</div><div class="empty-text">${milestones.length === 0 ? 'No milestones yet.' : 'No milestones match this filter.'}</div>${milestones.length === 0 ? '<button class="btn btn-primary" onclick="openAddModal()">Add your first milestone</button>' : ''}</div>`;
+    return;
+  }
+
+  tl.innerHTML = filtered.map((m, i) => `
+    <div class="milestone" data-id="${m.id}" draggable="true"
+         ondragstart="onDragStart(event,${m.id})" ondragover="onDragOver(event)" ondragenter="onDragEnter(event,this)"
+         ondragleave="onDragLeave(event,this)" ondrop="onDrop(event,${m.id})" ondragend="onDragEnd()"
+         style="animation-delay:${i*40}ms">
+      <div class="milestone-dot ${m.status}"></div>
+      <div class="card">
+        <div class="card-top">
+          <div class="drag-handle" title="Drag to reorder"><span></span><span></span><span></span></div>
+          <input class="card-title" value="${esc(m.title)}" onchange="updateField(${m.id},'title',this.value)" spellcheck="false">
+          <div class="card-actions">
+            <button class="btn-icon btn-sm" title="Delete" onclick="deleteMilestone(${m.id})">×</button>
+          </div>
+        </div>
+        <div class="card-meta">
+          <input class="card-date" type="date" value="${m.date}" onchange="updateField(${m.id},'date',this.value)">
+          <button class="status-badge ${m.status}" onclick="cycleStatus(${m.id})">${statusLabel(m.status)}</button>
+        </div>
+        ${m.desc ? `<textarea class="card-desc" rows="1" onchange="updateField(${m.id},'desc',this.value)" oninput="autoGrow(this)" spellcheck="false">${esc(m.desc)}</textarea>` : ''}
+      </div>
+    </div>
+  `).join("");
+
+  // Auto-grow textareas
+  tl.querySelectorAll('.card-desc').forEach(autoGrow);
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function statusLabel(s) { return s === 'in-progress' ? 'In progress' : s.charAt(0).toUpperCase() + s.slice(1); }
+
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// --- Actions ---
+function updateField(id, field, value) {
+  const m = milestones.find(x => x.id === id);
+  if (m) { m[field] = value; renderStats(); }
+}
+
+function cycleStatus(id) {
+  const m = milestones.find(x => x.id === id);
+  if (!m) return;
+  const order = ['planned', 'in-progress', 'completed'];
+  m.status = order[(order.indexOf(m.status) + 1) % 3];
+  render();
+}
+
+function deleteMilestone(id) {
+  milestones = milestones.filter(m => m.id !== id);
+  render();
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  renderTimeline();
+}
+
+// --- Modal ---
+function openAddModal() {
+  editingId = null;
+  document.getElementById("modalTitle").textContent = "Add milestone";
+  document.getElementById("modalSave").textContent = "Add";
+  document.getElementById("mTitle").value = "";
+  document.getElementById("mDate").value = new Date().toISOString().slice(0,10);
+  document.getElementById("mStatus").value = "planned";
+  document.getElementById("mDesc").value = "";
+  document.getElementById("modal").classList.add("open");
+  setTimeout(() => document.getElementById("mTitle").focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+}
+
+function saveMilestone() {
+  const title = document.getElementById("mTitle").value.trim();
+  if (!title) { document.getElementById("mTitle").focus(); return; }
+  const date = document.getElementById("mDate").value;
+  const status = document.getElementById("mStatus").value;
+  const desc = document.getElementById("mDesc").value.trim();
+
+  milestones.push({ id: nextId++, title, date, status, desc });
+  closeModal();
+  render();
+}
+
+// Close modal on overlay click
+document.getElementById("modal").addEventListener("click", function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Close modal on Escape
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") closeModal();
+  if (e.key === "Enter" && document.getElementById("modal").classList.contains("open")) {
+    e.preventDefault(); saveMilestone();
+  }
+});
+
+// --- Drag & Drop ---
+function onDragStart(e, id) {
+  dragId = id;
+  e.dataTransfer.effectAllowed = "move";
+  e.target.closest('.milestone').classList.add('dragging');
+}
+
+function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
+
+function onDragEnter(e, el) {
+  e.preventDefault();
+  el.classList.add('drag-over');
+}
+
+function onDragLeave(e, el) {
+  el.classList.remove('drag-over');
+}
+
+function onDrop(e, targetId) {
+  e.preventDefault();
+  if (dragId === null || dragId === targetId) return;
+  const fromIdx = milestones.findIndex(m => m.id === dragId);
+  const toIdx = milestones.findIndex(m => m.id === targetId);
+  const [item] = milestones.splice(fromIdx, 1);
+  milestones.splice(toIdx, 0, item);
+  dragId = null;
+  render();
+}
+
+function onDragEnd() {
+  dragId = null;
+  document.querySelectorAll('.milestone').forEach(el => {
+    el.classList.remove('dragging', 'drag-over');
+  });
+}
+
+// --- Init ---
+render();
+</script>
+</body>
+</html>

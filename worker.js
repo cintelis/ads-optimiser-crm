@@ -43,7 +43,7 @@ import {
 } from './worker/sprints.js';
 import {
   listSpaces, createSpace, getSpace, patchSpace, deleteSpace,
-  listSpacePages, createPage, getPage, patchPage, deletePage,
+  listSpacePages, createPage, getPage, getPageBySlug, patchPage, deletePage,
   listPageVersions, getPageVersion, restorePageVersion,
 } from './worker/docs.js';
 import {
@@ -1489,6 +1489,11 @@ async function route(req, env, url, path, authCtx) {
         if (m === 'POST') return createPage(req, env, authCtx, spId);
       }
     }
+  }
+  // Slug-based page lookup: /api/doc-pages/by-slug/:spaceKey/:slug
+  {
+    const slugMatch = path.match(/^\/api\/doc-pages\/by-slug\/([^/]+)\/(.+)$/);
+    if (slugMatch && m === 'GET') return getPageBySlug(env, slugMatch[1], decodeURIComponent(slugMatch[2]));
   }
   {
     const dpm = path.match(/^\/api\/doc-pages\/([^/]+)(?:\/versions(?:\/([^/]+)(?:\/(restore))?)?)?$/);

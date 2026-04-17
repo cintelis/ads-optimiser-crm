@@ -360,6 +360,21 @@ export async function getPage(env, pgId) {
   });
 }
 
+export async function getPageBySlug(env, spaceKey, slug) {
+  // Resolve space by key
+  const space = await env.DB.prepare(
+    'SELECT id, key, name FROM doc_spaces WHERE key=? AND active=1'
+  ).bind(spaceKey.toUpperCase()).first();
+  if (!space) return jres({ error: 'Space not found' }, 404);
+  // Find the page by slug within that space
+  const row = await env.DB.prepare(
+    'SELECT id FROM doc_pages WHERE space_id=? AND slug=? AND active=1'
+  ).bind(space.id, slug).first();
+  if (!row) return jres({ error: 'Page not found' }, 404);
+  // Delegate to getPage for the full response
+  return getPage(env, row.id);
+}
+
 export async function patchPage(req, env, ctx, pgId) {
   const body = await req.json().catch(() => ({}));
   const existing = await env.DB.prepare(

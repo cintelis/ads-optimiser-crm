@@ -14,6 +14,9 @@
   if (!state.ui.docsPageId) state.ui.docsPageId = '';
   if (!state.ui.docsExpandedPages) state.ui.docsExpandedPages = {};
   if (!('docsEditing' in state.ui)) state.ui.docsEditing = false;
+  if (!('docsSidebarCollapsed' in state.ui)) {
+    try { state.ui.docsSidebarCollapsed = localStorage.getItem('tw_docs_sidebar_collapsed') === '1'; } catch { state.ui.docsSidebarCollapsed = false; }
+  }
   if (!state.ui.docsDraft) state.ui.docsDraft = null;
   state.docs = state.docs || {};
   state.docs.spaces = state.docs.spaces || [];
@@ -300,28 +303,55 @@ function renderDocsSidebarHTML() {
   if (!space) return '';
   const tree = buildPageTree(state.docs.pages);
   const canWrite = docsCanWrite();
+  const collapsed = state.ui.docsSidebarCollapsed;
   return `
-    <aside class="docs-sidebar">
-      <div style="padding:10px 12px 6px">
-        <button class="btn btn-ghost btn-sm" type="button" onclick="backToSpaces()">← All spaces</button>
-      </div>
-      <div class="docs-sidebar-header" style="padding:8px 12px 12px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:10px">
-          ${docsSpaceIconHTML(space)}
-          <div style="min-width:0;flex:1">
-            <div class="mono text-sm text-muted">${esc(space.key)}</div>
-            <div style="font-weight:600">${esc(space.name)}</div>
-          </div>
+    <div class="docs-sidebar-wrap${collapsed ? ' docs-sidebar-collapsed' : ''}">
+      <aside class="docs-sidebar">
+        <div style="padding:10px 12px 6px">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="backToSpaces()">← All spaces</button>
         </div>
-        ${canWrite ? `<button class="icon-btn icon-btn-ghost" type="button" title="New top-level page" style="margin-top:8px" onclick="openCreatePage('')"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5z" fill="currentColor"/></svg></button>` : ''}
-      </div>
-      <ul class="docs-tree">
-        ${renderPageTreeHTML(tree, 0)}
-      </ul>
-    </aside>
+        <div class="docs-sidebar-header" style="padding:8px 12px 12px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:10px">
+            ${docsSpaceIconHTML(space)}
+            <div style="min-width:0;flex:1">
+              <div class="mono text-sm text-muted">${esc(space.key)}</div>
+              <div style="font-weight:600">${esc(space.name)}</div>
+            </div>
+          </div>
+          ${canWrite ? `<button class="icon-btn icon-btn-ghost" type="button" title="New top-level page" style="margin-top:8px" onclick="openCreatePage('')"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5z" fill="currentColor"/></svg></button>` : ''}
+        </div>
+        <ul class="docs-tree">
+          ${renderPageTreeHTML(tree, 0)}
+        </ul>
+      </aside>
+      <button class="docs-sidebar-toggle" type="button" onclick="toggleDocsSidebar()" title="${collapsed ? 'Show page tree' : 'Hide page tree'}">
+        <svg viewBox="0 0 24 24" width="14" height="14"><path d="${collapsed ? 'M10 6l6 6-6 6' : 'M14 6l-6 6 6 6'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </button>
+    </div>
   `;
 }
 window.renderDocsSidebarHTML = renderDocsSidebarHTML;
+
+function toggleDocsSidebar() {
+  state.ui.docsSidebarCollapsed = !state.ui.docsSidebarCollapsed;
+  try { localStorage.setItem('tw_docs_sidebar_collapsed', state.ui.docsSidebarCollapsed ? '1' : '0'); } catch {}
+  const wrap = document.querySelector('.docs-sidebar-wrap');
+  if (wrap) {
+    wrap.classList.toggle('docs-sidebar-collapsed', state.ui.docsSidebarCollapsed);
+    const btn = wrap.querySelector('.docs-sidebar-toggle');
+    if (btn) {
+      btn.title = state.ui.docsSidebarCollapsed ? 'Show page tree' : 'Hide page tree';
+      const svg = btn.querySelector('svg path');
+      if (svg) svg.setAttribute('d', state.ui.docsSidebarCollapsed ? 'M10 6l6 6-6 6' : 'M14 6l-6 6 6 6');
+    }
+  }
+  // Update grid columns
+  const layout = document.querySelector('.docs-layout');
+  if (layout) {
+    layout.style.gridTemplateColumns = state.ui.docsSidebarCollapsed ? '28px minmax(0,1fr)' : '260px minmax(0,1fr)';
+  }
+}
+window.toggleDocsSidebar = toggleDocsSidebar;
 
 // ── Space home (no page selected) ────────────────────────────
 function renderSpaceHome() {
@@ -349,8 +379,9 @@ function renderSpaceHome() {
   const descHTML = space.description_md
     ? `<div class="md-body">${renderMarkdown(space.description_md)}</div>`
     : '<p class="text-muted">No description yet.</p>';
+  const _sidebarCollapsed = state.ui.docsSidebarCollapsed;
   c.innerHTML = `
-    <div class="docs-layout">
+    <div class="docs-layout" style="${_sidebarCollapsed ? 'grid-template-columns:28px minmax(0,1fr)' : ''}">
       ${renderDocsSidebarHTML()}
       <main class="docs-main">
         <div class="docs-page-header">
@@ -458,8 +489,9 @@ function renderPage() {
   const canWrite = docsCanWrite();
   const editing = !!state.ui.docsEditing;
   const mainHTML = editing ? renderPageEditorHTML(page) : renderPageViewHTML(page, canWrite);
+  const _pgSidebarCollapsed = state.ui.docsSidebarCollapsed;
   c.innerHTML = `
-    <div class="docs-layout">
+    <div class="docs-layout" style="${_pgSidebarCollapsed ? 'grid-template-columns:28px minmax(0,1fr)' : ''}">
       ${renderDocsSidebarHTML()}
       <main class="docs-main">
         ${mainHTML}
@@ -535,6 +567,10 @@ function renderPageEditorHTML(page) {
     <div class="docs-page-header">
       <div class="docs-breadcrumb">${buildBreadcrumbHTML(page)}</div>
       <input id="docs-editor-title" class="docs-editor-title" type="text" value="${esc(draft.title || '')}" oninput="onEditorTitleInput(this.value)" placeholder="Page title" style="width:100%;font-size:24px;font-weight:700;padding:8px 10px;margin-top:4px">
+      <div class="docs-page-actions" style="margin-top:12px">
+        <button class="btn btn-primary btn-sm" type="button" onclick="saveEditPage()">Save</button>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="cancelEditPage()">Cancel</button>
+      </div>
       <div class="form-msg" id="docs-editor-msg" style="margin-top:8px"></div>
     </div>
     <div class="docs-editor" style="margin-top:14px">
@@ -546,10 +582,6 @@ function renderPageEditorHTML(page) {
         <div class="docs-editor-label text-muted text-sm" style="margin-bottom:4px">Preview</div>
         <div id="docs-editor-preview" class="md-body docs-editor-preview">${previewHTML}</div>
       </div>
-    </div>
-    <div class="docs-editor-actions" style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-ghost" type="button" onclick="cancelEditPage()">Cancel</button>
-      <button class="btn btn-primary" type="button" onclick="saveEditPage()">Save</button>
     </div>
   `;
 }

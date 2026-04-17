@@ -49,19 +49,30 @@ const ISSUE_TYPE_ICONS = {
   } catch {}
 })();
 
+function slugifyHeading(text) {
+  // Decode HTML entities first (marked may pass &amp; etc.)
+  const decoded = String(text || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  return decoded.toLowerCase().replace(/<[^>]*>/g, '').replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
 function renderMarkdown(text) {
   if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
     return `<pre class="md-fallback">${esc(text || '')}</pre>`;
   }
   try {
-    const raw = marked.parse(String(text || ''), { breaks: true, gfm: true });
-    // DOMPurify strips unknown tags, so we need to preserve mermaid divs.
-    // marked renders ```mermaid blocks as <pre><code class="language-mermaid">...
-    // We post-process to convert them into <div class="mermaid"> for mermaid.run().
+    // Custom renderer to add id attributes to headings for anchor links
+    const renderer = new marked.Renderer();
+    renderer.heading = function (data) {
+      const depth = data.depth || 1;
+      const text = data.text || '';
+      const slug = slugifyHeading(text);
+      return `<h${depth} id="${slug}">${text}</h${depth}>`;
+    };
+    const raw = marked.parse(String(text || ''), { breaks: true, gfm: true, renderer: renderer });
     let html = DOMPurify.sanitize(raw, {
       USE_PROFILES: { html: true },
       ADD_TAGS: ['div'],
-      ADD_ATTR: ['class'],
+      ADD_ATTR: ['class', 'id'],
     });
     // Convert <pre><code class="language-mermaid">...</code></pre> → <div class="mermaid">...</div>
     html = html.replace(
@@ -83,6 +94,14 @@ function renderMarkdown(text) {
         const spaceHint = t.includes('/') ? '<span class="wiki-link-space">' + t.split('/')[0] + '</span> ' : '';
         const escaped = t.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         return '<a class="wiki-link" href="javascript:void(0)" onclick="openWikiLink(\'' + escaped + '\')">' + spaceHint + displayTitle + '</a>';
+      }
+    );
+    // Convert in-page anchor links (#heading) to scrollIntoView to avoid
+    // clobbering the hash-based router URL.
+    html = html.replace(
+      /<a\s+href="#([^"]+)"([^>]*)>/g,
+      function (_, anchor, rest) {
+        return '<a href="javascript:void(0)" onclick="var el=document.getElementById(\'' + anchor.replace(/'/g, "\\'") + '\');if(el)el.scrollIntoView({behavior:\'smooth\',block:\'start\'})"' + rest + '>';
       }
     );
     return html;

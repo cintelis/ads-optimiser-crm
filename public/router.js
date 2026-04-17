@@ -58,7 +58,13 @@
       }
     } else if (section === 'docs') {
       if (state.ui.docsPageId) {
-        setHash('#/page/' + state.ui.docsPageId);
+        const _pg = state.docs && state.docs.page;
+        const _sk = getSpaceKey();
+        if (_pg && _pg.slug && _sk) {
+          setHash('#/page/' + _sk + '/' + encodeURIComponent(_pg.slug));
+        } else {
+          setHash('#/page/' + state.ui.docsPageId);
+        }
       } else if (state.ui.docsSpaceId) {
         setHash('#/space/' + getSpaceKey());
       } else {
@@ -99,12 +105,21 @@
     };
   }
 
-  // Patch openDocsPage to write the page hash
+  // Patch openDocsPage to write slug-based page hash
   const originalOpenPage = window.openDocsPage;
   if (originalOpenPage) {
     window.openDocsPage = function (pageId) {
       originalOpenPage(pageId);
-      setHash('#/page/' + pageId);
+      // After nav completes, write a friendly slug URL
+      setTimeout(() => {
+        const page = state.docs && state.docs.page;
+        const spaceKey = getSpaceKey();
+        if (page && page.slug && spaceKey) {
+          setHash('#/page/' + spaceKey + '/' + encodeURIComponent(page.slug));
+        } else {
+          setHash('#/page/' + pageId);
+        }
+      }, 200);
     };
   }
 
@@ -252,21 +267,32 @@
       return true;
     }
     if (route === 'page' && param) {
-      // Fetch the page to get its space_id, then navigate
+      // Two URL formats:
+      // #/page/SPACE_KEY/slug  (new, friendly)
+      // #/page/dpg_xxx         (legacy, ID-based)
+      const slug = parts[2] || '';
+      let pageR = null;
       try {
-        const pageR = await api('GET', '/api/doc-pages/' + encodeURIComponent(param));
-        if (pageR && !pageR.error) {
+        if (slug) {
+          // New format: space key + slug
+          pageR = await api('GET', '/api/doc-pages/by-slug/' + encodeURIComponent(param) + '/' + encodeURIComponent(slug));
+        } else if (param.startsWith('dpg_')) {
+          // Legacy: direct page ID
+          pageR = await api('GET', '/api/doc-pages/' + encodeURIComponent(param));
+        } else {
+          // Could be a slug without space key — try as ID fallback
+          pageR = await api('GET', '/api/doc-pages/' + encodeURIComponent(param));
+        }
+        if (pageR && !pageR.error && pageR.page) {
           const spaceId = (pageR.space && pageR.space.id) || (pageR.page && pageR.page.space_id) || '';
           state.ui.docsSpaceId = spaceId;
-          state.ui.docsPageId = param;
-          if (pageR.page) {
-            state.docs = state.docs || {};
-            state.docs.page = pageR.page;
-            if (pageR.page._children === undefined) {
-              state.docs.page._children = pageR.children || [];
-              state.docs.page._parent = pageR.parent || null;
-              state.docs.page._versionCount = pageR.version_count || 0;
-            }
+          state.ui.docsPageId = pageR.page.id;
+          state.docs = state.docs || {};
+          state.docs.page = pageR.page;
+          if (pageR.page._children === undefined) {
+            state.docs.page._children = pageR.children || [];
+            state.docs.page._parent = pageR.parent || null;
+            state.docs.page._versionCount = pageR.version_count || 0;
           }
           nav('docs');
           return true;
@@ -299,6 +325,20 @@
   window.getIssueUrl = getIssueUrl;
 
   function getPageUrl(pageId) {
+    // Try to build a slug-based URL from current state
+    const page = state.docs && state.docs.page;
+    const spaceKey = (state.docs && state.docs.space && state.docs.space.key) || '';
+    if (page && page.id === pageId && page.slug && spaceKey) {
+      return window.location.origin + window.location.pathname + '#/page/' + spaceKey + '/' + encodeURIComponent(page.slug);
+    }
+    // Check pages list for slug
+    if (spaceKey && state.docs && state.docs.pages) {
+      const found = state.docs.pages.find(p => p.id === pageId);
+      if (found && found.slug) {
+        return window.location.origin + window.location.pathname + '#/page/' + spaceKey + '/' + encodeURIComponent(found.slug);
+      }
+    }
+    // Fallback to ID
     return window.location.origin + window.location.pathname + '#/page/' + pageId;
   }
   window.getPageUrl = getPageUrl;
