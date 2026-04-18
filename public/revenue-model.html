@@ -13,8 +13,7 @@ hr{border:none;border-top:0.5px solid rgba(255,255,255,0.08);margin:0 0 36px;}
 .sl{font-size:10px;font-weight:500;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:20px;}
 
 /* Assumption controls */
-.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:36px;}
-.controls-5{grid-template-columns:repeat(5,minmax(0,1fr));}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:28px;}
 .ctrl{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px;}
 .ctrl label{font-size:11px;color:rgba(255,255,255,0.4);display:block;margin-bottom:6px;}
 .ctrl .val{font-size:20px;font-weight:500;color:#fff;margin-bottom:6px;}
@@ -25,9 +24,27 @@ hr{border:none;border-top:0.5px solid rgba(255,255,255,0.08);margin:0 0 36px;}
 .ctrl-pub .val{color:#BA7517;}
 .ctrl-maint .val{color:#D4537E;}
 .ctrl-creator .val{color:#378ADD;}
+.ctrl-ent .val{color:#E8B64F;}
+.ctrl-b2a .val{color:#7EBFA0;}
+
+/* View toggle */
+.view-toggle{display:inline-flex;background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:8px;padding:3px;margin-bottom:20px;gap:2px;}
+.view-toggle button{background:transparent;border:none;color:rgba(255,255,255,0.55);padding:7px 14px;font:inherit;font-size:12px;border-radius:6px;cursor:pointer;transition:background .15s,color .15s;}
+.view-toggle button:hover{color:#fff;}
+.view-toggle button.active{background:rgba(107,79,232,0.15);color:#fff;}
+.group-inactive{opacity:.4;pointer-events:none;transition:opacity .2s;}
+.group-inactive .ctrl{filter:grayscale(50%);}
+
+/* Scenarios */
+.scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:36px;}
+.scn{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s,background .15s;color:#fff;font:inherit;text-align:left;}
+.scn:hover{border-color:rgba(107,79,232,0.5);background:rgba(107,79,232,0.06);}
+.scn:focus-visible{outline:1.5px solid #6B4FE8;outline-offset:2px;}
+.scn .scn-name{font-size:13px;font-weight:500;margin-bottom:4px;}
+.scn .scn-desc{font-size:11px;color:rgba(255,255,255,0.45);line-height:1.4;}
 
 /* Summary KPIs */
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:36px;}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:36px;}
 .kpi{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;text-align:center;}
 .kpi.hi{background:rgba(107,79,232,0.08);border-color:rgba(107,79,232,0.3);}
 .kpi p{font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:6px;}
@@ -36,31 +53,44 @@ hr{border:none;border-top:0.5px solid rgba(255,255,255,0.08);margin:0 0 36px;}
 
 /* Table */
 .tbl-wrap{overflow-x:auto;margin-bottom:36px;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:800px;}
 thead tr{border-bottom:0.5px solid rgba(255,255,255,0.12);}
-thead th{text-align:right;padding:10px 12px;font-size:10px;font-weight:500;letter-spacing:1px;color:rgba(255,255,255,0.3);text-transform:uppercase;}
+thead th{text-align:right;padding:10px 10px;font-size:10px;font-weight:500;letter-spacing:1px;color:rgba(255,255,255,0.3);text-transform:uppercase;white-space:nowrap;}
 thead th:first-child{text-align:left;}
 tbody tr{border-bottom:0.5px solid rgba(255,255,255,0.05);}
 tbody tr:hover{background:rgba(255,255,255,0.02);}
-tbody td{padding:10px 12px;text-align:right;color:rgba(255,255,255,0.7);}
+tbody td{padding:9px 10px;text-align:right;color:rgba(255,255,255,0.7);white-space:nowrap;}
 tbody td:first-child{text-align:left;color:#fff;font-weight:500;}
-.total-row td{color:#fff;font-weight:500;border-top:0.5px solid rgba(107,79,232,0.3);background:rgba(107,79,232,0.05);}
-.mrr-row td{color:#6B4FE8;}
 
 /* Chart */
-.chart-area{position:relative;height:220px;margin-bottom:36px;}
-canvas{width:100%!important;height:220px!important;}
+.chart-area{position:relative;height:240px;margin-bottom:36px;}
+canvas{width:100%!important;height:240px!important;}
 
 /* Revenue breakdown */
-.breakdown{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:36px;}
+.breakdown{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:36px;}
 .bk{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px;}
 .bk-color{width:8px;height:8px;border-radius:50%;margin-bottom:8px;}
 .bk h5{font-size:11px;font-weight:500;color:#fff;margin-bottom:4px;}
 .bk p{font-size:11px;color:rgba(255,255,255,0.35);}
 .bk .bk-val{font-size:18px;font-weight:500;color:#fff;margin-bottom:2px;letter-spacing:-0.4px;}
 
+/* Derived metrics */
+.derived{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:36px;}
+.dm{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px;}
+.dm p{font-size:10px;color:rgba(255,255,255,0.35);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;}
+.dm .dm-val{font-size:22px;font-weight:500;color:#fff;letter-spacing:-0.5px;margin-bottom:4px;}
+.dm small{font-size:11px;color:rgba(255,255,255,0.35);line-height:1.4;display:block;}
+
+/* Revenue mix bar */
+.mix-wrap{margin-bottom:36px;}
+.mix-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;margin-bottom:10px;background:rgba(255,255,255,0.03);}
+.mix-seg{height:100%;transition:flex .25s ease;}
+.mix-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:11px;color:rgba(255,255,255,0.5);}
+.mix-legend span{display:inline-flex;align-items:center;gap:6px;}
+.mix-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
 /* Milestones */
-.milestones{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.milestones{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
 .ms{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px;}
 .ms-q{font-size:10px;font-weight:500;letter-spacing:1px;color:#6B4FE8;margin-bottom:6px;}
 .ms h4{font-size:13px;font-weight:500;color:#fff;margin-bottom:8px;}
@@ -74,17 +104,7 @@ canvas{width:100%!important;height:220px!important;}
 
 @media(max-width:900px){
   body{padding:24px 16px;}
-  .controls{grid-template-columns:1fr;}
-  .controls-5{grid-template-columns:repeat(2,1fr);}
-  .kpis{grid-template-columns:repeat(2,1fr);}
-  .breakdown{grid-template-columns:repeat(2,1fr);}
-  .milestones{grid-template-columns:repeat(2,1fr);}
-}
-@media(max-width:480px){
-  .controls-5{grid-template-columns:1fr;}
-  .kpis{grid-template-columns:1fr;}
-  .breakdown{grid-template-columns:1fr;}
-  .milestones{grid-template-columns:1fr;}
+  .chart-area,canvas{height:200px!important;}
 }
 </style>
 </head>
@@ -94,11 +114,16 @@ canvas{width:100%!important;height:220px!important;}
 
 <p class="label">Revenue projection</p>
 <h1 class="heading">Totally Wild AI — AIR</h1>
-<p class="sub">12-month model &middot; Adjust assumptions below</p>
+<p class="sub">12-month model &middot; 17 adjustable levers &middot; self-serve, enterprise &amp; B2A</p>
 <hr>
 
+<div class="view-toggle" role="tablist" aria-label="Revenue view">
+  <button type="button" id="view-all" class="active" aria-pressed="true">All streams</button>
+  <button type="button" id="view-ss" aria-pressed="false">Self-serve only</button>
+</div>
+
 <p class="sl">Growth assumptions</p>
-<div class="controls">
+<div class="controls" id="group-growth">
   <div class="ctrl">
     <label>Monthly user growth rate</label>
     <div class="val" id="growth-val">25%</div>
@@ -117,10 +142,16 @@ canvas{width:100%!important;height:220px!important;}
     <input type="range" id="users" min="50" max="1000" value="200" step="50">
     <span>Post-launch waitlist conversion</span>
   </div>
+  <div class="ctrl ctrl-ent">
+    <label>Enterprise customers (month 12)</label>
+    <div class="val" id="ent-count-val">3</div>
+    <input type="range" id="ent-count" min="0" max="20" value="3" step="1">
+    <span>Linear ramp from 0</span>
+  </div>
 </div>
 
-<p class="sl">Revenue stream pricing</p>
-<div class="controls controls-5">
+<p class="sl">Self-serve pricing</p>
+<div class="controls">
   <div class="ctrl ctrl-sub">
     <label>Subscription (annual)</label>
     <div class="val" id="sub-price-val">$99</div>
@@ -128,42 +159,97 @@ canvas{width:100%!important;height:220px!important;}
     <span>$29 &rarr; $299/yr</span>
   </div>
   <div class="ctrl ctrl-build">
-    <label>Avg build fee / user / mo</label>
-    <div class="val" id="build-price-val">$15</div>
-    <input type="range" id="build-price" min="5" max="10000" value="15" step="5">
-    <span>$5 &rarr; $10,000 per user</span>
+    <label>Build fee — Simple</label>
+    <div class="val" id="build-simple-val">$15</div>
+    <input type="range" id="build-simple" min="5" max="30" value="15" step="1">
+    <span>40% of builds &middot; single component</span>
+  </div>
+  <div class="ctrl ctrl-build">
+    <label>Build fee — Standard</label>
+    <div class="val" id="build-std-val">$35</div>
+    <input type="range" id="build-std" min="15" max="60" value="35" step="1">
+    <span>40% of builds &middot; multi-file + tests</span>
+  </div>
+  <div class="ctrl ctrl-build">
+    <label>Build fee — Complex</label>
+    <div class="val" id="build-complex-val">$75</div>
+    <input type="range" id="build-complex" min="40" max="150" value="75" step="5">
+    <span>20% of builds &middot; full-stack + integrations</span>
   </div>
   <div class="ctrl ctrl-pub">
     <label>Publishing fee (one-time)</label>
     <div class="val" id="pub-price-val">$49</div>
-    <input type="range" id="pub-price" min="9" max="5000" value="49" step="5">
-    <span>$9 &rarr; $5,000 per app</span>
+    <input type="range" id="pub-price" min="9" max="149" value="49" step="5">
+    <span>10% of paid users publish / mo</span>
   </div>
   <div class="ctrl ctrl-maint">
     <label>Maintenance fee / app / mo</label>
     <div class="val" id="maint-price-val">$19</div>
-    <input type="range" id="maint-price" min="5" max="5000" value="19" step="5">
-    <span>$5 &rarr; $5,000 per app</span>
+    <input type="range" id="maint-price" min="5" max="49" value="19" step="1">
+    <span>30% of apps opt in</span>
   </div>
   <div class="ctrl ctrl-creator">
     <label>Creator marketplace take</label>
     <div class="val" id="creator-take-val">20%</div>
     <input type="range" id="creator-take" min="5" max="40" value="20" step="1">
-    <span>5% &rarr; 40% of GMV</span>
+    <span>15% of paid users sell &middot; $40 GMV ea</span>
   </div>
 </div>
+
+<p class="sl" id="group-eb-label">Enterprise &amp; B2A pricing</p>
+<div class="controls" id="group-eb">
+  <div class="ctrl ctrl-ent">
+    <label>Enterprise platform fee / mo</label>
+    <div class="val" id="ent-fee-val">$2,000</div>
+    <input type="range" id="ent-fee" min="500" max="10000" value="2000" step="100">
+    <span>API, SLA, white-label per customer</span>
+  </div>
+  <div class="ctrl ctrl-ent">
+    <label>Enterprise avg builds / mo</label>
+    <div class="val" id="ent-builds-val">50</div>
+    <input type="range" id="ent-builds" min="10" max="500" value="50" step="5">
+    <span>Per enterprise customer</span>
+  </div>
+  <div class="ctrl ctrl-ent">
+    <label>Enterprise build price</label>
+    <div class="val" id="ent-build-price-val">$25</div>
+    <input type="range" id="ent-build-price" min="10" max="100" value="25" step="1">
+    <span>Volume discount vs self-serve</span>
+  </div>
+  <div class="ctrl ctrl-b2a">
+    <label>B2A agent transactions / mo</label>
+    <div class="val" id="b2a-tx-val">100</div>
+    <input type="range" id="b2a-tx" min="0" max="10000" value="100" step="50">
+    <span>Platform-wide &middot; begins month 6</span>
+  </div>
+  <div class="ctrl ctrl-b2a">
+    <label>Avg agent transaction value</label>
+    <div class="val" id="b2a-avg-val">$25</div>
+    <input type="range" id="b2a-avg" min="5" max="200" value="25" step="5">
+    <span>Per autonomous build</span>
+  </div>
+  <div class="ctrl ctrl-b2a">
+    <label>Agent take rate</label>
+    <div class="val" id="agent-take-val">25%</div>
+    <input type="range" id="agent-take" min="10" max="40" value="25" step="1">
+    <span>Platform fee on A2A transactions</span>
+  </div>
+</div>
+
+<p class="sl">Preset scenarios</p>
+<div class="scenarios" id="scenarios"></div>
 
 <p class="sl">Year 1 summary</p>
 <div class="kpis" id="kpi-row">
   <div class="kpi hi">
-    <p>Total ARR (month 12)</p>
+    <p>ARR (month 12)</p>
     <h3 id="kpi-arr">$0</h3>
-    <small>annualised run rate</small>
+    <small>MRR &times; 12</small>
   </div>
   <div class="kpi">
-    <p>Total MRR (month 12)</p>
+    <p>MRR (month 12)</p>
     <h3 id="kpi-mrr">$0</h3>
-    <small>monthly recurring</small>
+    <small>all streams</small>
   </div>
   <div class="kpi">
     <p>Paid users (month 12)</p>
@@ -171,9 +257,19 @@ canvas{width:100%!important;height:220px!important;}
     <small>Pro subscribers</small>
   </div>
   <div class="kpi">
+    <p>Enterprise MRR (m12)</p>
+    <h3 id="kpi-ent">$0</h3>
+    <small>platform + builds</small>
+  </div>
+  <div class="kpi">
+    <p>B2A revenue (m12)</p>
+    <h3 id="kpi-b2a">$0</h3>
+    <small>agent-to-agent take</small>
+  </div>
+  <div class="kpi">
     <p>Cumulative revenue</p>
     <h3 id="kpi-cumrev">$0</h3>
-    <small>all streams Y1</small>
+    <small>total Y1</small>
   </div>
 </div>
 
@@ -187,13 +283,16 @@ canvas{width:100%!important;height:220px!important;}
     <thead>
       <tr>
         <th>Month</th>
-        <th>Free users</th>
-        <th>Paid users</th>
-        <th>Subscription</th>
-        <th>Build fees</th>
-        <th>Publishing</th>
-        <th>Maintenance</th>
-        <th>Creator fee</th>
+        <th>Free</th>
+        <th>Paid</th>
+        <th>Ent</th>
+        <th>Sub</th>
+        <th>Build</th>
+        <th>Pub</th>
+        <th>Maint</th>
+        <th>Creator</th>
+        <th>Ent $</th>
+        <th>B2A</th>
         <th>Total MRR</th>
       </tr>
     </thead>
@@ -204,10 +303,27 @@ canvas{width:100%!important;height:220px!important;}
 <p class="sl">Revenue stream breakdown (month 12)</p>
 <div class="breakdown" id="breakdown-row">
   <div class="bk"><div class="bk-color" style="background:#6B4FE8;"></div><h5>Subscription</h5><div class="bk-val" id="bk-sub">$0</div><p id="bk-sub-desc">$99/yr / 12</p></div>
-  <div class="bk"><div class="bk-color" style="background:#1D9E75;"></div><h5>Build fees</h5><div class="bk-val" id="bk-build">$0</div><p id="bk-build-desc">avg $15/user/mo</p></div>
+  <div class="bk"><div class="bk-color" style="background:#1D9E75;"></div><h5>Build fees</h5><div class="bk-val" id="bk-build">$0</div><p id="bk-build-desc">weighted avg $35 / build</p></div>
   <div class="bk"><div class="bk-color" style="background:#BA7517;"></div><h5>Publishing</h5><div class="bk-val" id="bk-pub">$0</div><p id="bk-pub-desc">$49 one-time / 10%</p></div>
-  <div class="bk"><div class="bk-color" style="background:#D4537E;"></div><h5>Maintenance</h5><div class="bk-val" id="bk-maint">$0</div><p id="bk-maint-desc">$19/app/mo</p></div>
+  <div class="bk"><div class="bk-color" style="background:#D4537E;"></div><h5>Maintenance</h5><div class="bk-val" id="bk-maint">$0</div><p id="bk-maint-desc">$19/app/mo / 30%</p></div>
   <div class="bk"><div class="bk-color" style="background:#378ADD;"></div><h5>Creator fee</h5><div class="bk-val" id="bk-creator">$0</div><p id="bk-creator-desc">20% marketplace take</p></div>
+  <div class="bk"><div class="bk-color" style="background:#E8B64F;"></div><h5>Enterprise</h5><div class="bk-val" id="bk-ent">$0</div><p id="bk-ent-desc">platform + builds</p></div>
+  <div class="bk"><div class="bk-color" style="background:#7EBFA0;"></div><h5>B2A</h5><div class="bk-val" id="bk-b2a">$0</div><p id="bk-b2a-desc">25% agent take</p></div>
+</div>
+
+<p class="sl">Derived metrics (month 12)</p>
+<div class="derived">
+  <div class="dm"><p>Blended ARPU</p><div class="dm-val" id="dm-arpu">$0</div><small>revenue &divide; total users</small></div>
+  <div class="dm"><p>Projected LTV</p><div class="dm-val" id="dm-ltv">$0</div><small>ARPU &times; 18 mo &middot; aim &gt; 3&times; CAC</small></div>
+  <div class="dm"><p>Gross margin</p><div class="dm-val" id="dm-margin">0%</div><small>after 30% LLM compute on builds</small></div>
+  <div class="dm"><p>Weighted build fee</p><div class="dm-val" id="dm-wbf">$0</div><small>40/40/20 simple/std/complex</small></div>
+  <div class="dm"><p>Cost per feature</p><div class="dm-val" id="dm-cpf">$0</div><small>vs ~$2,800 with a developer</small></div>
+</div>
+
+<p class="sl">Revenue mix (month 12)</p>
+<div class="mix-wrap">
+  <div class="mix-bar" id="mix-bar"></div>
+  <div class="mix-legend" id="mix-legend"></div>
 </div>
 <hr>
 
@@ -259,40 +375,93 @@ canvas{width:100%!important;height:220px!important;}
 <script>
 const PUB_RATE = 0.10;
 const MAINT_RATE = 0.30;
+const CREATOR_SELLER_RATE = 0.15;
 const CREATOR_GMV_PER_ACTIVE = 40;
+const BUILD_MIX_SIMPLE = 0.40;
+const BUILD_MIX_STD = 0.40;
+const BUILD_MIX_COMPLEX = 0.20;
+const LLM_COMPUTE_RATE = 0.30;   // % of build rev assumed to be LLM compute cost
+const LTV_MONTHS = 18;
+
+const SLIDER_IDS = [
+  'growth','conv','users','ent-count',
+  'sub-price','build-simple','build-std','build-complex','pub-price','maint-price','creator-take',
+  'ent-fee','ent-builds','ent-build-price','b2a-tx','b2a-avg','agent-take'
+];
+
+const SCENARIOS = [
+  {name:'Conservative', desc:'Slow growth, tight pricing, minimal enterprise',
+    values:{growth:15,conv:5,users:100,'ent-count':1,'sub-price':99,'build-simple':10,'build-std':25,'build-complex':50,'pub-price':49,'maint-price':19,'creator-take':20,'ent-fee':2000,'ent-builds':50,'ent-build-price':25,'b2a-tx':100,'b2a-avg':25,'agent-take':25}},
+  {name:'Base case', desc:'Defaults &middot; 25% growth / 8% conv / 3 enterprise',
+    values:{growth:25,conv:8,users:200,'ent-count':3,'sub-price':99,'build-simple':15,'build-std':35,'build-complex':75,'pub-price':49,'maint-price':19,'creator-take':20,'ent-fee':2000,'ent-builds':50,'ent-build-price':25,'b2a-tx':100,'b2a-avg':25,'agent-take':25}},
+  {name:'Aggressive', desc:'High growth, premium pricing, 5 enterprise',
+    values:{growth:40,conv:12,users:500,'ent-count':5,'sub-price':149,'build-simple':20,'build-std':45,'build-complex':90,'pub-price':49,'maint-price':19,'creator-take':20,'ent-fee':2000,'ent-builds':50,'ent-build-price':25,'b2a-tx':100,'b2a-avg':25,'agent-take':25}},
+  {name:'Enterprise-led', desc:'8 enterprise customers, steady self-serve',
+    values:{growth:20,conv:6,users:150,'ent-count':8,'sub-price':99,'build-simple':15,'build-std':35,'build-complex':75,'pub-price':49,'maint-price':19,'creator-take':20,'ent-fee':2000,'ent-builds':50,'ent-build-price':25,'b2a-tx':100,'b2a-avg':25,'agent-take':25}},
+  {name:'Volume play', desc:'Low price, high conversion, land-and-expand',
+    values:{growth:35,conv:15,users:400,'ent-count':1,'sub-price':49,'build-simple':8,'build-std':20,'build-complex':45,'pub-price':49,'maint-price':19,'creator-take':20,'ent-fee':2000,'ent-builds':50,'ent-build-price':25,'b2a-tx':100,'b2a-avg':25,'agent-take':25}},
+  {name:'B2A heavy', desc:'Agent-to-agent commerce as primary stream',
+    values:{growth:25,conv:8,users:200,'ent-count':3,'sub-price':99,'build-simple':15,'build-std':35,'build-complex':75,'pub-price':49,'maint-price':19,'creator-take':20,'ent-fee':2000,'ent-builds':50,'ent-build-price':25,'b2a-tx':1000,'b2a-avg':35,'agent-take':25}},
+];
 
 let chart = null;
+let selfServeOnly = false;
 
-function fmt(n){ return n>=1000?'$'+(n/1000).toFixed(1)+'K':'$'+Math.round(n); }
+function fmt(n){ const v=Math.round(n); return v>=1000?'$'+(v/1000).toFixed(1)+'K':'$'+v; }
 function fmtN(n){ return n>=1000?(n/1000).toFixed(1)+'K':Math.round(n).toString(); }
+function fmt$(n){ return '$'+Math.round(n).toLocaleString(); }
 
 function calc(){
-  const growthRate = parseInt(document.getElementById('growth').value)/100;
-  const convRate = parseInt(document.getElementById('conv').value)/100;
-  const startUsers = parseInt(document.getElementById('users').value);
-  const subAnnual = parseInt(document.getElementById('sub-price').value);
-  const buildAvg = parseInt(document.getElementById('build-price').value);
-  const pubPrice = parseInt(document.getElementById('pub-price').value);
-  const maintPrice = parseInt(document.getElementById('maint-price').value);
-  const creatorTake = parseInt(document.getElementById('creator-take').value)/100;
+  const growthRate = +document.getElementById('growth').value/100;
+  const convRate = +document.getElementById('conv').value/100;
+  const startUsers = +document.getElementById('users').value;
+  const entTarget = +document.getElementById('ent-count').value;
+
+  const subAnnual = +document.getElementById('sub-price').value;
+  const bSimple = +document.getElementById('build-simple').value;
+  const bStd = +document.getElementById('build-std').value;
+  const bComplex = +document.getElementById('build-complex').value;
+  const pubPrice = +document.getElementById('pub-price').value;
+  const maintPrice = +document.getElementById('maint-price').value;
+  const creatorTake = +document.getElementById('creator-take').value/100;
+
+  const entFee = +document.getElementById('ent-fee').value;
+  const entBuilds = +document.getElementById('ent-builds').value;
+  const entBuildPrice = +document.getElementById('ent-build-price').value;
+  const b2aTxTarget = +document.getElementById('b2a-tx').value;
+  const b2aAvg = +document.getElementById('b2a-avg').value;
+  const agentTake = +document.getElementById('agent-take').value/100;
 
   const subMonthly = subAnnual/12;
+  const weightedBuildFee = BUILD_MIX_SIMPLE*bSimple + BUILD_MIX_STD*bStd + BUILD_MIX_COMPLEX*bComplex;
 
+  // Update slider value labels
   document.getElementById('growth-val').textContent = Math.round(growthRate*100)+'%';
   document.getElementById('conv-val').textContent = Math.round(convRate*100)+'%';
   document.getElementById('users-val').textContent = startUsers;
+  document.getElementById('ent-count-val').textContent = entTarget;
   document.getElementById('sub-price-val').textContent = '$'+subAnnual;
-  document.getElementById('build-price-val').textContent = '$'+buildAvg;
+  document.getElementById('build-simple-val').textContent = '$'+bSimple;
+  document.getElementById('build-std-val').textContent = '$'+bStd;
+  document.getElementById('build-complex-val').textContent = '$'+bComplex;
   document.getElementById('pub-price-val').textContent = '$'+pubPrice;
   document.getElementById('maint-price-val').textContent = '$'+maintPrice;
   document.getElementById('creator-take-val').textContent = Math.round(creatorTake*100)+'%';
+  document.getElementById('ent-fee-val').textContent = '$'+entFee.toLocaleString();
+  document.getElementById('ent-builds-val').textContent = entBuilds;
+  document.getElementById('ent-build-price-val').textContent = '$'+entBuildPrice;
+  document.getElementById('b2a-tx-val').textContent = b2aTxTarget.toLocaleString();
+  document.getElementById('b2a-avg-val').textContent = '$'+b2aAvg;
+  document.getElementById('agent-take-val').textContent = Math.round(agentTake*100)+'%';
 
-  // Update breakdown descriptions
+  // Breakdown card descriptors
   document.getElementById('bk-sub-desc').textContent = '$'+subAnnual+'/yr / 12';
-  document.getElementById('bk-build-desc').textContent = 'avg $'+buildAvg+'/user/mo';
+  document.getElementById('bk-build-desc').textContent = 'weighted avg $'+weightedBuildFee.toFixed(0)+' / build';
   document.getElementById('bk-pub-desc').textContent = '$'+pubPrice+' one-time / 10%';
-  document.getElementById('bk-maint-desc').textContent = '$'+maintPrice+'/app/mo';
+  document.getElementById('bk-maint-desc').textContent = '$'+maintPrice+'/app/mo / 30%';
   document.getElementById('bk-creator-desc').textContent = Math.round(creatorTake*100)+'% marketplace take';
+  document.getElementById('bk-ent-desc').textContent = '$'+entFee.toLocaleString()+' + '+entBuilds+' builds &times; $'+entBuildPrice;
+  document.getElementById('bk-b2a-desc').textContent = Math.round(agentTake*100)+'% of $'+b2aAvg+' avg';
 
   const rows = [];
   let freeUsers = startUsers;
@@ -302,56 +471,113 @@ function calc(){
   for(let m=1;m<=12;m++){
     if(m>1) freeUsers = Math.round(freeUsers*(1+growthRate));
     const paid = Math.round(freeUsers*convRate);
-    const sub = Math.round(paid*subMonthly);
-    const build = Math.round(paid*buildAvg);
-    const newPubs = Math.round(paid*PUB_RATE);
+
+    // Self-serve
+    const sub = paid*subMonthly;
+    const build = paid*weightedBuildFee;
+    const newPubs = paid*PUB_RATE;
     const pub = newPubs*pubPrice;
     maintApps += newPubs;
-    const maint = Math.round(maintApps*maintPrice*MAINT_RATE);
-    const creator = Math.round(paid*0.15*CREATOR_GMV_PER_ACTIVE*creatorTake);
-    const total = sub+build+pub+maint+creator;
+    const maint = maintApps*maintPrice*MAINT_RATE;
+    const creator = paid*CREATOR_SELLER_RATE*CREATOR_GMV_PER_ACTIVE*creatorTake;
+
+    // Enterprise — linear ramp from 0 to target over 12 months
+    const entThisMonth = selfServeOnly ? 0 : Math.round(entTarget * m / 12);
+    const entRev = entThisMonth*entFee + entThisMonth*entBuilds*entBuildPrice;
+
+    // B2A — begins month 6, ramps linearly m6-m12
+    let b2aTx = 0;
+    if (!selfServeOnly && m >= 6) b2aTx = b2aTxTarget * (m - 5) / 7;
+    const b2aRev = b2aTx*b2aAvg*agentTake;
+
+    const total = sub+build+pub+maint+creator+entRev+b2aRev;
     cumRev += total;
-    rows.push({m,freeUsers,paid,sub,build,pub,maint,creator,total});
+    rows.push({m,freeUsers,paid,entThisMonth,sub,build,pub,maint,creator,entRev,b2aRev,total,b2aTx,entBuildRev:entThisMonth*entBuilds*entBuildPrice});
   }
 
   const last = rows[11];
+
+  // KPIs
   document.getElementById('kpi-arr').textContent = fmt(last.total*12);
   document.getElementById('kpi-mrr').textContent = fmt(last.total);
   document.getElementById('kpi-paid').textContent = fmtN(last.paid);
+  document.getElementById('kpi-ent').textContent = fmt(last.entRev);
+  document.getElementById('kpi-b2a').textContent = fmt(last.b2aRev);
   document.getElementById('kpi-cumrev').textContent = fmt(cumRev);
 
+  // Breakdown
   document.getElementById('bk-sub').textContent = fmt(last.sub);
   document.getElementById('bk-build').textContent = fmt(last.build);
   document.getElementById('bk-pub').textContent = fmt(last.pub);
   document.getElementById('bk-maint').textContent = fmt(last.maint);
   document.getElementById('bk-creator').textContent = fmt(last.creator);
+  document.getElementById('bk-ent').textContent = fmt(last.entRev);
+  document.getElementById('bk-b2a').textContent = fmt(last.b2aRev);
 
+  // Derived metrics
+  const totalUsers = last.paid + last.entThisMonth;
+  const arpu = totalUsers > 0 ? last.total / totalUsers : 0;
+  const ltv = arpu * LTV_MONTHS;
+  const totalBuildRev = last.build + last.entBuildRev;
+  const llmCost = totalBuildRev * LLM_COMPUTE_RATE;
+  const margin = last.total > 0 ? (1 - llmCost/last.total) * 100 : 0;
+  document.getElementById('dm-arpu').textContent = fmt$(arpu);
+  document.getElementById('dm-ltv').textContent = fmt$(ltv);
+  document.getElementById('dm-margin').textContent = margin.toFixed(0)+'%';
+  document.getElementById('dm-wbf').textContent = '$'+weightedBuildFee.toFixed(0);
+  document.getElementById('dm-cpf').textContent = '$'+weightedBuildFee.toFixed(0);
+
+  // Revenue mix (month 12) — 5 buckets
+  const mixBuckets = [
+    {label:'Subscriptions', value:last.sub, color:'#6B4FE8'},
+    {label:'Builds & apps', value:last.build+last.pub+last.maint, color:'#1D9E75'},
+    {label:'Marketplace', value:last.creator, color:'#378ADD'},
+    {label:'Enterprise', value:last.entRev, color:'#E8B64F'},
+    {label:'B2A', value:last.b2aRev, color:'#7EBFA0'},
+  ];
+  const mixTotal = mixBuckets.reduce((s,b)=>s+b.value,0) || 1;
+  const mixBar = document.getElementById('mix-bar');
+  const mixLegend = document.getElementById('mix-legend');
+  mixBar.innerHTML = mixBuckets.map(b=>
+    '<div class="mix-seg" style="flex:'+(b.value/mixTotal)+';background:'+b.color+';" title="'+b.label+': '+Math.round(b.value/mixTotal*100)+'%"></div>'
+  ).join('');
+  mixLegend.innerHTML = mixBuckets.map(b=>
+    '<span><i style="background:'+b.color+';"></i>'+b.label+' &middot; '+Math.round(b.value/mixTotal*100)+'%</span>'
+  ).join('');
+
+  // Table
   const tbody = document.getElementById('tbl-body');
   tbody.innerHTML = rows.map(r=>
     '<tr>'+
       '<td>Month '+r.m+'</td>'+
       '<td>'+fmtN(r.freeUsers)+'</td>'+
       '<td>'+fmtN(r.paid)+'</td>'+
+      '<td>'+r.entThisMonth+'</td>'+
       '<td>'+fmt(r.sub)+'</td>'+
       '<td>'+fmt(r.build)+'</td>'+
       '<td>'+fmt(r.pub)+'</td>'+
       '<td>'+fmt(r.maint)+'</td>'+
       '<td>'+fmt(r.creator)+'</td>'+
+      '<td>'+fmt(r.entRev)+'</td>'+
+      '<td>'+fmt(r.b2aRev)+'</td>'+
       '<td style="color:#6B4FE8;font-weight:500;">'+fmt(r.total)+'</td>'+
     '</tr>'
   ).join('');
 
+  // Chart
   const labels = rows.map(r=>'M'+r.m);
   const datasets = [
     {label:'Subscription',data:rows.map(r=>r.sub),backgroundColor:'rgba(107,79,232,0.75)',stack:'s'},
     {label:'Build fees',data:rows.map(r=>r.build),backgroundColor:'rgba(29,158,117,0.75)',stack:'s'},
     {label:'Publishing',data:rows.map(r=>r.pub),backgroundColor:'rgba(186,117,23,0.75)',stack:'s'},
     {label:'Maintenance',data:rows.map(r=>r.maint),backgroundColor:'rgba(212,83,126,0.75)',stack:'s'},
-    {label:'Creator fee',data:rows.map(r=>r.creator),backgroundColor:'rgba(55,138,221,0.75)',stack:'s'},
+    {label:'Creator',data:rows.map(r=>r.creator),backgroundColor:'rgba(55,138,221,0.75)',stack:'s'},
+    {label:'Enterprise',data:rows.map(r=>r.entRev),backgroundColor:'rgba(232,182,79,0.8)',stack:'s'},
+    {label:'B2A',data:rows.map(r=>r.b2aRev),backgroundColor:'rgba(126,191,160,0.8)',stack:'s'},
   ];
 
   if(chart){ chart.destroy(); }
-  var ctx = document.getElementById('rev-chart').getContext('2d');
+  const ctx = document.getElementById('rev-chart').getContext('2d');
   chart = new Chart(ctx,{
     type:'bar',
     data:{labels:labels,datasets:datasets},
@@ -363,21 +589,51 @@ function calc(){
         tooltip:{backgroundColor:'#1a1a1a',borderColor:'rgba(255,255,255,0.1)',borderWidth:0.5,titleColor:'#fff',bodyColor:'rgba(255,255,255,0.6)',callbacks:{label:function(c){return c.dataset.label+': $'+Math.round(c.raw).toLocaleString();}}}
       },
       scales:{
-        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.35)',font:{size:11}}},
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.35)',font:{size:11}},stacked:true},
         y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'rgba(255,255,255,0.35)',font:{size:11},callback:function(v){return v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v;}},stacked:true}
       }
     }
   });
 }
 
-document.getElementById('growth').addEventListener('input',calc);
-document.getElementById('conv').addEventListener('input',calc);
-document.getElementById('users').addEventListener('input',calc);
-document.getElementById('sub-price').addEventListener('input',calc);
-document.getElementById('build-price').addEventListener('input',calc);
-document.getElementById('pub-price').addEventListener('input',calc);
-document.getElementById('maint-price').addEventListener('input',calc);
-document.getElementById('creator-take').addEventListener('input',calc);
+function applyScenario(values){
+  Object.keys(values).forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.value = values[id];
+  });
+  calc();
+}
+
+function renderScenarios(){
+  const host = document.getElementById('scenarios');
+  host.innerHTML = SCENARIOS.map((s,i)=>
+    '<button class="scn" type="button" data-scn="'+i+'">'+
+      '<div class="scn-name">'+s.name+'</div>'+
+      '<div class="scn-desc">'+s.desc+'</div>'+
+    '</button>'
+  ).join('');
+  host.querySelectorAll('.scn').forEach(btn=>{
+    btn.addEventListener('click',()=>applyScenario(SCENARIOS[+btn.dataset.scn].values));
+  });
+}
+
+function setView(ss){
+  selfServeOnly = ss;
+  document.getElementById('view-all').classList.toggle('active', !ss);
+  document.getElementById('view-all').setAttribute('aria-pressed', String(!ss));
+  document.getElementById('view-ss').classList.toggle('active', ss);
+  document.getElementById('view-ss').setAttribute('aria-pressed', String(ss));
+  // Dim the enterprise & B2A controls when self-serve only is active.
+  // ent-count lives in the growth group but is a ctrl-ent; dim it individually.
+  document.getElementById('group-eb').classList.toggle('group-inactive', ss);
+  document.getElementById('ent-count').closest('.ctrl').classList.toggle('group-inactive', ss);
+  calc();
+}
+
+SLIDER_IDS.forEach(id=>document.getElementById(id).addEventListener('input',calc));
+document.getElementById('view-all').addEventListener('click',()=>setView(false));
+document.getElementById('view-ss').addEventListener('click',()=>setView(true));
+renderScenarios();
 calc();
 </script>
 </body>
