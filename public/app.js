@@ -239,6 +239,7 @@ async function onLoginSuccess(newToken) {
   localStorage.setItem('token', token);
   closeModal();
   document.getElementById('login').style.display = 'none';
+  if (typeof destroyLoginBg === 'function') destroyLoginBg();
   document.getElementById('app').style.display = 'block';
   await refreshMe();
   api('GET','/api/crm/stats').then(s => updateFollowUpBadges(s?.followups_due || 0));
@@ -257,6 +258,7 @@ async function init() {
   const r = await api('GET','/api/auth/check');
   if (!r.ok) { localStorage.removeItem('token'); return; }
   document.getElementById('login').style.display = 'none';
+  if (typeof destroyLoginBg === 'function') destroyLoginBg();
   document.getElementById('app').style.display = 'block';
   await refreshMe();
   api('GET','/api/crm/stats').then(s => updateFollowUpBadges(s?.followups_due || 0));
