@@ -409,11 +409,12 @@ async function handleMdFileUpload(file, textarea, ss, se, statusEl) {
     if (typeof uploadOneFile !== 'function') throw new Error('Upload not available');
     const att = await uploadOneFile(file, entityType, entityId);
     if (!att || !att.id) throw new Error('Upload returned no data');
-    const tk = localStorage.getItem('token') || '';
     const isImg = String(att.mime_type || '').startsWith('image/');
+    // Store URLs without the session token — renderMarkdown() injects a fresh
+    // token at display time, so links survive logouts and token rotation.
     const url = isImg
-      ? '/api/attachments/' + encodeURIComponent(att.id) + '/preview?token=' + encodeURIComponent(tk)
-      : '/api/attachments/' + encodeURIComponent(att.id) + '/download?token=' + encodeURIComponent(tk);
+      ? '/api/attachments/' + encodeURIComponent(att.id) + '/preview'
+      : '/api/attachments/' + encodeURIComponent(att.id) + '/download';
     const md = isImg
       ? '![' + (att.filename || 'image') + '](' + url + ')'
       : '[' + (att.filename || 'file') + '](' + url + ')';

@@ -104,6 +104,17 @@ function renderMarkdown(text) {
         return '<a href="javascript:void(0)" onclick="var el=document.getElementById(\'' + anchor.replace(/'/g, "\\'") + '\');if(el)el.scrollIntoView({behavior:\'smooth\',block:\'start\'})"' + rest + '>';
       }
     );
+    // Refresh attachment URLs with the current session token at render time.
+    // Heals stale links saved into markdown bodies before this fix shipped.
+    const _attTk = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || '';
+    if (_attTk) {
+      html = html.replace(
+        /(href|src)="(\/api\/attachments\/[^"\/]+\/(?:download|preview))(?:\?[^"]*)?"/g,
+        function (_m, attr, base) {
+          return attr + '="' + base + '?token=' + encodeURIComponent(_attTk) + '"';
+        }
+      );
+    }
     return html;
   } catch {
     return `<pre class="md-fallback">${esc(text || '')}</pre>`;
