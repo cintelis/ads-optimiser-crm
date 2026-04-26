@@ -44,8 +44,10 @@ export async function generatePagePdf(env, pgId) {
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: false,
-      displayHeaderFooter: false,
-      margin: { top: '18mm', right: '16mm', bottom: '18mm', left: '16mm' },
+      displayHeaderFooter: true,
+      headerTemplate: '<div></div>',
+      footerTemplate: '<div style="font-size:8pt;color:#8A8A8A;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;margin:0 16mm;letter-spacing:.2px;"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',
+      margin: { top: '18mm', right: '16mm', bottom: '20mm', left: '16mm' },
     });
     return new Response(pdf, {
       status: 200,
