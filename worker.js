@@ -47,6 +47,8 @@ import {
   listPageVersions, getPageVersion, restorePageVersion,
 } from './worker/docs.js';
 import { generatePagePdf } from './worker/docs-pdf.js';
+import { requireApiToken, adminMintApiToken, adminListApiTokens, adminRevokeApiToken } from './worker/api-tokens.js';
+import { apiV1UpsertPage, apiV1GetPage, apiV1DeletePage } from './worker/api-v1-docs.js';
 import {
   listNotifications, getUnreadCount, markRead, markAllRead, mentionSearch,
 } from './worker/notifications.js';
@@ -734,6 +736,19 @@ export default {
       }
     }
 
+    // API v1 — token-authenticated programmatic surface (no session cookies).
+    if (path.startsWith('/api/v1/')) {
+      const apiCtx = await requireApiToken(req, env);
+      if (apiCtx instanceof Response) return addCors(apiCtx);
+      if (path === '/api/v1/docs/pages') {
+        if (m === 'POST')   return addCors(await apiV1UpsertPage(req, env, apiCtx));
+        if (m === 'GET')    return addCors(await apiV1GetPage(env, url));
+        if (m === 'DELETE') return addCors(await apiV1DeletePage(env, apiCtx, url));
+        return addCors(jres({ error: 'Method not allowed' }, 405));
+      }
+      return addCors(jres({ error: 'Not found' }, 404));
+    }
+
     if (path.startsWith('/api/')) {
       const authCtx = await requireAuth(req, env);
       if (authCtx instanceof Response) return addCors(authCtx);
@@ -1345,6 +1360,16 @@ async function route(req, env, url, path, authCtx) {
         break;
       }
     }
+  }
+
+  // ── Admin: API tokens (programmatic-access PATs) ─────────────
+  if (path === '/api/admin/api-tokens') {
+    if (m === 'POST') return adminMintApiToken(req, env, authCtx);
+    if (m === 'GET')  return adminListApiTokens(env, authCtx);
+  }
+  {
+    const tkM = path.match(/^\/api\/admin\/api-tokens\/([^/]+)$/);
+    if (tkM && m === 'DELETE') return adminRevokeApiToken(env, authCtx, tkM[1]);
   }
 
   // ── Account / self-service auth endpoints ─────────────────
