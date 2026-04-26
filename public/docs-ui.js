@@ -305,7 +305,7 @@ function renderDocsSidebarHTML() {
   const canWrite = docsCanWrite();
   const collapsed = state.ui.docsSidebarCollapsed;
   return `
-    <div class="docs-sidebar-wrap${collapsed ? ' docs-sidebar-collapsed' : ''}">
+    <div class="docs-sidebar-wrap">
       <aside class="docs-sidebar">
         <div style="padding:10px 12px 6px">
           <button class="btn btn-ghost btn-sm" type="button" onclick="backToSpaces()">← All spaces</button>
@@ -335,20 +335,13 @@ window.renderDocsSidebarHTML = renderDocsSidebarHTML;
 function toggleDocsSidebar() {
   state.ui.docsSidebarCollapsed = !state.ui.docsSidebarCollapsed;
   try { localStorage.setItem('tw_docs_sidebar_collapsed', state.ui.docsSidebarCollapsed ? '1' : '0'); } catch {}
-  const wrap = document.querySelector('.docs-sidebar-wrap');
-  if (wrap) {
-    wrap.classList.toggle('docs-sidebar-collapsed', state.ui.docsSidebarCollapsed);
-    const btn = wrap.querySelector('.docs-sidebar-toggle');
-    if (btn) {
-      btn.title = state.ui.docsSidebarCollapsed ? 'Show page tree' : 'Hide page tree';
-      const svg = btn.querySelector('svg path');
-      if (svg) svg.setAttribute('d', state.ui.docsSidebarCollapsed ? 'M10 6l6 6-6 6' : 'M14 6l-6 6 6 6');
-    }
-  }
-  // Update grid columns
   const layout = document.querySelector('.docs-layout');
-  if (layout) {
-    layout.style.gridTemplateColumns = state.ui.docsSidebarCollapsed ? '28px minmax(0,1fr)' : '260px minmax(0,1fr)';
+  if (layout) layout.classList.toggle('docs-layout-collapsed', state.ui.docsSidebarCollapsed);
+  const btn = document.querySelector('.docs-sidebar-toggle');
+  if (btn) {
+    btn.title = state.ui.docsSidebarCollapsed ? 'Show page tree' : 'Hide page tree';
+    const svg = btn.querySelector('svg path');
+    if (svg) svg.setAttribute('d', state.ui.docsSidebarCollapsed ? 'M10 6l6 6-6 6' : 'M14 6l-6 6 6 6');
   }
 }
 window.toggleDocsSidebar = toggleDocsSidebar;
@@ -381,7 +374,7 @@ function renderSpaceHome() {
     : '<p class="text-muted">No description yet.</p>';
   const _sidebarCollapsed = state.ui.docsSidebarCollapsed;
   c.innerHTML = `
-    <div class="docs-layout" style="${_sidebarCollapsed ? 'grid-template-columns:28px minmax(0,1fr)' : ''}">
+    <div class="docs-layout${_sidebarCollapsed ? ' docs-layout-collapsed' : ''}">
       ${renderDocsSidebarHTML()}
       <main class="docs-main">
         <div class="docs-page-header">
@@ -491,7 +484,7 @@ function renderPage() {
   const mainHTML = editing ? renderPageEditorHTML(page) : renderPageViewHTML(page, canWrite);
   const _pgSidebarCollapsed = state.ui.docsSidebarCollapsed;
   c.innerHTML = `
-    <div class="docs-layout" style="${_pgSidebarCollapsed ? 'grid-template-columns:28px minmax(0,1fr)' : ''}">
+    <div class="docs-layout${_pgSidebarCollapsed ? ' docs-layout-collapsed' : ''}">
       ${renderDocsSidebarHTML()}
       <main class="docs-main">
         ${mainHTML}
