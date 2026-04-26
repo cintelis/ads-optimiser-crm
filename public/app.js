@@ -15,7 +15,8 @@ const SECTION_TITLES = {
   projects: 'Projects',
   docs: 'Docs',
   integrations: 'Integrations',
-  feature_settings: 'Feature visibility'
+  feature_settings: 'Feature visibility',
+  api_tokens: 'API Tokens'
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
@@ -296,6 +297,8 @@ function applyRoleVisibility() {
   const i2 = document.getElementById('more-integrations'); if (i2) i2.style.display = show;
   const f1 = document.getElementById('nav-feature-settings'); if (f1) f1.style.display = show;
   const f2 = document.getElementById('more-feature-settings'); if (f2) f2.style.display = show;
+  const t1 = document.getElementById('nav-api-tokens'); if (t1) t1.style.display = show;
+  const t2 = document.getElementById('more-api-tokens'); if (t2) t2.style.display = show;
   // Update topbar avatar
   const avatarBtn = document.getElementById('topbar-avatar');
   if (avatarBtn && state.me) {
@@ -626,6 +629,14 @@ async function renderSection(s) {
       await renderFeatureSettingsSection();
     } else {
       c.innerHTML = '<div class="empty"><p>Feature settings module failed to load.</p></div>';
+    }
+  }
+  else if (s === 'api_tokens') {
+    if (!isAdmin()) { c.innerHTML = '<div class="empty"><p>Admin access required.</p></div>'; return; }
+    if (typeof renderApiTokensSection === 'function') {
+      await renderApiTokensSection();
+    } else {
+      c.innerHTML = '<div class="empty"><p>API Tokens module failed to load.</p></div>';
     }
   }
   // Refresh unread count on every section change so the bell stays current
