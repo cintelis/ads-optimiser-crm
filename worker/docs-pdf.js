@@ -31,6 +31,15 @@ export async function generatePagePdf(env, pgId) {
     browser = await puppeteer.launch(env.BROWSER);
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    // Drive mermaid + font rendering in-page before capture.
+    await page.evaluate(async () => {
+      try {
+        if (window.mermaid && typeof window.mermaid.run === 'function') {
+          await window.mermaid.run({ querySelector: '.mermaid', suppressErrors: true });
+        }
+      } catch { /* leave any failed blocks as plain text */ }
+      try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch {}
+    });
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -70,8 +79,41 @@ function escapeHtml(s) {
   ));
 }
 
+// Mirror the client-side post-processors so the PDF matches what users see
+// in the app: mermaid code-fences become rendered diagrams, and [[wiki-links]]
+// become styled iris references.
+function postProcessRenderedHtml(html) {
+  // ```mermaid``` → <div class="mermaid"> (mermaid.run() picks it up in puppeteer)
+  html = html.replace(
+    /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi,
+    function (_m, content) {
+      const decoded = content
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+      return '<div class="mermaid">' + decoded + '</div>';
+    }
+  );
+  // [[Page Title]] or [[SPACE/Page Title]] → styled wiki-link span
+  html = html.replace(
+    /\[\[([^\]]{1,120})\]\]/g,
+    function (_m, raw) {
+      const t = raw
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+      const display = t.includes('/') ? t.split('/').slice(1).join('/') : t;
+      const space = t.includes('/') ? t.split('/')[0] : '';
+      const spaceHint = space
+        ? '<span class="wiki-link-space">' + escapeHtml(space) + '</span>'
+        : '';
+      return '<span class="wiki-link">' + spaceHint + escapeHtml(display) + '</span>';
+    }
+  );
+  return html;
+}
+
 function buildPrintHtml(row) {
-  const bodyHtml = marked.parse(String(row.content_md || ''), { breaks: true, gfm: true });
+  const rawHtml = marked.parse(String(row.content_md || ''), { breaks: true, gfm: true });
+  const bodyHtml = postProcessRenderedHtml(rawHtml);
   const title = escapeHtml(row.title || 'Untitled');
   const spaceLine = [row.space_name, row.space_key].filter(Boolean).map(escapeHtml).join(' · ');
   const updated = row.updated_at
@@ -90,6 +132,14 @@ function buildPrintHtml(row) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  // Initialise mermaid but defer rendering — the PDF worker calls mermaid.run()
+  // after setContent so we can await diagram completion before capture.
+  if (window.mermaid) {
+    try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' }); } catch (e) {}
+  }
+</script>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:#fff;color:#0F0F0F}
@@ -120,6 +170,10 @@ function buildPrintHtml(row) {
   table thead{display:table-header-group}
   table thead th{background:#F3F1FC;color:#0F0F0F;font-weight:600}
   tr{page-break-inside:avoid;break-inside:avoid}
+  .wiki-link{color:#6E5CCC;font-weight:500;border-bottom:0.5pt dashed #6E5CCC;padding:0 1px}
+  .wiki-link-space{font-size:0.78em;color:#9B8EE8;background:#F3F1FC;padding:1px 5px;border-radius:3px;margin-right:5px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;border:0.25pt solid #DDD8F7;vertical-align:1px}
+  .mermaid{margin:1em 0;text-align:center;page-break-inside:avoid;break-inside:avoid;background:#FFFFFF;border:0.5pt solid #E2E2E2;border-radius:6px;padding:14px}
+  .mermaid svg{max-width:100%;height:auto}
   .doc-footer{margin-top:36px;padding-top:14px;border-top:0.5pt solid #C4C4C4;color:#8A8A8A;font-size:8.5pt;display:flex;justify-content:space-between;align-items:center}
   .doc-footer-mark{display:flex;align-items:center;gap:8px}
   .doc-footer-mark svg{display:block}
