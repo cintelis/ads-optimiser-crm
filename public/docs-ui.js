@@ -532,6 +532,7 @@ function renderPageViewHTML(page, canWrite) {
       <div class="docs-page-actions" style="margin-top:12px">
         ${canWrite ? '<button class="btn btn-primary btn-sm" type="button" onclick="startEditPage()">Edit</button>' : ''}
         <button class="btn btn-ghost btn-sm" type="button" onclick="copyPageUrl('${esc(page.id)}')" title="Copy link to this page">Copy link</button>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="window.print()" title="Print or save as PDF (Ctrl+P)">Print</button>
         <button class="btn btn-ghost btn-sm" type="button" onclick="openVersionHistory()">Version history${versionCount ? ' (' + versionCount + ')' : ''}</button>
         ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openMovePageModal()">Move</button>' : ''}
         ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openCreatePage(\'' + esc(page.id) + '\')">+ Add child</button>' : ''}

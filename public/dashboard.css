@@ -1384,3 +1384,133 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
   .roadmap-labels{width:160px}
   .roadmap-label{font-size:12px;padding:0 8px}
 }
+
+/* ── Print styles ──────────────────────────────────────────────
+   Triggered by browser print (Ctrl+P / Save as PDF). Strips app
+   chrome and styles the article for paper. */
+@media print {
+  /* Hide app chrome */
+  #topbar,
+  .sidebar,
+  .tabbar,
+  .topbar,
+  .docs-sidebar-wrap,
+  .docs-sidebar-toggle,
+  .docs-page-actions,
+  .docs-children-list,
+  .docs-breadcrumb,
+  .toasts,
+  .toast,
+  #global-search-dropdown,
+  .modal-backdrop,
+  .attp-overlay,
+  #login-bg,
+  .markdown-toolbar,
+  .page-title,
+  .topbar-create-btn,
+  .topbar-bell,
+  .topbar-avatar-btn,
+  button.icon-btn,
+  .nav-divider,
+  .nav-group-label {
+    display: none !important;
+  }
+
+  /* Reset layout for paper */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  #app, .layout, .content {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+  .docs-layout {
+    display: block !important;
+    grid-template-columns: none !important;
+    min-height: 0 !important;
+  }
+  .docs-main {
+    background: #ffffff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Article typography for paper */
+  .docs-page-header {
+    margin-bottom: 18px !important;
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid #888 !important;
+  }
+  .docs-page-title {
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 24pt !important;
+    font-weight: 700 !important;
+    color: #000 !important;
+    margin: 0 0 6px !important;
+    line-height: 1.2 !important;
+  }
+  .docs-page-body, .md-body {
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 11pt !important;
+    line-height: 1.55 !important;
+    color: #000 !important;
+  }
+  .docs-page-body h1, .md-body h1 { font-size: 18pt !important; }
+  .docs-page-body h2, .md-body h2 { font-size: 15pt !important; }
+  .docs-page-body h3, .md-body h3 { font-size: 13pt !important; }
+  .docs-page-body h1, .docs-page-body h2, .docs-page-body h3,
+  .md-body h1, .md-body h2, .md-body h3 {
+    color: #000 !important;
+    page-break-after: avoid;
+    break-after: avoid;
+    margin-top: 1.1em;
+  }
+  .docs-page-body p, .md-body p { orphans: 3; widows: 3; }
+  .docs-page-body img, .md-body img { max-width: 100% !important; height: auto !important; page-break-inside: avoid; break-inside: avoid; }
+  .docs-page-body table, .md-body table {
+    page-break-inside: auto;
+    break-inside: auto;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+  .docs-page-body table th, .md-body table th,
+  .docs-page-body table td, .md-body table td {
+    border: 0.5pt solid #888 !important;
+    padding: 4px 6px !important;
+    color: #000 !important;
+  }
+  .docs-page-body table thead, .md-body table thead { display: table-header-group; }
+  .docs-page-body tr, .md-body tr { page-break-inside: avoid; break-inside: avoid; }
+  .docs-page-body pre, .md-body pre,
+  .docs-page-body code, .md-body code {
+    background: #f4f4f4 !important;
+    color: #000 !important;
+    border: 0.5pt solid #ccc !important;
+    font-size: 9pt !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .docs-page-body blockquote, .md-body blockquote {
+    border-left: 3px solid #888 !important;
+    padding-left: 12px !important;
+    color: #333 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .docs-page-body a, .md-body a {
+    color: #000 !important;
+    text-decoration: underline !important;
+  }
+
+  /* Sensible page margins */
+  @page { margin: 18mm 16mm; }
+}
