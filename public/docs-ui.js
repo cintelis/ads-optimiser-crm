@@ -532,7 +532,7 @@ function renderPageViewHTML(page, canWrite) {
       <div class="docs-page-actions" style="margin-top:12px">
         ${canWrite ? '<button class="btn btn-primary btn-sm" type="button" onclick="startEditPage()">Edit</button>' : ''}
         <button class="btn btn-ghost btn-sm" type="button" onclick="copyPageUrl('${esc(page.id)}')" title="Copy link to this page">Copy link</button>
-        <button class="btn btn-ghost btn-sm" type="button" onclick="window.print()" title="Print or save as PDF (Ctrl+P)">Print</button>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="downloadPagePdf('${esc(page.id)}', this)" title="Download a print-quality PDF of this page">Download PDF</button>
         <button class="btn btn-ghost btn-sm" type="button" onclick="openVersionHistory()">Version history${versionCount ? ' (' + versionCount + ')' : ''}</button>
         ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openMovePageModal()">Move</button>' : ''}
         ${canWrite ? '<button class="btn btn-ghost btn-sm" type="button" onclick="openCreatePage(\'' + esc(page.id) + '\')">+ Add child</button>' : ''}
@@ -982,3 +982,39 @@ async function confirmRestoreVersion(versionId) {
   renderPage();
 }
 window.confirmRestoreVersion = confirmRestoreVersion;
+
+async function downloadPagePdf(pageId, btn) {
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+  try {
+    const tk = localStorage.getItem('token') || '';
+    const r = await fetch('/api/doc-pages/' + encodeURIComponent(pageId) + '/pdf', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + tk },
+    });
+    if (!r.ok) {
+      let msg = 'PDF generation failed (HTTP ' + r.status + ')';
+      try { const j = await r.json(); if (j && j.error) msg = j.error; } catch {}
+      if (typeof toastError === 'function') toastError(msg);
+      return;
+    }
+    const blob = await r.blob();
+    let filename = 'page.pdf';
+    const cd = r.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="?([^";]+)"?/);
+    if (m) filename = m[1];
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (e) {
+    if (typeof toastError === 'function') toastError('PDF download failed: ' + (e?.message || e));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
+window.downloadPagePdf = downloadPagePdf;

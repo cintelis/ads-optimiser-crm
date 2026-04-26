@@ -28,6 +28,10 @@ id = "9d9f54e3bbf74d918f73b45224cf0ab1"
 binding = "ATTACHMENTS"
 bucket_name = "pulse-attachments"
 
+# Browser Rendering — used by /api/doc-pages/:id/pdf for server-side PDF generation
+[browser]
+binding = "BROWSER"
+
 # Cron Trigger runs scheduler every 5 minutes
 [triggers]
 crons = ["*/5 * * * *"]

@@ -46,6 +46,7 @@ import {
   listSpacePages, createPage, getPage, getPageBySlug, patchPage, deletePage,
   listPageVersions, getPageVersion, restorePageVersion,
 } from './worker/docs.js';
+import { generatePagePdf } from './worker/docs-pdf.js';
 import {
   listNotifications, getUnreadCount, markRead, markAllRead, mentionSearch,
 } from './worker/notifications.js';
@@ -1494,6 +1495,11 @@ async function route(req, env, url, path, authCtx) {
   {
     const slugMatch = path.match(/^\/api\/doc-pages\/by-slug\/([^/]+)\/(.+)$/);
     if (slugMatch && m === 'GET') return getPageBySlug(env, slugMatch[1], decodeURIComponent(slugMatch[2]));
+  }
+  // /api/doc-pages/:id/pdf — server-side PDF render via Browser Rendering
+  {
+    const pdfMatch = path.match(/^\/api\/doc-pages\/([^/]+)\/pdf$/);
+    if (pdfMatch && m === 'POST') return generatePagePdf(env, pdfMatch[1]);
   }
   {
     const dpm = path.match(/^\/api\/doc-pages\/([^/]+)(?:\/versions(?:\/([^/]+)(?:\/(restore))?)?)?$/);

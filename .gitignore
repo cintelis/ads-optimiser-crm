@@ -3,3 +3,6 @@ AGENTS.md
 .tmp_*
 *.bak
 .env
+node_modules/
+.wrangler/
+package-lock.json

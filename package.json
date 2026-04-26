@@ -1,0 +1,16 @@
+{
+  "name": "outreach-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "^0.0.14",
+    "marked": "^13.0.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.59.2"
+  }
+}
