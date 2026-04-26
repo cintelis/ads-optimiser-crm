@@ -409,12 +409,19 @@ async function handleMdFileUpload(file, textarea, ss, se, statusEl) {
     if (typeof uploadOneFile !== 'function') throw new Error('Upload not available');
     const att = await uploadOneFile(file, entityType, entityId);
     if (!att || !att.id) throw new Error('Upload returned no data');
-    const isImg = String(att.mime_type || '').startsWith('image/');
-    // Store URLs without the session token — renderMarkdown() injects a fresh
-    // token at display time, so links survive logouts and token rotation.
-    const url = isImg
-      ? '/api/attachments/' + encodeURIComponent(att.id) + '/preview'
-      : '/api/attachments/' + encodeURIComponent(att.id) + '/download';
+    const mime = String(att.mime_type || '').toLowerCase();
+    const isImg = mime.startsWith('image/');
+    // Browser-native inline-previewable types open in-tab via /preview;
+    // anything else falls back to /download. Store URLs without a session
+    // token — renderMarkdown() injects a fresh one at display time.
+    const inlinePreviewable = isImg
+      || mime === 'application/pdf'
+      || mime.startsWith('text/')
+      || mime.startsWith('video/')
+      || mime.startsWith('audio/')
+      || mime === 'application/json';
+    const endpoint = inlinePreviewable ? '/preview' : '/download';
+    const url = '/api/attachments/' + encodeURIComponent(att.id) + endpoint;
     const md = isImg
       ? '![' + (att.filename || 'image') + '](' + url + ')'
       : '[' + (att.filename || 'file') + '](' + url + ')';
