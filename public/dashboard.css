@@ -995,6 +995,48 @@ tr:hover td{background:color-mix(in srgb, var(--text) 2%, transparent)}
 }
 
 
+/* Attachment preview modal — in-app viewer for PDF, image, video, audio,
+   text, CSV, docx (mammoth), xlsx (SheetJS). */
+.attp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;animation:attp-fade .15s ease-out}
+@keyframes attp-fade{from{opacity:0}to{opacity:1}}
+.attp-modal{background:var(--surface);border:0.5px solid var(--border);border-radius:12px;width:min(1200px,95vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.attp-header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:0.5px solid var(--border);flex-shrink:0;background:var(--surface)}
+.attp-title{flex:1;min-width:0;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.attp-actions{display:flex;gap:6px;flex-shrink:0}
+.attp-close{padding:4px 10px}
+.attp-body{flex:1;overflow:auto;padding:18px;background:var(--surface2)}
+.attp-loading,.attp-empty{text-align:center;color:var(--muted);padding:60px 20px}
+.attp-empty p{margin:0 0 14px}
+.attp-img{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:8px}
+.attp-iframe{width:100%;height:78vh;border:none;background:white;border-radius:8px}
+.attp-media{max-width:100%;max-height:78vh;display:block;margin:0 auto;border-radius:8px;background:#000}
+.attp-text{font-family:var(--font-mono);font-size:12.5px;background:var(--surface);padding:16px;border-radius:8px;white-space:pre-wrap;word-break:break-word;color:var(--text);margin:0;line-height:1.55;border:0.5px solid var(--border)}
+.attp-docx{background:#FFFFFF;color:#0F0F0F;padding:48px 64px;border-radius:8px;font-family:Georgia,'Times New Roman',serif;line-height:1.7;font-size:14px;max-width:850px;margin:0 auto}
+.attp-docx h1,.attp-docx h2,.attp-docx h3,.attp-docx h4{font-family:inherit;color:#0F0F0F;margin-top:1.4em;margin-bottom:.5em}
+.attp-docx p{margin:0 0 .9em}
+.attp-docx table{border-collapse:collapse;margin:.8em 0}
+.attp-docx td,.attp-docx th{border:1px solid #DDD;padding:6px 10px}
+.attp-csv-wrap{overflow:auto;max-height:78vh;border:0.5px solid var(--border);border-radius:8px;background:var(--surface)}
+.attp-table{border-collapse:collapse;font-size:12.5px;width:max-content;min-width:100%}
+.attp-table th,.attp-table td{border:0.5px solid var(--border);padding:6px 10px;text-align:left;color:var(--text);white-space:nowrap;max-width:400px;overflow:hidden;text-overflow:ellipsis}
+.attp-table thead{background:var(--bg);position:sticky;top:0;z-index:1}
+.attp-table thead th{font-weight:600;color:var(--muted)}
+.attp-tabs{display:flex;gap:2px;border-bottom:0.5px solid var(--border);margin-bottom:14px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:0}
+.attp-tab{padding:8px 14px;background:transparent;border:none;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit;transition:color .12s,border-color .12s}
+.attp-tab:hover{color:var(--text)}
+.attp-tab.active{color:var(--text);border-bottom-color:var(--cyan)}
+.attp-sheets-wrap{position:relative}
+.attp-sheet{display:none;overflow:auto;max-height:74vh;border:0.5px solid var(--border);border-radius:8px;background:var(--surface)}
+.attp-sheet.active{display:block}
+.attp-sheet table{border-collapse:collapse;font-size:12px;width:max-content;min-width:100%}
+.attp-sheet td,.attp-sheet th{border:0.5px solid var(--border);padding:5px 10px;white-space:nowrap;color:var(--text);max-width:380px;overflow:hidden;text-overflow:ellipsis}
+.attp-sheet thead{background:var(--bg);position:sticky;top:0;z-index:1}
+@media (max-width:760px){
+  .attp-overlay{padding:8px}
+  .attp-modal{max-height:96vh;width:100%}
+  .attp-docx{padding:24px 20px}
+}
+
 /* ── Sprint 5: notifications + integrations + mentions ──────── */
 
 /* Topbar bell + badge */
