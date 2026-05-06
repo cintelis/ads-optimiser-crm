@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TW AI Quoting Calculator</title>
+<style>
+  :root {
+    --color-bg: #fafaf7;
+    --color-bg-secondary: #f0efe9;
+    --color-bg-primary: #ffffff;
+    --color-bg-info: #e8f0fe;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #5a5a5a;
+    --color-text-tertiary: #888;
+    --color-text-info: #1a4480;
+    --color-text-success: #1f7a3a;
+    --color-text-warning: #b35c00;
+    --color-text-danger: #c0392b;
+    --color-border-tertiary: #e0ddd5;
+    --color-border-info: #4a7fc1;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    margin: 0;
+    padding: 2rem 1rem;
+    line-height: 1.5;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  h2 { font-weight: 500; }
+
+  button {
+    background: var(--color-bg-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--color-bg-secondary); }
+
+  input[type="number"], input[type="range"] {
+    font-family: inherit;
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 6px 8px;
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+  }
+  input[type="range"] { padding: 0; border: none; background: transparent; }
+
+  .section {
+    background: var(--color-bg-secondary);
+    border-radius: var(--border-radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin: 0 0 12px;
+    color: var(--color-text-secondary);
+  }
+  .tile {
+    background: var(--color-bg-primary);
+    border-radius: var(--border-radius-md);
+    padding: 12px;
+  }
+  .tile-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .tile-name { font-size: 14px; font-weight: 500; }
+  .tile-price { font-size: 13px; font-weight: 500; }
+  .tile-bench {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    margin: 0 0 8px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .row-label {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    min-width: 64px;
+  }
+  .row-out {
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 44px;
+    text-align: right;
+  }
+  .metric {
+    background: var(--color-bg-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 1rem;
+  }
+  .metric-label {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin: 0 0 6px;
+  }
+  .metric-value {
+    font-size: 22px;
+    font-weight: 500;
+    margin: 0;
+  }
+  .ms-card {
+    background: var(--color-bg-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 14px;
+  }
+  .ms-card.featured { border: 2px solid var(--color-border-info); }
+  .ms-name { font-size: 14px; font-weight: 500; margin: 0 0 4px; }
+  .ms-tag { font-size: 11px; color: var(--color-text-secondary); margin: 0 0 10px; }
+  .ms-price { font-size: 20px; font-weight: 500; margin: 0 0 10px; }
+  .ms-price small {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-weight: 400;
+  }
+  .ms-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 4px 0;
+    border-top: 0.5px solid var(--color-border-tertiary);
+  }
+  .ms-line-label { color: var(--color-text-secondary); }
+  .featured-badge {
+    display: inline-block;
+    background: var(--color-bg-info);
+    color: var(--color-text-info);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: var(--border-radius-md);
+    margin-bottom: 6px;
+  }
+  .price-input { width: 70px; padding: 4px 6px; font-size: 13px; }
+
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1rem; }
+
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .header h2 { margin: 0 0 4px; }
+  .header p { font-size: 13px; color: var(--color-text-secondary); margin: 0; }
+  .header-actions { display: flex; gap: 6px; }
+  .header-actions button { padding: 6px 10px; font-size: 12px; }
+
+  .info-banner {
+    background: var(--color-bg-info);
+    border-radius: var(--border-radius-md);
+    padding: 10px 14px;
+    margin-bottom: 1rem;
+  }
+  .info-banner p {
+    font-size: 12px;
+    color: var(--color-text-info);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .breakdown {
+    background: var(--color-bg-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .breakdown table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .breakdown td {
+    padding: 6px 0;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+  .breakdown td:first-child { color: var(--color-text-secondary); }
+  .breakdown td:last-child { text-align: right; }
+
+  label.field-label {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .input-prefix {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .input-prefix span { font-size: 13px; color: var(--color-text-tertiary); }
+  .input-prefix input { flex: 1; }
+
+  @media (max-width: 768px) {
+    .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    .grid-metrics { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="header">
+    <div>
+      <h2>TW AI quoting calculator</h2>
+      <p>v3 · prices anchored to 2026 agentic-coding market</p>
+    </div>
+    <div class="header-actions">
+      <button id="scenario-a">Save A</button>
+      <button id="scenario-b">Save B</button>
+      <button id="reset-btn">Reset</button>
+    </div>
+  </div>
+
+  <div class="info-banner">
+    <p>
+      <strong>Tier benchmarks (2026):</strong> Devin charges ~$9/hr of agent time via ACUs ($2.25 each, ≈15 min). End-to-end agent builds run $20k–$200k+. Recommended TW AI tiers sit just above per-task agent floor on Simple, at Devin parity on Standard, and below junior-day-rate on Complex.
+    </p>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Build mix · prices · agent usage · tokens</p>
+
+    <div class="grid-3">
+
+      <div class="tile">
+        <div class="tile-head">
+          <span class="tile-name">Simple</span>
+          <span class="input-prefix">
+            <span>$</span>
+            <input type="number" id="s-price" value="25" min="0" step="1" class="price-input" />
+          </span>
+        </div>
+        <p class="tile-bench">Devin equivalent: $2–9 · CRUD, small fixes, single-file</p>
+        <div class="row"><span class="row-label">Builds</span><input type="range" id="s-count" min="0" max="500" value="50" step="1" style="flex: 1;" /><span id="s-count-out" class="row-out">50</span></div>
+        <div class="row"><span class="row-label">Agent %</span><input type="range" id="s-agent" min="0" max="100" value="90" step="5" style="flex: 1;" /><span id="s-agent-out" class="row-out">90%</span></div>
+        <div class="row"><span class="row-label">Tokens</span><input type="range" id="s-tokens" min="0" max="2000" value="200" step="50" style="flex: 1;" /><span id="s-tokens-out" class="row-out">200k</span></div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-head">
+          <span class="tile-name">Standard</span>
+          <span class="input-prefix">
+            <span>$</span>
+            <input type="number" id="m-price" value="85" min="0" step="1" class="price-input" />
+          </span>
+        </div>
+        <p class="tile-bench">Devin equivalent: $9–30 · multi-file features, integrations</p>
+        <div class="row"><span class="row-label">Builds</span><input type="range" id="m-count" min="0" max="500" value="30" step="1" style="flex: 1;" /><span id="m-count-out" class="row-out">30</span></div>
+        <div class="row"><span class="row-label">Agent %</span><input type="range" id="m-agent" min="0" max="100" value="70" step="5" style="flex: 1;" /><span id="m-agent-out" class="row-out">70%</span></div>
+        <div class="row"><span class="row-label">Tokens</span><input type="range" id="m-tokens" min="0" max="5000" value="800" step="100" style="flex: 1;" /><span id="m-tokens-out" class="row-out">800k</span></div>
+      </div>
+
+      <div class="tile">
+        <div class="tile-head">
+          <span class="tile-name">Complex</span>
+          <span class="input-prefix">
+            <span>$</span>
+            <input type="number" id="c-price" value="225" min="0" step="1" class="price-input" />
+          </span>
+        </div>
+        <p class="tile-bench">Devin equivalent: $30–100+ · architecture, refactors, hard bugs</p>
+        <div class="row"><span class="row-label">Builds</span><input type="range" id="c-count" min="0" max="500" value="10" step="1" style="flex: 1;" /><span id="c-count-out" class="row-out">10</span></div>
+        <div class="row"><span class="row-label">Agent %</span><input type="range" id="c-agent" min="0" max="100" value="50" step="5" style="flex: 1;" /><span id="c-agent-out" class="row-out">50%</span></div>
+        <div class="row"><span class="row-label">Tokens</span><input type="range" id="c-tokens" min="0" max="20000" value="3000" step="250" style="flex: 1;" /><span id="c-tokens-out" class="row-out">3,000k</span></div>
+      </div>
+
+    </div>
+    <p style="font-size: 11px; color: var(--color-text-tertiary); margin: 10px 0 0;">Tier prices are editable. Defaults reflect 2026 market anchoring with TW AI sitting at the value end (better quality + senior review than pure-agent platforms).</p>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Engineering capacity (2 engineers)</p>
+
+    <div class="grid-2">
+      <div>
+        <label class="field-label">Engineer 1 — hours / month</label>
+        <input type="number" id="eng1-hours" value="80" min="0" max="200" step="5" style="width: 100%;" />
+      </div>
+      <div>
+        <label class="field-label">Engineer 2 — hours / month</label>
+        <input type="number" id="eng2-hours" value="80" min="0" max="200" step="5" style="width: 100%;" />
+      </div>
+      <div>
+        <label class="field-label">Engineering cost rate (AUD / hour)</label>
+        <div class="input-prefix">
+          <span>$</span>
+          <input type="number" id="eng-rate" value="120" min="0" step="10" />
+        </div>
+      </div>
+      <div>
+        <label class="field-label">Engineering hours per build (avg)</label>
+        <input type="number" id="hours-per-build" value="2" min="0" step="0.25" style="width: 100%;" />
+      </div>
+      <div>
+        <label class="field-label">Project duration (days)</label>
+        <input type="number" id="days" value="30" min="1" step="1" style="width: 100%;" />
+      </div>
+      <div>
+        <label class="field-label">Token cost (AUD / 1M tokens)</label>
+        <div class="input-prefix">
+          <span>$</span>
+          <input type="number" id="token-rate" value="6" min="0" step="0.5" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Add-ons</p>
+    <div class="grid-3">
+      <div>
+        <label class="field-label">Discovery / setup fee</label>
+        <div class="input-prefix">
+          <span>$</span>
+          <input type="number" id="setup-fee" value="2500" min="0" step="500" />
+        </div>
+      </div>
+      <div>
+        <label class="field-label">Platform fee / month</label>
+        <div class="input-prefix">
+          <span>$</span>
+          <input type="number" id="platform-fee" value="0" min="0" step="100" />
+        </div>
+      </div>
+      <div>
+        <label class="field-label">Volume discount</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="range" id="discount" min="0" max="30" value="0" step="1" style="flex: 1;" />
+          <span id="discount-out" style="font-size: 13px; font-weight: 500; min-width: 36px; text-align: right;">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-metrics">
+    <div class="metric"><p class="metric-label">Project revenue</p><p id="m-revenue" class="metric-value">$0</p></div>
+    <div class="metric"><p class="metric-label">Project cost</p><p id="m-cost" class="metric-value">$0</p></div>
+    <div class="metric"><p class="metric-label">Gross margin</p><p id="m-margin" class="metric-value">0%</p></div>
+    <div class="metric"><p class="metric-label">Daily run-rate</p><p id="m-daily" class="metric-value">$0</p></div>
+  </div>
+
+  <div class="grid-metrics">
+    <div class="metric"><p class="metric-label">Eng hours used / available</p><p id="m-hours" class="metric-value">0 / 160</p></div>
+    <div class="metric"><p class="metric-label">Eng utilisation</p><p id="m-util" class="metric-value">0%</p></div>
+    <div class="metric"><p class="metric-label">Total tokens</p><p id="m-tokens" class="metric-value">0M</p></div>
+    <div class="metric"><p class="metric-label">Annual run-rate</p><p id="m-annual" class="metric-value">$0</p></div>
+  </div>
+
+  <div class="breakdown">
+    <p style="font-size: 13px; font-weight: 500; margin: 0 0 12px;">Quote breakdown</p>
+    <table>
+      <tbody id="breakdown-body"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Managed services retainers (auto-priced for ~50% margin)</p>
+    <div class="grid-3">
+
+      <div class="ms-card" id="ms-bronze">
+        <p class="ms-name">Bronze · Light</p>
+        <p class="ms-tag">Maintenance &amp; small fixes</p>
+        <p class="ms-price"><span id="ms-bronze-price">$2,500</span><small> / month</small></p>
+        <div class="ms-line"><span class="ms-line-label">Engineering hours</span><span id="ms-bronze-hours">20</span></div>
+        <div class="ms-line"><span class="ms-line-label">Builds included</span><span id="ms-bronze-builds">15</span></div>
+        <div class="ms-line"><span class="ms-line-label">Agent usage cap</span><span id="ms-bronze-tokens">2M tokens</span></div>
+        <div class="ms-line"><span class="ms-line-label">SLA / response</span><span>72h</span></div>
+      </div>
+
+      <div class="ms-card featured" id="ms-silver">
+        <span class="featured-badge">Most popular</span>
+        <p class="ms-name">Silver · Medium</p>
+        <p class="ms-tag">Active product development</p>
+        <p class="ms-price"><span id="ms-silver-price">$6,500</span><small> / month</small></p>
+        <div class="ms-line"><span class="ms-line-label">Engineering hours</span><span id="ms-silver-hours">60</span></div>
+        <div class="ms-line"><span class="ms-line-label">Builds included</span><span id="ms-silver-builds">50</span></div>
+        <div class="ms-line"><span class="ms-line-label">Agent usage cap</span><span id="ms-silver-tokens">10M tokens</span></div>
+        <div class="ms-line"><span class="ms-line-label">SLA / response</span><span>24h</span></div>
+      </div>
+
+      <div class="ms-card" id="ms-gold">
+        <p class="ms-name">Gold · Heavy</p>
+        <p class="ms-tag">Embedded delivery team</p>
+        <p class="ms-price"><span id="ms-gold-price">$14,500</span><small> / month</small></p>
+        <div class="ms-line"><span class="ms-line-label">Engineering hours</span><span id="ms-gold-hours">140</span></div>
+        <div class="ms-line"><span class="ms-line-label">Builds included</span><span id="ms-gold-builds">120</span></div>
+        <div class="ms-line"><span class="ms-line-label">Agent usage cap</span><span id="ms-gold-tokens">30M tokens</span></div>
+        <div class="ms-line"><span class="ms-line-label">SLA / response</span><span>4h business</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="scenario-compare" style="display: none; background: var(--color-bg-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem;">
+    <p style="font-size: 13px; font-weight: 500; margin: 0 0 12px;">Scenario comparison</p>
+    <div id="compare-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;"></div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+
+  const ids = ['s-price','s-count','s-agent','s-tokens','m-price','m-count','m-agent','m-tokens','c-price','c-count','c-agent','c-tokens',
+    'eng1-hours','eng2-hours','eng-rate','hours-per-build','days','token-rate',
+    'setup-fee','platform-fee','discount'];
+
+  let saved = { A: null, B: null };
+
+  const fmt = n => '$' + Math.round(n).toLocaleString();
+  const fmtK = n => Math.round(n).toLocaleString() + 'k';
+  const fmtM = n => (Math.round(n * 10) / 10).toLocaleString() + 'M';
+
+  function calc() {
+    const v = {};
+    ids.forEach(k => v[k] = parseFloat($(k).value) || 0);
+
+    const tiers = {
+      simple:   { count: v['s-count'], price: v['s-price'], agentPct: v['s-agent']/100, tokensK: v['s-tokens'] },
+      standard: { count: v['m-count'], price: v['m-price'], agentPct: v['m-agent']/100, tokensK: v['m-tokens'] },
+      complex:  { count: v['c-count'], price: v['c-price'], agentPct: v['c-agent']/100, tokensK: v['c-tokens'] },
+    };
+
+    const buildsRev = tiers.simple.count * tiers.simple.price
+      + tiers.standard.count * tiers.standard.price
+      + tiers.complex.count * tiers.complex.price;
+
+    const totalBuilds = tiers.simple.count + tiers.standard.count + tiers.complex.count;
+    const discountAmt = buildsRev * (v.discount / 100);
+    const monthly = buildsRev - discountAmt + v['platform-fee'];
+    const days = Math.max(v.days, 1);
+    const projectRevenue = monthly * (days / 30) + v['setup-fee'];
+
+    const hoursPerBuild = v['hours-per-build'];
+    const engHoursUsed =
+      tiers.simple.count * hoursPerBuild * (1 - tiers.simple.agentPct) +
+      tiers.standard.count * hoursPerBuild * (1 - tiers.standard.agentPct) +
+      tiers.complex.count * hoursPerBuild * (1 - tiers.complex.agentPct);
+
+    const engHoursAvailable = (v['eng1-hours'] + v['eng2-hours']) * (days / 30);
+    const engUtil = engHoursAvailable > 0 ? (engHoursUsed / engHoursAvailable) * 100 : 0;
+    const engCost = engHoursUsed * v['eng-rate'];
+
+    const totalTokensK =
+      tiers.simple.count * tiers.simple.tokensK +
+      tiers.standard.count * tiers.standard.tokensK +
+      tiers.complex.count * tiers.complex.tokensK;
+    const totalTokensM = totalTokensK / 1000;
+    const tokenCost = totalTokensM * v['token-rate'];
+
+    const projectCost = engCost + tokenCost;
+    const margin = projectRevenue > 0 ? ((projectRevenue - projectCost) / projectRevenue) * 100 : 0;
+    const dailyRunRate = projectRevenue / days;
+    const annual = monthly * 12 + v['setup-fee'];
+
+    return {
+      v, tiers, buildsRev, totalBuilds, discountAmt, monthly, days,
+      projectRevenue, engHoursUsed, engHoursAvailable, engUtil, engCost,
+      totalTokensK, totalTokensM, tokenCost, projectCost, margin, dailyRunRate, annual
+    };
+  }
+
+  function msTier(spec, r) {
+    const engCost = spec.hours * r.v['eng-rate'];
+    const tokenCost = spec.tokensM * r.v['token-rate'];
+    const cost = engCost + tokenCost;
+    const price = Math.ceil((cost / 0.5) / 100) * 100;
+    return { ...spec, price, cost };
+  }
+
+  function render() {
+    const r = calc();
+
+    $('s-count-out').textContent = r.tiers.simple.count;
+    $('m-count-out').textContent = r.tiers.standard.count;
+    $('c-count-out').textContent = r.tiers.complex.count;
+    $('s-agent-out').textContent = Math.round(r.tiers.simple.agentPct * 100) + '%';
+    $('m-agent-out').textContent = Math.round(r.tiers.standard.agentPct * 100) + '%';
+    $('c-agent-out').textContent = Math.round(r.tiers.complex.agentPct * 100) + '%';
+    $('s-tokens-out').textContent = fmtK(r.tiers.simple.tokensK);
+    $('m-tokens-out').textContent = fmtK(r.tiers.standard.tokensK);
+    $('c-tokens-out').textContent = fmtK(r.tiers.complex.tokensK);
+    $('discount-out').textContent = Math.round(r.v.discount) + '%';
+
+    $('m-revenue').textContent = fmt(r.projectRevenue);
+    $('m-cost').textContent = fmt(r.projectCost);
+    $('m-margin').textContent = Math.round(r.margin) + '%';
+    $('m-daily').textContent = fmt(r.dailyRunRate);
+    $('m-hours').textContent = Math.round(r.engHoursUsed) + ' / ' + Math.round(r.engHoursAvailable);
+    $('m-util').textContent = Math.round(r.engUtil) + '%';
+    $('m-tokens').textContent = fmtM(r.totalTokensM);
+    $('m-annual').textContent = fmt(r.annual);
+
+    if (r.engUtil > 100) $('m-util').style.color = 'var(--color-text-danger)';
+    else if (r.engUtil > 85) $('m-util').style.color = 'var(--color-text-warning)';
+    else $('m-util').style.color = 'var(--color-text-primary)';
+
+    if (r.margin < 30) $('m-margin').style.color = 'var(--color-text-danger)';
+    else if (r.margin < 50) $('m-margin').style.color = 'var(--color-text-warning)';
+    else $('m-margin').style.color = 'var(--color-text-success)';
+
+    const rows = [];
+    if (r.tiers.simple.count > 0) rows.push(['Simple × ' + r.tiers.simple.count + ' @ $' + r.tiers.simple.price, fmt(r.tiers.simple.count * r.tiers.simple.price)]);
+    if (r.tiers.standard.count > 0) rows.push(['Standard × ' + r.tiers.standard.count + ' @ $' + r.tiers.standard.price, fmt(r.tiers.standard.count * r.tiers.standard.price)]);
+    if (r.tiers.complex.count > 0) rows.push(['Complex × ' + r.tiers.complex.count + ' @ $' + r.tiers.complex.price, fmt(r.tiers.complex.count * r.tiers.complex.price)]);
+    rows.push(['Builds subtotal (monthly basis)', fmt(r.buildsRev)]);
+    if (r.discountAmt > 0) rows.push(['Volume discount (' + Math.round(r.v.discount) + '%)', '−' + fmt(r.discountAmt)]);
+    if (r.v['platform-fee'] > 0) rows.push(['Platform fee', fmt(r.v['platform-fee'])]);
+    rows.push(['Monthly subtotal', fmt(r.monthly)]);
+    rows.push(['Pro-rated for ' + Math.round(r.days) + ' days', fmt(r.monthly * (r.days / 30))]);
+    if (r.v['setup-fee'] > 0) rows.push(['One-time setup', fmt(r.v['setup-fee'])]);
+    rows.push(['<strong>Project revenue</strong>', '<strong>' + fmt(r.projectRevenue) + '</strong>']);
+    rows.push(['Engineering cost (' + Math.round(r.engHoursUsed) + 'h × $' + Math.round(r.v['eng-rate']) + ')', fmt(r.engCost)]);
+    rows.push(['Token cost (' + fmtM(r.totalTokensM) + ' × $' + r.v['token-rate'] + '/M)', fmt(r.tokenCost)]);
+    rows.push(['<strong>Estimated gross profit</strong>', '<strong>' + fmt(r.projectRevenue - r.projectCost) + '</strong>']);
+
+    $('breakdown-body').innerHTML = rows.map(([k, v]) =>
+      '<tr><td>' + k + '</td><td>' + v + '</td></tr>'
+    ).join('');
+
+    const bronze = msTier({ name: 'bronze', hours: 20, builds: 15, tokensM: 2 }, r);
+    const silver = msTier({ name: 'silver', hours: 60, builds: 50, tokensM: 10 }, r);
+    const gold   = msTier({ name: 'gold',   hours: 140, builds: 120, tokensM: 30 }, r);
+
+    $('ms-bronze-price').textContent = fmt(bronze.price);
+    $('ms-bronze-hours').textContent = bronze.hours + ' hrs';
+    $('ms-bronze-builds').textContent = bronze.builds + ' builds';
+    $('ms-bronze-tokens').textContent = bronze.tokensM + 'M tokens';
+
+    $('ms-silver-price').textContent = fmt(silver.price);
+    $('ms-silver-hours').textContent = silver.hours + ' hrs';
+    $('ms-silver-builds').textContent = silver.builds + ' builds';
+    $('ms-silver-tokens').textContent = silver.tokensM + 'M tokens';
+
+    $('ms-gold-price').textContent = fmt(gold.price);
+    $('ms-gold-hours').textContent = gold.hours + ' hrs';
+    $('ms-gold-builds').textContent = gold.builds + ' builds';
+    $('ms-gold-tokens').textContent = gold.tokensM + 'M tokens';
+
+    if (saved.A || saved.B) renderCompare();
+  }
+
+  function renderCompare() {
+    const items = [];
+    ['A', 'B'].forEach(label => {
+      const s = saved[label];
+      if (!s) return;
+      items.push(
+        '<div style="background: var(--color-bg-secondary); border-radius: var(--border-radius-md); padding: 12px;">' +
+        '<p style="font-size: 12px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 8px;">Scenario ' + label + '</p>' +
+        '<p style="font-size: 11px; color: var(--color-text-tertiary); margin: 0 0 4px;">' + s.tiers.simple.count + ' / ' + s.tiers.standard.count + ' / ' + s.tiers.complex.count + ' builds · ' + Math.round(s.days) + ' days</p>' +
+        '<p style="font-size: 11px; color: var(--color-text-tertiary); margin: 0 0 4px;">$' + s.tiers.simple.price + ' / $' + s.tiers.standard.price + ' / $' + s.tiers.complex.price + '</p>' +
+        '<p style="font-size: 18px; font-weight: 500; margin: 0 0 4px;">' + fmt(s.projectRevenue) + '</p>' +
+        '<p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">' + Math.round(s.margin) + '% margin · ' + Math.round(s.engUtil) + '% util · ' + fmtM(s.totalTokensM) + '</p>' +
+        '</div>'
+      );
+    });
+    $('compare-body').innerHTML = items.join('');
+    $('scenario-compare').style.display = items.length > 0 ? 'block' : 'none';
+  }
+
+  $('scenario-a').addEventListener('click', () => { saved.A = calc(); renderCompare(); $('scenario-compare').style.display = 'block'; });
+  $('scenario-b').addEventListener('click', () => { saved.B = calc(); renderCompare(); $('scenario-compare').style.display = 'block'; });
+  $('reset-btn').addEventListener('click', () => {
+    saved = { A: null, B: null };
+    $('scenario-compare').style.display = 'none';
+    const defaults = { 's-price': 25, 's-count': 50, 's-agent': 90, 's-tokens': 200,
+      'm-price': 85, 'm-count': 30, 'm-agent': 70, 'm-tokens': 800,
+      'c-price': 225, 'c-count': 10, 'c-agent': 50, 'c-tokens': 3000,
+      'eng1-hours': 80, 'eng2-hours': 80, 'eng-rate': 120,
+      'hours-per-build': 2, 'days': 30, 'token-rate': 6,
+      'setup-fee': 2500, 'platform-fee': 0, 'discount': 0 };
+    Object.entries(defaults).forEach(([k, v]) => $(k).value = v);
+    render();
+  });
+
+  ids.forEach(k => $(k).addEventListener('input', render));
+  render();
+})();
+</script>
+
+</body>
+</html>

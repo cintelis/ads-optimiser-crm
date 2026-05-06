@@ -16,7 +16,9 @@ const SECTION_TITLES = {
   docs: 'Docs',
   integrations: 'Integrations',
   feature_settings: 'Feature visibility',
-  api_tokens: 'API Tokens'
+  api_tokens: 'API Tokens',
+  tools_build_margin: 'Build Margin',
+  tools_quoting: 'Quoting'
 };
 const PRIMARY_MOBILE_SECTIONS = new Set(['overview', 'contacts', 'pipeline', 'followups']);
 const SECONDARY_MOBILE_SECTIONS = ['templates', 'lists', 'campaigns', 'logs', 'unsubs'];
@@ -638,6 +640,12 @@ async function renderSection(s) {
     } else {
       c.innerHTML = '<div class="empty"><p>API Tokens module failed to load.</p></div>';
     }
+  }
+  else if (s === 'tools_build_margin') {
+    c.innerHTML = '<iframe src="/build-margin.html" title="Build Margin" style="display:block;width:100%;height:calc(100vh - 120px);border:0;background:#0a0a0f;border-radius:8px"></iframe>';
+  }
+  else if (s === 'tools_quoting') {
+    c.innerHTML = '<iframe src="/quoting-calculator.html" title="Quoting" style="display:block;width:100%;height:calc(100vh - 120px);border:0;background:#fafaf7;border-radius:8px"></iframe>';
   }
   // Refresh unread count on every section change so the bell stays current
   if (typeof refreshUnreadCount === 'function') refreshUnreadCount();

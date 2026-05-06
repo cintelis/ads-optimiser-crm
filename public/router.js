@@ -300,8 +300,9 @@
       } catch {}
     }
     // Generic section routes
-    if (['account', 'users', 'integrations', 'feature_settings', 'pipeline', 'followups',
-         'templates', 'contacts', 'lists', 'campaigns', 'logs', 'unsubs'].includes(route)) {
+    if (['account', 'users', 'integrations', 'feature_settings', 'api_tokens',
+         'pipeline', 'followups', 'templates', 'contacts', 'lists', 'campaigns',
+         'logs', 'unsubs', 'tools_build_margin', 'tools_quoting'].includes(route)) {
       nav(route);
       return true;
     }
