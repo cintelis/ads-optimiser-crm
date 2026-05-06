@@ -10,6 +10,9 @@
     --color-bg-secondary: #f0efe9;
     --color-bg-primary: #ffffff;
     --color-bg-info: #e8f0fe;
+    --color-bg-success: #e6f4ea;
+    --color-bg-warn: #fdf3e3;
+    --color-bg-danger: #fbe9e7;
     --color-text-primary: #1a1a1a;
     --color-text-secondary: #5a5a5a;
     --color-text-tertiary: #888;
@@ -34,7 +37,7 @@
     line-height: 1.5;
   }
 
-  .container { max-width: 1100px; margin: 0 auto; }
+  .container { max-width: 1200px; margin: 0 auto; }
 
   h2 { font-weight: 500; }
 
@@ -46,9 +49,21 @@
     cursor: pointer;
     font-family: inherit;
     color: var(--color-text-primary);
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s;
+    font-size: 13px;
   }
   button:hover { background: var(--color-bg-secondary); }
+  button.mode-btn {
+    text-align: left;
+    padding: 10px 12px;
+  }
+  button.mode-btn.active {
+    border-color: var(--color-border-info);
+    background: var(--color-bg-info);
+    color: var(--color-text-info);
+    font-weight: 500;
+  }
+  button.mode-btn .mode-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; display:block; margin-bottom: 2px; }
 
   input[type="number"], input[type="range"] {
     font-family: inherit;
@@ -76,7 +91,12 @@
     background: var(--color-bg-primary);
     border-radius: var(--border-radius-md);
     padding: 12px;
+    border-top: 3px solid var(--tile-accent, var(--color-border-info));
   }
+  .tile[data-tier="simple"]     { --tile-accent: #60a5fa; }
+  .tile[data-tier="standard"]   { --tile-accent: #a78bfa; }
+  .tile[data-tier="complex"]    { --tile-accent: #f472b6; }
+  .tile[data-tier="enterprise"] { --tile-accent: #fbbf24; }
   .tile-head {
     display: flex;
     align-items: baseline;
@@ -84,11 +104,11 @@
     margin-bottom: 4px;
   }
   .tile-name { font-size: 14px; font-weight: 500; }
-  .tile-price { font-size: 13px; font-weight: 500; }
   .tile-bench {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--color-text-tertiary);
-    margin: 0 0 8px;
+    margin: 0 0 10px;
+    line-height: 1.45;
   }
   .row {
     display: flex;
@@ -113,7 +133,7 @@
     padding: 1rem;
   }
   .metric-label {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--color-text-secondary);
     margin: 0 0 6px;
   }
@@ -121,6 +141,11 @@
     font-size: 22px;
     font-weight: 500;
     margin: 0;
+  }
+  .metric-sub {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin: 4px 0 0;
   }
   .ms-card {
     background: var(--color-bg-primary);
@@ -154,8 +179,9 @@
     border-radius: var(--border-radius-md);
     margin-bottom: 6px;
   }
-  .price-input { width: 70px; padding: 4px 6px; font-size: 13px; }
+  .price-input { width: 86px; padding: 4px 6px; font-size: 13px; }
 
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .grid-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1rem; }
@@ -216,8 +242,11 @@
   .input-prefix span { font-size: 13px; color: var(--color-text-tertiary); }
   .input-prefix input { flex: 1; }
 
+  @media (max-width: 1000px) {
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+  }
   @media (max-width: 768px) {
-    .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    .grid-3, .grid-2, .grid-4 { grid-template-columns: 1fr; }
     .grid-metrics { grid-template-columns: 1fr 1fr; }
   }
 </style>
@@ -229,7 +258,7 @@
   <div class="header">
     <div>
       <h2>TW AI quoting calculator</h2>
-      <p>v3 · prices anchored to 2026 agentic-coding market</p>
+      <p>v4 · outcome-based pricing · tiers and unit economics aligned with Build Margin dashboard</p>
     </div>
     <div class="header-actions">
       <button id="scenario-a">Save A</button>
@@ -240,101 +269,87 @@
 
   <div class="info-banner">
     <p>
-      <strong>Tier benchmarks (2026):</strong> Devin charges ~$9/hr of agent time via ACUs ($2.25 each, ≈15 min). End-to-end agent builds run $20k–$200k+. Recommended TW AI tiers sit just above per-task agent floor on Simple, at Devin parity on Standard, and below junior-day-rate on Complex.
+      <strong>Tier scope rules:</strong>
+      <strong>Simple</strong> ($500) — single-component delivery, no new integrations.
+      <strong>Standard</strong> ($2,000) — multi-component feature touching UI + API + data, one external integration.
+      <strong>Complex</strong> ($7,500) — multi-stakeholder build, security review, multiple integrations or async workflows.
+      <strong>Enterprise</strong> ($40,000+) — regulated industry, SSO/compliance/legal, bespoke quote.
+      Defaults reflect 2026 outcome-based pricing; clients save 80–90% vs human equivalent delivery.
     </p>
   </div>
 
   <div class="section">
-    <p class="section-title">Build mix · prices · agent usage · tokens</p>
+    <p class="section-title">Compute mode (drives variable cost)</p>
+    <div class="grid-4" id="mode-buttons"></div>
+    <p style="font-size: 11px; color: var(--color-text-tertiary); margin: 10px 0 0;" id="mode-desc"></p>
+  </div>
 
-    <div class="grid-3">
+  <div class="section">
+    <p class="section-title">Build mix · prices · counts</p>
 
-      <div class="tile">
+    <div class="grid-4">
+
+      <div class="tile" data-tier="simple">
         <div class="tile-head">
           <span class="tile-name">Simple</span>
           <span class="input-prefix">
             <span>$</span>
-            <input type="number" id="s-price" value="25" min="0" step="1" class="price-input" />
+            <input type="number" id="s-price" value="500" min="0" step="50" class="price-input" />
           </span>
         </div>
-        <p class="tile-bench">Devin equivalent: $2–9 · CRUD, small fixes, single-file</p>
-        <div class="row"><span class="row-label">Builds</span><input type="range" id="s-count" min="0" max="500" value="50" step="1" style="flex: 1;" /><span id="s-count-out" class="row-out">50</span></div>
-        <div class="row"><span class="row-label">Agent %</span><input type="range" id="s-agent" min="0" max="100" value="90" step="5" style="flex: 1;" /><span id="s-agent-out" class="row-out">90%</span></div>
-        <div class="row"><span class="row-label">Tokens</span><input type="range" id="s-tokens" min="0" max="2000" value="200" step="50" style="flex: 1;" /><span id="s-tokens-out" class="row-out">200k</span></div>
+        <p class="tile-bench">Single component · no new integrations · ~$3k human equiv.</p>
+        <div class="row"><span class="row-label">Builds</span><input type="number" id="s-count" min="0" max="200" value="4" step="1" style="flex:1" /></div>
       </div>
 
-      <div class="tile">
+      <div class="tile" data-tier="standard">
         <div class="tile-head">
           <span class="tile-name">Standard</span>
           <span class="input-prefix">
             <span>$</span>
-            <input type="number" id="m-price" value="85" min="0" step="1" class="price-input" />
+            <input type="number" id="m-price" value="2000" min="0" step="100" class="price-input" />
           </span>
         </div>
-        <p class="tile-bench">Devin equivalent: $9–30 · multi-file features, integrations</p>
-        <div class="row"><span class="row-label">Builds</span><input type="range" id="m-count" min="0" max="500" value="30" step="1" style="flex: 1;" /><span id="m-count-out" class="row-out">30</span></div>
-        <div class="row"><span class="row-label">Agent %</span><input type="range" id="m-agent" min="0" max="100" value="70" step="5" style="flex: 1;" /><span id="m-agent-out" class="row-out">70%</span></div>
-        <div class="row"><span class="row-label">Tokens</span><input type="range" id="m-tokens" min="0" max="5000" value="800" step="100" style="flex: 1;" /><span id="m-tokens-out" class="row-out">800k</span></div>
+        <p class="tile-bench">UI + API + data · one integration · ~$12k human equiv.</p>
+        <div class="row"><span class="row-label">Builds</span><input type="number" id="m-count" min="0" max="200" value="2" step="1" style="flex:1" /></div>
       </div>
 
-      <div class="tile">
+      <div class="tile" data-tier="complex">
         <div class="tile-head">
           <span class="tile-name">Complex</span>
           <span class="input-prefix">
             <span>$</span>
-            <input type="number" id="c-price" value="225" min="0" step="1" class="price-input" />
+            <input type="number" id="c-price" value="7500" min="0" step="250" class="price-input" />
           </span>
         </div>
-        <p class="tile-bench">Devin equivalent: $30–100+ · architecture, refactors, hard bugs</p>
-        <div class="row"><span class="row-label">Builds</span><input type="range" id="c-count" min="0" max="500" value="10" step="1" style="flex: 1;" /><span id="c-count-out" class="row-out">10</span></div>
-        <div class="row"><span class="row-label">Agent %</span><input type="range" id="c-agent" min="0" max="100" value="50" step="5" style="flex: 1;" /><span id="c-agent-out" class="row-out">50%</span></div>
-        <div class="row"><span class="row-label">Tokens</span><input type="range" id="c-tokens" min="0" max="20000" value="3000" step="250" style="flex: 1;" /><span id="c-tokens-out" class="row-out">3,000k</span></div>
+        <p class="tile-bench">Multi-stakeholder · security review · ~$45k human equiv.</p>
+        <div class="row"><span class="row-label">Builds</span><input type="number" id="c-count" min="0" max="100" value="0" step="1" style="flex:1" /></div>
+      </div>
+
+      <div class="tile" data-tier="enterprise">
+        <div class="tile-head">
+          <span class="tile-name">Enterprise</span>
+          <span class="input-prefix">
+            <span>$</span>
+            <input type="number" id="e-price" value="40000" min="0" step="1000" class="price-input" />
+          </span>
+        </div>
+        <p class="tile-bench">SSO · compliance · ~$250k human equiv. · loaded costs apply</p>
+        <div class="row"><span class="row-label">Builds</span><input type="number" id="e-count" min="0" max="20" value="0" step="1" style="flex:1" /></div>
+        <div class="row"><span class="row-label">Win %</span><input type="range" id="e-winrate" min="10" max="100" value="33" step="5" style="flex:1" /><span id="e-winrate-out" class="row-out">33%</span></div>
       </div>
 
     </div>
-    <p style="font-size: 11px; color: var(--color-text-tertiary); margin: 10px 0 0;">Tier prices are editable. Defaults reflect 2026 market anchoring with TW AI sitting at the value end (better quality + senior review than pure-agent platforms).</p>
+    <p style="font-size: 11px; color: var(--color-text-tertiary); margin: 10px 0 0;">Tier prices are editable per quote. Defaults match Build Margin dashboard. Enterprise win-rate amortises pre-sales effort across won deals.</p>
   </div>
 
   <div class="section">
-    <p class="section-title">Engineering capacity (2 engineers)</p>
+    <p class="section-title">Project parameters &amp; add-ons</p>
 
-    <div class="grid-2">
-      <div>
-        <label class="field-label">Engineer 1 — hours / month</label>
-        <input type="number" id="eng1-hours" value="80" min="0" max="200" step="5" style="width: 100%;" />
-      </div>
-      <div>
-        <label class="field-label">Engineer 2 — hours / month</label>
-        <input type="number" id="eng2-hours" value="80" min="0" max="200" step="5" style="width: 100%;" />
-      </div>
-      <div>
-        <label class="field-label">Engineering cost rate (AUD / hour)</label>
-        <div class="input-prefix">
-          <span>$</span>
-          <input type="number" id="eng-rate" value="120" min="0" step="10" />
-        </div>
-      </div>
-      <div>
-        <label class="field-label">Engineering hours per build (avg)</label>
-        <input type="number" id="hours-per-build" value="2" min="0" step="0.25" style="width: 100%;" />
-      </div>
-      <div>
-        <label class="field-label">Project duration (days)</label>
-        <input type="number" id="days" value="30" min="1" step="1" style="width: 100%;" />
-      </div>
-      <div>
-        <label class="field-label">Token cost (AUD / 1M tokens)</label>
-        <div class="input-prefix">
-          <span>$</span>
-          <input type="number" id="token-rate" value="6" min="0" step="0.5" />
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <p class="section-title">Add-ons</p>
     <div class="grid-3">
+      <div>
+        <label class="field-label">Project duration (months)</label>
+        <input type="number" id="months" value="1" min="0.25" step="0.25" style="width: 100%;" />
+      </div>
       <div>
         <label class="field-label">Discovery / setup fee</label>
         <div class="input-prefix">
@@ -356,21 +371,28 @@
           <span id="discount-out" style="font-size: 13px; font-weight: 500; min-width: 36px; text-align: right;">0%</span>
         </div>
       </div>
+      <div>
+        <label class="field-label">Target gross margin (guardrail)</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="range" id="target-margin" min="30" max="90" value="60" step="5" style="flex: 1;" />
+          <span id="target-margin-out" style="font-size: 13px; font-weight: 500; min-width: 36px; text-align: right;">60%</span>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="grid-metrics">
-    <div class="metric"><p class="metric-label">Project revenue</p><p id="m-revenue" class="metric-value">$0</p></div>
-    <div class="metric"><p class="metric-label">Project cost</p><p id="m-cost" class="metric-value">$0</p></div>
-    <div class="metric"><p class="metric-label">Gross margin</p><p id="m-margin" class="metric-value">0%</p></div>
-    <div class="metric"><p class="metric-label">Daily run-rate</p><p id="m-daily" class="metric-value">$0</p></div>
+    <div class="metric"><p class="metric-label">Project revenue</p><p id="m-revenue" class="metric-value">$0</p><p id="m-revenue-sub" class="metric-sub"></p></div>
+    <div class="metric"><p class="metric-label">Variable COGS</p><p id="m-cost" class="metric-value">$0</p><p id="m-cost-sub" class="metric-sub"></p></div>
+    <div class="metric"><p class="metric-label">Gross margin</p><p id="m-margin" class="metric-value">0%</p><p id="m-margin-sub" class="metric-sub"></p></div>
+    <div class="metric"><p class="metric-label">Loaded margin</p><p id="m-loaded" class="metric-value">0%</p><p id="m-loaded-sub" class="metric-sub">incl. enterprise overhead</p></div>
   </div>
 
   <div class="grid-metrics">
-    <div class="metric"><p class="metric-label">Eng hours used / available</p><p id="m-hours" class="metric-value">0 / 160</p></div>
-    <div class="metric"><p class="metric-label">Eng utilisation</p><p id="m-util" class="metric-value">0%</p></div>
-    <div class="metric"><p class="metric-label">Total tokens</p><p id="m-tokens" class="metric-value">0M</p></div>
-    <div class="metric"><p class="metric-label">Annual run-rate</p><p id="m-annual" class="metric-value">$0</p></div>
+    <div class="metric"><p class="metric-label">Client value delivered</p><p id="m-clientvalue" class="metric-value">$0</p><p class="metric-sub">human-equivalent delivery cost</p></div>
+    <div class="metric"><p class="metric-label">Value capture</p><p id="m-capture" class="metric-value">0%</p><p class="metric-sub">healthy band: 15–25%</p></div>
+    <div class="metric"><p class="metric-label">Client savings</p><p id="m-savings" class="metric-value">$0</p><p class="metric-sub">vs human delivery</p></div>
+    <div class="metric"><p class="metric-label">Monthly run-rate</p><p id="m-monthly" class="metric-value">$0</p><p id="m-monthly-sub" class="metric-sub"></p></div>
   </div>
 
   <div class="breakdown">
@@ -381,16 +403,16 @@
   </div>
 
   <div class="section">
-    <p class="section-title">Managed services retainers (auto-priced for ~50% margin)</p>
+    <p class="section-title">Managed services retainers (auto-priced to target margin · feature credits per month)</p>
     <div class="grid-3">
 
       <div class="ms-card" id="ms-bronze">
         <p class="ms-name">Bronze · Light</p>
-        <p class="ms-tag">Maintenance &amp; small fixes</p>
+        <p class="ms-tag">Maintenance &amp; small features</p>
         <p class="ms-price"><span id="ms-bronze-price">$2,500</span><small> / month</small></p>
-        <div class="ms-line"><span class="ms-line-label">Engineering hours</span><span id="ms-bronze-hours">20</span></div>
-        <div class="ms-line"><span class="ms-line-label">Builds included</span><span id="ms-bronze-builds">15</span></div>
-        <div class="ms-line"><span class="ms-line-label">Agent usage cap</span><span id="ms-bronze-tokens">2M tokens</span></div>
+        <div class="ms-line"><span class="ms-line-label">Feature credits</span><span id="ms-bronze-credits">3 Simple</span></div>
+        <div class="ms-line"><span class="ms-line-label">List value</span><span id="ms-bronze-listvalue">$1,500</span></div>
+        <div class="ms-line"><span class="ms-line-label">Variable cost</span><span id="ms-bronze-cogs">$0</span></div>
         <div class="ms-line"><span class="ms-line-label">SLA / response</span><span>72h</span></div>
       </div>
 
@@ -398,24 +420,27 @@
         <span class="featured-badge">Most popular</span>
         <p class="ms-name">Silver · Medium</p>
         <p class="ms-tag">Active product development</p>
-        <p class="ms-price"><span id="ms-silver-price">$6,500</span><small> / month</small></p>
-        <div class="ms-line"><span class="ms-line-label">Engineering hours</span><span id="ms-silver-hours">60</span></div>
-        <div class="ms-line"><span class="ms-line-label">Builds included</span><span id="ms-silver-builds">50</span></div>
-        <div class="ms-line"><span class="ms-line-label">Agent usage cap</span><span id="ms-silver-tokens">10M tokens</span></div>
+        <p class="ms-price"><span id="ms-silver-price">$8,500</span><small> / month</small></p>
+        <div class="ms-line"><span class="ms-line-label">Feature credits</span><span id="ms-silver-credits">6 Simple · 2 Standard</span></div>
+        <div class="ms-line"><span class="ms-line-label">List value</span><span id="ms-silver-listvalue">$7,000</span></div>
+        <div class="ms-line"><span class="ms-line-label">Variable cost</span><span id="ms-silver-cogs">$0</span></div>
         <div class="ms-line"><span class="ms-line-label">SLA / response</span><span>24h</span></div>
       </div>
 
       <div class="ms-card" id="ms-gold">
         <p class="ms-name">Gold · Heavy</p>
         <p class="ms-tag">Embedded delivery team</p>
-        <p class="ms-price"><span id="ms-gold-price">$14,500</span><small> / month</small></p>
-        <div class="ms-line"><span class="ms-line-label">Engineering hours</span><span id="ms-gold-hours">140</span></div>
-        <div class="ms-line"><span class="ms-line-label">Builds included</span><span id="ms-gold-builds">120</span></div>
-        <div class="ms-line"><span class="ms-line-label">Agent usage cap</span><span id="ms-gold-tokens">30M tokens</span></div>
+        <p class="ms-price"><span id="ms-gold-price">$22,500</span><small> / month</small></p>
+        <div class="ms-line"><span class="ms-line-label">Feature credits</span><span id="ms-gold-credits">12 Simple · 4 Standard · 1 Complex</span></div>
+        <div class="ms-line"><span class="ms-line-label">List value</span><span id="ms-gold-listvalue">$21,500</span></div>
+        <div class="ms-line"><span class="ms-line-label">Variable cost</span><span id="ms-gold-cogs">$0</span></div>
         <div class="ms-line"><span class="ms-line-label">SLA / response</span><span>4h business</span></div>
       </div>
 
     </div>
+    <p style="font-size: 11px; color: var(--color-text-tertiary); margin: 10px 0 0;">
+      Retainer prices auto-adjust to hit your target gross margin at the selected compute mode. Customer sees feature credits and SLA — task-level pricing stays internal.
+    </p>
   </div>
 
   <div id="scenario-compare" style="display: none; background: var(--color-bg-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem;">
@@ -429,141 +454,185 @@
 (function() {
   const $ = id => document.getElementById(id);
 
-  const ids = ['s-price','s-count','s-agent','s-tokens','m-price','m-count','m-agent','m-tokens','c-price','c-count','c-agent','c-tokens',
-    'eng1-hours','eng2-hours','eng-rate','hours-per-build','days','token-rate',
-    'setup-fee','platform-fee','discount'];
+  const COMPUTE_MODES = {
+    local:  { label: 'Local (M5 Max)',     desc: 'MacBook M5 Max running scaffolding + local model inference', inferenceMult: 0.55, computeMult: 0.15 },
+    hybrid: { label: 'Hybrid',             desc: 'Local scaffolding + cloud for complex/production stages',     inferenceMult: 0.80, computeMult: 0.45 },
+    cloud:  { label: 'Cloud-only',         desc: 'All compute and inference run in cloud (worst case)',         inferenceMult: 1.00, computeMult: 1.00 },
+    capex:  { label: 'CAPEX GPU',          desc: 'Dedicated datacenter GPU — post-raise upgrade path',          inferenceMult: 0.40, computeMult: 0.30 }
+  };
 
+  // Aligned with Build Margin defaults
+  const TIER_DEFAULTS = {
+    simple:     { name: 'Simple',     price: 500,   humanEq: 3000,   inferenceBase: 2.4,  computeBase: 0.35, dataLayer: 0.15, temporal: 0.30, humanReview: 1.2 },
+    standard:   { name: 'Standard',   price: 2000,  humanEq: 12000,  inferenceBase: 7.5,  computeBase: 1.10, dataLayer: 0.40, temporal: 0.60, humanReview: 4.0 },
+    complex:    { name: 'Complex',    price: 7500,  humanEq: 45000,  inferenceBase: 22.0, computeBase: 3.10, dataLayer: 1.00, temporal: 1.40, humanReview: 11.0 },
+    enterprise: { name: 'Enterprise', price: 40000, humanEq: 250000, inferenceBase: 80.0, computeBase: 12.00, dataLayer: 4.00, temporal: 5.00, humanReview: 50.0,
+                  preSales: 8000, compliance: 3000, legal: 1500, insurance: 500 }
+  };
+
+  const RETAINER_DEFS = {
+    bronze: { name: 'bronze', simple: 3, standard: 0, complex: 0, sla: '72h' },
+    silver: { name: 'silver', simple: 6, standard: 2, complex: 0, sla: '24h' },
+    gold:   { name: 'gold',   simple: 12, standard: 4, complex: 1, sla: '4h business' }
+  };
+
+  let computeMode = 'hybrid';
   let saved = { A: null, B: null };
 
+  const tierIds = ['s-price','s-count','m-price','m-count','c-price','c-count','e-price','e-count','e-winrate'];
+  const projIds = ['months','setup-fee','platform-fee','discount','target-margin'];
+  const allIds = [...tierIds, ...projIds];
+
   const fmt = n => '$' + Math.round(n).toLocaleString();
-  const fmtK = n => Math.round(n).toLocaleString() + 'k';
-  const fmtM = n => (Math.round(n * 10) / 10).toLocaleString() + 'M';
+  const fmt2 = n => '$' + (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function tierVariableCost(tierKey, mode) {
+    const t = TIER_DEFAULTS[tierKey];
+    const inference = t.inferenceBase * mode.inferenceMult;
+    const compute   = t.computeBase   * mode.computeMult;
+    return inference + compute + t.dataLayer + t.temporal + t.humanReview;
+  }
 
   function calc() {
     const v = {};
-    ids.forEach(k => v[k] = parseFloat($(k).value) || 0);
+    allIds.forEach(k => v[k] = parseFloat($(k).value) || 0);
+    const mode = COMPUTE_MODES[computeMode];
 
     const tiers = {
-      simple:   { count: v['s-count'], price: v['s-price'], agentPct: v['s-agent']/100, tokensK: v['s-tokens'] },
-      standard: { count: v['m-count'], price: v['m-price'], agentPct: v['m-agent']/100, tokensK: v['m-tokens'] },
-      complex:  { count: v['c-count'], price: v['c-price'], agentPct: v['c-agent']/100, tokensK: v['c-tokens'] },
+      simple:     { count: v['s-count'], price: v['s-price'], humanEq: TIER_DEFAULTS.simple.humanEq,     varCost: tierVariableCost('simple', mode) },
+      standard:   { count: v['m-count'], price: v['m-price'], humanEq: TIER_DEFAULTS.standard.humanEq,   varCost: tierVariableCost('standard', mode) },
+      complex:    { count: v['c-count'], price: v['c-price'], humanEq: TIER_DEFAULTS.complex.humanEq,    varCost: tierVariableCost('complex', mode) },
+      enterprise: { count: v['e-count'], price: v['e-price'], humanEq: TIER_DEFAULTS.enterprise.humanEq, varCost: tierVariableCost('enterprise', mode) }
     };
 
-    const buildsRev = tiers.simple.count * tiers.simple.price
-      + tiers.standard.count * tiers.standard.price
-      + tiers.complex.count * tiers.complex.price;
+    const buildsRev = Object.values(tiers).reduce((s, t) => s + t.count * t.price, 0);
+    const totalBuilds = Object.values(tiers).reduce((s, t) => s + t.count, 0);
 
-    const totalBuilds = tiers.simple.count + tiers.standard.count + tiers.complex.count;
+    const months = Math.max(v.months, 0.25);
     const discountAmt = buildsRev * (v.discount / 100);
-    const monthly = buildsRev - discountAmt + v['platform-fee'];
-    const days = Math.max(v.days, 1);
-    const projectRevenue = monthly * (days / 30) + v['setup-fee'];
+    const platform = v['platform-fee'] * months;
+    const projectRevenue = buildsRev - discountAmt + platform + v['setup-fee'];
 
-    const hoursPerBuild = v['hours-per-build'];
-    const engHoursUsed =
-      tiers.simple.count * hoursPerBuild * (1 - tiers.simple.agentPct) +
-      tiers.standard.count * hoursPerBuild * (1 - tiers.standard.agentPct) +
-      tiers.complex.count * hoursPerBuild * (1 - tiers.complex.agentPct);
+    const variableCogs = Object.values(tiers).reduce((s, t) => s + t.count * t.varCost, 0);
 
-    const engHoursAvailable = (v['eng1-hours'] + v['eng2-hours']) * (days / 30);
-    const engUtil = engHoursAvailable > 0 ? (engHoursUsed / engHoursAvailable) * 100 : 0;
-    const engCost = engHoursUsed * v['eng-rate'];
+    // Enterprise loaded costs (presales amortised by win-rate, plus compliance/legal/insurance)
+    const ent = TIER_DEFAULTS.enterprise;
+    const winRateDecimal = Math.max(v['e-winrate'], 1) / 100;
+    const presalesPerWon = winRateDecimal > 0 ? ent.preSales / winRateDecimal : ent.preSales;
+    const enterpriseOverheadPerWon = presalesPerWon + ent.compliance + ent.legal + ent.insurance;
+    const enterpriseLoaded = tiers.enterprise.count * enterpriseOverheadPerWon;
 
-    const totalTokensK =
-      tiers.simple.count * tiers.simple.tokensK +
-      tiers.standard.count * tiers.standard.tokensK +
-      tiers.complex.count * tiers.complex.tokensK;
-    const totalTokensM = totalTokensK / 1000;
-    const tokenCost = totalTokensM * v['token-rate'];
+    const projectCost = variableCogs;
+    const loadedCost  = variableCogs + enterpriseLoaded;
 
-    const projectCost = engCost + tokenCost;
-    const margin = projectRevenue > 0 ? ((projectRevenue - projectCost) / projectRevenue) * 100 : 0;
-    const dailyRunRate = projectRevenue / days;
-    const annual = monthly * 12 + v['setup-fee'];
+    const margin       = projectRevenue > 0 ? ((projectRevenue - projectCost) / projectRevenue) * 100 : 0;
+    const loadedMargin = projectRevenue > 0 ? ((projectRevenue - loadedCost)  / projectRevenue) * 100 : 0;
+
+    const totalClientValue = Object.values(tiers).reduce((s, t) => s + t.count * t.humanEq, 0);
+    const valueCapture = totalClientValue > 0 ? (projectRevenue / totalClientValue) * 100 : 0;
+    const clientSavings = Math.max(totalClientValue - projectRevenue, 0);
+
+    const monthlyRunRate = projectRevenue / months;
 
     return {
-      v, tiers, buildsRev, totalBuilds, discountAmt, monthly, days,
-      projectRevenue, engHoursUsed, engHoursAvailable, engUtil, engCost,
-      totalTokensK, totalTokensM, tokenCost, projectCost, margin, dailyRunRate, annual
+      v, mode, tiers, buildsRev, totalBuilds, discountAmt, platform, months,
+      projectRevenue, variableCogs, enterpriseLoaded, projectCost, loadedCost,
+      margin, loadedMargin, totalClientValue, valueCapture, clientSavings, monthlyRunRate,
+      presalesPerWon, enterpriseOverheadPerWon
     };
   }
 
-  function msTier(spec, r) {
-    const engCost = spec.hours * r.v['eng-rate'];
-    const tokenCost = spec.tokensM * r.v['token-rate'];
-    const cost = engCost + tokenCost;
-    const price = Math.ceil((cost / 0.5) / 100) * 100;
-    return { ...spec, price, cost };
+  function priceRetainer(spec, r) {
+    const cogs =
+      spec.simple   * tierVariableCost('simple',   r.mode) +
+      spec.standard * tierVariableCost('standard', r.mode) +
+      spec.complex  * tierVariableCost('complex',  r.mode);
+    const listValue =
+      spec.simple   * TIER_DEFAULTS.simple.price +
+      spec.standard * TIER_DEFAULTS.standard.price +
+      spec.complex  * TIER_DEFAULTS.complex.price;
+    const targetMargin = r.v['target-margin'] / 100;
+    const targetPrice = targetMargin < 1 ? cogs / (1 - targetMargin) : listValue;
+    // Use whichever is higher: target-margin price OR list value (so we don't accidentally undercut tier prices)
+    const price = Math.ceil(Math.max(targetPrice, listValue) / 100) * 100;
+    return { ...spec, cogs, listValue, price };
+  }
+
+  function colorMargin(el, pct) {
+    if (pct < 30) el.style.color = 'var(--color-text-danger)';
+    else if (pct < 50) el.style.color = 'var(--color-text-warning)';
+    else el.style.color = 'var(--color-text-success)';
+  }
+  function colorCapture(el, pct) {
+    if (pct >= 30) el.style.color = 'var(--color-text-danger)';
+    else if (pct >= 15) el.style.color = 'var(--color-text-success)';
+    else if (pct >= 8) el.style.color = 'var(--color-text-warning)';
+    else el.style.color = 'var(--color-text-tertiary)';
   }
 
   function render() {
     const r = calc();
 
-    $('s-count-out').textContent = r.tiers.simple.count;
-    $('m-count-out').textContent = r.tiers.standard.count;
-    $('c-count-out').textContent = r.tiers.complex.count;
-    $('s-agent-out').textContent = Math.round(r.tiers.simple.agentPct * 100) + '%';
-    $('m-agent-out').textContent = Math.round(r.tiers.standard.agentPct * 100) + '%';
-    $('c-agent-out').textContent = Math.round(r.tiers.complex.agentPct * 100) + '%';
-    $('s-tokens-out').textContent = fmtK(r.tiers.simple.tokensK);
-    $('m-tokens-out').textContent = fmtK(r.tiers.standard.tokensK);
-    $('c-tokens-out').textContent = fmtK(r.tiers.complex.tokensK);
+    $('e-winrate-out').textContent = Math.round(r.v['e-winrate']) + '%';
     $('discount-out').textContent = Math.round(r.v.discount) + '%';
+    $('target-margin-out').textContent = Math.round(r.v['target-margin']) + '%';
 
     $('m-revenue').textContent = fmt(r.projectRevenue);
+    $('m-revenue-sub').textContent = r.totalBuilds + ' builds · ' + r.months.toFixed(2) + ' months';
     $('m-cost').textContent = fmt(r.projectCost);
+    $('m-cost-sub').textContent = COMPUTE_MODES[computeMode].label;
     $('m-margin').textContent = Math.round(r.margin) + '%';
-    $('m-daily').textContent = fmt(r.dailyRunRate);
-    $('m-hours').textContent = Math.round(r.engHoursUsed) + ' / ' + Math.round(r.engHoursAvailable);
-    $('m-util').textContent = Math.round(r.engUtil) + '%';
-    $('m-tokens').textContent = fmtM(r.totalTokensM);
-    $('m-annual').textContent = fmt(r.annual);
+    $('m-margin-sub').textContent = fmt(r.projectRevenue - r.projectCost) + ' gross';
+    $('m-loaded').textContent = Math.round(r.loadedMargin) + '%';
+    $('m-loaded-sub').textContent = r.tiers.enterprise.count > 0
+      ? 'after ' + fmt(r.enterpriseLoaded) + ' enterprise overhead'
+      : 'no enterprise deals';
 
-    if (r.engUtil > 100) $('m-util').style.color = 'var(--color-text-danger)';
-    else if (r.engUtil > 85) $('m-util').style.color = 'var(--color-text-warning)';
-    else $('m-util').style.color = 'var(--color-text-primary)';
+    $('m-clientvalue').textContent = fmt(r.totalClientValue);
+    $('m-capture').textContent = r.valueCapture.toFixed(1) + '%';
+    $('m-savings').textContent = fmt(r.clientSavings);
+    $('m-monthly').textContent = fmt(r.monthlyRunRate);
+    $('m-monthly-sub').textContent = 'annualised: ' + fmt(r.monthlyRunRate * 12);
 
-    if (r.margin < 30) $('m-margin').style.color = 'var(--color-text-danger)';
-    else if (r.margin < 50) $('m-margin').style.color = 'var(--color-text-warning)';
-    else $('m-margin').style.color = 'var(--color-text-success)';
+    colorMargin($('m-margin'), r.margin);
+    colorMargin($('m-loaded'), r.loadedMargin);
+    colorCapture($('m-capture'), r.valueCapture);
 
+    // Breakdown
     const rows = [];
-    if (r.tiers.simple.count > 0) rows.push(['Simple × ' + r.tiers.simple.count + ' @ $' + r.tiers.simple.price, fmt(r.tiers.simple.count * r.tiers.simple.price)]);
-    if (r.tiers.standard.count > 0) rows.push(['Standard × ' + r.tiers.standard.count + ' @ $' + r.tiers.standard.price, fmt(r.tiers.standard.count * r.tiers.standard.price)]);
-    if (r.tiers.complex.count > 0) rows.push(['Complex × ' + r.tiers.complex.count + ' @ $' + r.tiers.complex.price, fmt(r.tiers.complex.count * r.tiers.complex.price)]);
-    rows.push(['Builds subtotal (monthly basis)', fmt(r.buildsRev)]);
+    [['simple','Simple'],['standard','Standard'],['complex','Complex'],['enterprise','Enterprise']].forEach(([k,label]) => {
+      const t = r.tiers[k];
+      if (t.count > 0) rows.push([label + ' × ' + t.count + ' @ ' + fmt(t.price), fmt(t.count * t.price)]);
+    });
+    rows.push(['Builds subtotal', fmt(r.buildsRev)]);
     if (r.discountAmt > 0) rows.push(['Volume discount (' + Math.round(r.v.discount) + '%)', '−' + fmt(r.discountAmt)]);
-    if (r.v['platform-fee'] > 0) rows.push(['Platform fee', fmt(r.v['platform-fee'])]);
-    rows.push(['Monthly subtotal', fmt(r.monthly)]);
-    rows.push(['Pro-rated for ' + Math.round(r.days) + ' days', fmt(r.monthly * (r.days / 30))]);
-    if (r.v['setup-fee'] > 0) rows.push(['One-time setup', fmt(r.v['setup-fee'])]);
+    if (r.platform > 0) rows.push(['Platform fee (' + r.months.toFixed(2) + ' months × ' + fmt(r.v['platform-fee']) + ')', fmt(r.platform)]);
+    if (r.v['setup-fee'] > 0) rows.push(['One-time discovery / setup', fmt(r.v['setup-fee'])]);
     rows.push(['<strong>Project revenue</strong>', '<strong>' + fmt(r.projectRevenue) + '</strong>']);
-    rows.push(['Engineering cost (' + Math.round(r.engHoursUsed) + 'h × $' + Math.round(r.v['eng-rate']) + ')', fmt(r.engCost)]);
-    rows.push(['Token cost (' + fmtM(r.totalTokensM) + ' × $' + r.v['token-rate'] + '/M)', fmt(r.tokenCost)]);
-    rows.push(['<strong>Estimated gross profit</strong>', '<strong>' + fmt(r.projectRevenue - r.projectCost) + '</strong>']);
+    rows.push(['Variable COGS (' + r.mode.label + ')', fmt(r.variableCogs)]);
+    if (r.enterpriseLoaded > 0) {
+      rows.push(['&nbsp;&nbsp;↳ Pre-sales (per won deal, after ' + Math.round(r.v['e-winrate']) + '% win rate)', fmt(r.tiers.enterprise.count * r.presalesPerWon)]);
+      rows.push(['&nbsp;&nbsp;↳ Compliance + legal + insurance', fmt(r.tiers.enterprise.count * (TIER_DEFAULTS.enterprise.compliance + TIER_DEFAULTS.enterprise.legal + TIER_DEFAULTS.enterprise.insurance))]);
+    }
+    rows.push(['<strong>Loaded cost</strong>', '<strong>' + fmt(r.loadedCost) + '</strong>']);
+    rows.push(['<strong>Estimated gross profit (loaded)</strong>', '<strong>' + fmt(r.projectRevenue - r.loadedCost) + '</strong>']);
 
-    $('breakdown-body').innerHTML = rows.map(([k, v]) =>
-      '<tr><td>' + k + '</td><td>' + v + '</td></tr>'
+    $('breakdown-body').innerHTML = rows.map(([k, val]) =>
+      '<tr><td>' + k + '</td><td>' + val + '</td></tr>'
     ).join('');
 
-    const bronze = msTier({ name: 'bronze', hours: 20, builds: 15, tokensM: 2 }, r);
-    const silver = msTier({ name: 'silver', hours: 60, builds: 50, tokensM: 10 }, r);
-    const gold   = msTier({ name: 'gold',   hours: 140, builds: 120, tokensM: 30 }, r);
-
-    $('ms-bronze-price').textContent = fmt(bronze.price);
-    $('ms-bronze-hours').textContent = bronze.hours + ' hrs';
-    $('ms-bronze-builds').textContent = bronze.builds + ' builds';
-    $('ms-bronze-tokens').textContent = bronze.tokensM + 'M tokens';
-
-    $('ms-silver-price').textContent = fmt(silver.price);
-    $('ms-silver-hours').textContent = silver.hours + ' hrs';
-    $('ms-silver-builds').textContent = silver.builds + ' builds';
-    $('ms-silver-tokens').textContent = silver.tokensM + 'M tokens';
-
-    $('ms-gold-price').textContent = fmt(gold.price);
-    $('ms-gold-hours').textContent = gold.hours + ' hrs';
-    $('ms-gold-builds').textContent = gold.builds + ' builds';
-    $('ms-gold-tokens').textContent = gold.tokensM + 'M tokens';
+    // Retainers
+    ['bronze','silver','gold'].forEach(key => {
+      const out = priceRetainer(RETAINER_DEFS[key], r);
+      $('ms-' + key + '-price').textContent = fmt(out.price);
+      const credits = [];
+      if (out.simple)   credits.push(out.simple   + ' Simple');
+      if (out.standard) credits.push(out.standard + ' Standard');
+      if (out.complex)  credits.push(out.complex  + ' Complex');
+      $('ms-' + key + '-credits').textContent = credits.join(' · ');
+      $('ms-' + key + '-listvalue').textContent = fmt(out.listValue);
+      $('ms-' + key + '-cogs').textContent = fmt2(out.cogs);
+    });
 
     if (saved.A || saved.B) renderCompare();
   }
@@ -575,11 +644,10 @@
       if (!s) return;
       items.push(
         '<div style="background: var(--color-bg-secondary); border-radius: var(--border-radius-md); padding: 12px;">' +
-        '<p style="font-size: 12px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 8px;">Scenario ' + label + '</p>' +
-        '<p style="font-size: 11px; color: var(--color-text-tertiary); margin: 0 0 4px;">' + s.tiers.simple.count + ' / ' + s.tiers.standard.count + ' / ' + s.tiers.complex.count + ' builds · ' + Math.round(s.days) + ' days</p>' +
-        '<p style="font-size: 11px; color: var(--color-text-tertiary); margin: 0 0 4px;">$' + s.tiers.simple.price + ' / $' + s.tiers.standard.price + ' / $' + s.tiers.complex.price + '</p>' +
+        '<p style="font-size: 12px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 8px;">Scenario ' + label + ' · ' + s.mode.label + '</p>' +
+        '<p style="font-size: 11px; color: var(--color-text-tertiary); margin: 0 0 4px;">' + s.tiers.simple.count + ' / ' + s.tiers.standard.count + ' / ' + s.tiers.complex.count + ' / ' + s.tiers.enterprise.count + ' builds · ' + s.months.toFixed(2) + ' months</p>' +
         '<p style="font-size: 18px; font-weight: 500; margin: 0 0 4px;">' + fmt(s.projectRevenue) + '</p>' +
-        '<p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">' + Math.round(s.margin) + '% margin · ' + Math.round(s.engUtil) + '% util · ' + fmtM(s.totalTokensM) + '</p>' +
+        '<p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">' + Math.round(s.loadedMargin) + '% loaded margin · ' + s.valueCapture.toFixed(1) + '% capture</p>' +
         '</div>'
       );
     });
@@ -587,22 +655,46 @@
     $('scenario-compare').style.display = items.length > 0 ? 'block' : 'none';
   }
 
+  function renderModeButtons() {
+    const wrap = $('mode-buttons');
+    wrap.innerHTML = Object.entries(COMPUTE_MODES).map(([key, mode]) =>
+      '<button type="button" class="mode-btn' + (computeMode === key ? ' active' : '') + '" data-mode="' + key + '">' +
+      '<span class="mode-label">' + key + '</span>' +
+      '<span>' + mode.label + '</span>' +
+      '</button>'
+    ).join('');
+    wrap.querySelectorAll('.mode-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        computeMode = b.dataset.mode;
+        renderModeButtons();
+        $('mode-desc').textContent = COMPUTE_MODES[computeMode].desc;
+        render();
+      });
+    });
+    $('mode-desc').textContent = COMPUTE_MODES[computeMode].desc;
+  }
+
   $('scenario-a').addEventListener('click', () => { saved.A = calc(); renderCompare(); $('scenario-compare').style.display = 'block'; });
   $('scenario-b').addEventListener('click', () => { saved.B = calc(); renderCompare(); $('scenario-compare').style.display = 'block'; });
   $('reset-btn').addEventListener('click', () => {
     saved = { A: null, B: null };
     $('scenario-compare').style.display = 'none';
-    const defaults = { 's-price': 25, 's-count': 50, 's-agent': 90, 's-tokens': 200,
-      'm-price': 85, 'm-count': 30, 'm-agent': 70, 'm-tokens': 800,
-      'c-price': 225, 'c-count': 10, 'c-agent': 50, 'c-tokens': 3000,
-      'eng1-hours': 80, 'eng2-hours': 80, 'eng-rate': 120,
-      'hours-per-build': 2, 'days': 30, 'token-rate': 6,
-      'setup-fee': 2500, 'platform-fee': 0, 'discount': 0 };
+    computeMode = 'hybrid';
+    const defaults = {
+      's-price': 500,   's-count': 4,
+      'm-price': 2000,  'm-count': 2,
+      'c-price': 7500,  'c-count': 0,
+      'e-price': 40000, 'e-count': 0, 'e-winrate': 33,
+      'months': 1, 'setup-fee': 2500, 'platform-fee': 0,
+      'discount': 0, 'target-margin': 60
+    };
     Object.entries(defaults).forEach(([k, v]) => $(k).value = v);
+    renderModeButtons();
     render();
   });
 
-  ids.forEach(k => $(k).addEventListener('input', render));
+  allIds.forEach(k => $(k).addEventListener('input', render));
+  renderModeButtons();
   render();
 })();
 </script>
